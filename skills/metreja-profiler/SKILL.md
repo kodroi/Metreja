@@ -1,4 +1,5 @@
 ---
+name: metreja-profiler
 description: Use when profiling .NET applications for performance bottlenecks, slow methods, execution tracing, or debugging exceptions through call-path analysis instead of manual logging
 ---
 
