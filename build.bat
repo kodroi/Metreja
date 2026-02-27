@@ -5,7 +5,7 @@ echo === Building Metreja ===
 echo.
 
 REM Build C# CLI
-echo [1/2] Building Metreja.Cli...
+echo [1/4] Building Metreja.Cli...
 dotnet build src\Metreja.Cli\Metreja.Cli.csproj -c Release
 if %ERRORLEVEL% neq 0 (
     echo FAILED: Metreja.Cli build failed
@@ -14,7 +14,7 @@ if %ERRORLEVEL% neq 0 (
 echo.
 
 REM Build C++ Profiler DLL
-echo [2/2] Building Metreja.Profiler...
+echo [2/4] Building Metreja.Profiler...
 
 REM Try vswhere from both Program Files locations
 set "VSWHERE="
@@ -51,6 +51,40 @@ if %ERRORLEVEL% neq 0 (
 )
 
 echo.
+
+REM Copy skill to root Claude Code directory
+echo [3/4] Installing Claude Code skill...
+xcopy /Y /I /E skills\metreja-profiler "%USERPROFILE%\.claude\skills\metreja-profiler" >nul 2>&1
+if %ERRORLEVEL% neq 0 (
+    echo FAILED: Could not copy skill to %USERPROFILE%\.claude\skills\metreja-profiler
+    exit /b 1
+)
+echo Skill installed to %USERPROFILE%\.claude\skills\metreja-profiler
+echo.
+
+REM Install global .NET tool if not already installed
+echo [4/4] Checking metreja CLI tool...
+dotnet tool list -g 2>nul | findstr /I "metreja" >nul 2>&1
+if %ERRORLEVEL% equ 0 (
+    echo metreja CLI tool already installed, release build is up to date
+) else (
+    echo Installing metreja CLI tool...
+    dotnet pack src\Metreja.Cli\Metreja.Cli.csproj -c Release >nul 2>&1
+    if %ERRORLEVEL% neq 0 (
+        echo FAILED: dotnet pack failed
+        exit /b 1
+    )
+    dotnet tool install -g --add-source src\Metreja.Cli\bin\Release Metreja >nul 2>&1
+    if %ERRORLEVEL% neq 0 (
+        echo FAILED: Could not install metreja global tool
+        exit /b 1
+    )
+    echo metreja CLI tool installed globally
+)
+
+echo.
 echo === Build Complete ===
 echo CLI:      src\Metreja.Cli\bin\Release\net10.0\metreja.exe
 echo Profiler: bin\Release\Metreja.Profiler.dll
+echo Skill:    %USERPROFILE%\.claude\skills\metreja-profiler\
+echo Tool:     metreja (global dotnet tool)

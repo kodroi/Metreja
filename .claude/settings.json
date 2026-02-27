@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd.exe //c build.bat",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}

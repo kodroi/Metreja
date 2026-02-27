@@ -1,0 +1,8 @@
+﻿[Thread-1]       enter Program.RunSyncCallPaths (Metreja.TestApp/Metreja.TestApp) depth=3
+[Thread-1]         enter Program.OuterMethod (Metreja.TestApp/Metreja.TestApp) depth=4
+[Thread-1]           enter Program.MiddleMethod (Metreja.TestApp/Metreja.TestApp) depth=5
+[Thread-1]             enter Program.InnerMethod (Metreja.TestApp/Metreja.TestApp) depth=6
+[Thread-1]             leave Program.InnerMethod (Metreja.TestApp/Metreja.TestApp) depth=6
+[Thread-1]           leave Program.MiddleMethod (Metreja.TestApp/Metreja.TestApp) depth=5
+[Thread-1]         leave Program.OuterMethod (Metreja.TestApp/Metreja.TestApp) depth=4
+[Thread-1]       leave Program.RunSyncCallPaths (Metreja.TestApp/Metreja.TestApp) depth=3

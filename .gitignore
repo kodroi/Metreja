@@ -37,3 +37,6 @@ Desktop.ini
 # Generated env scripts
 env.bat
 env.ps1
+
+# Verify.NET received files (pending review)
+*.received.*
