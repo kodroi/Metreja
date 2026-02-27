@@ -1,0 +1,39 @@
+# Build outputs
+bin/
+obj/
+Release/
+Debug/
+x64/
+*.obj
+*.lib
+*.exp
+*.pdb
+*.iobj
+*.ipdb
+*.tlog/
+
+# NuGet
+*.nupkg
+*.snupkg
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
+
+# Profiler output
+demo_output/
+*.ndjson
+
+# Session data
+.metreja/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Generated env scripts
+env.bat
+env.ps1

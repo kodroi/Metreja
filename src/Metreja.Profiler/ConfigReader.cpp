@@ -1,0 +1,160 @@
+#include "ConfigReader.h"
+
+#include <Windows.h>
+#include <fstream>
+#include <sstream>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
+
+ProfilerConfig ConfigReader::Load()
+{
+    ProfilerConfig config;
+
+    // Read config file path from environment
+    std::string configPath = GetEnvVar("METREJA_CONFIG");
+    if (configPath.empty())
+        return config;
+
+    // Read and parse JSON config
+    std::ifstream file(configPath);
+    if (!file.is_open())
+        return config;
+
+    json root;
+    try
+    {
+        root = json::parse(file);
+    }
+    catch (const json::parse_error&)
+    {
+        return config;
+    }
+
+    // Parse metadata
+    if (root.contains("metadata"))
+    {
+        auto& meta = root["metadata"];
+        if (meta.contains("runId"))
+            config.runId = meta["runId"].get<std::string>();
+        if (meta.contains("scenario"))
+            config.scenario = meta["scenario"].get<std::string>();
+    }
+
+    // Parse instrumentation
+    if (root.contains("instrumentation"))
+    {
+        auto& inst = root["instrumentation"];
+        if (inst.contains("mode"))
+            config.mode = inst["mode"].get<std::string>();
+        if (inst.contains("maxEvents"))
+            config.maxEvents = inst["maxEvents"].get<int>();
+        if (inst.contains("computeDeltas"))
+            config.computeDeltas = inst["computeDeltas"].get<bool>();
+
+        auto parseRules = [](const json& arr, std::vector<FilterRule>& rules)
+        {
+            for (const auto& item : arr)
+            {
+                FilterRule rule;
+                if (item.contains("assembly"))
+                    rule.assembly = item["assembly"].get<std::string>();
+                if (item.contains("namespace"))
+                    rule.nameSpace = item["namespace"].get<std::string>();
+                if (item.contains("class"))
+                    rule.cls = item["class"].get<std::string>();
+                if (item.contains("method"))
+                    rule.method = item["method"].get<std::string>();
+                if (item.contains("logLines"))
+                    rule.logLines = item["logLines"].get<bool>();
+                rules.push_back(rule);
+            }
+        };
+
+        if (inst.contains("includes"))
+            parseRules(inst["includes"], config.includes);
+        if (inst.contains("excludes"))
+            parseRules(inst["excludes"], config.excludes);
+    }
+
+    // Parse output
+    if (root.contains("output"))
+    {
+        auto& out = root["output"];
+        if (out.contains("path"))
+            config.outputPath = out["path"].get<std::string>();
+    }
+
+    // Override from environment variables
+    std::string envRunId = GetEnvVar("METREJA_RUN_ID");
+    if (!envRunId.empty())
+        config.runId = envRunId;
+
+    std::string envOutput = GetEnvVar("METREJA_OUTPUT");
+    if (!envOutput.empty())
+        config.outputPath = envOutput;
+
+    // Expand placeholders in output path
+    DWORD pid = GetCurrentProcessId();
+    config.outputPath = ExpandPlaceholders(config.outputPath, config.runId, pid);
+
+    return config;
+}
+
+std::string ConfigReader::GetEnvVar(const char* name)
+{
+    char buffer[4096];
+    DWORD len = GetEnvironmentVariableA(name, buffer, sizeof(buffer));
+    if (len == 0 || len >= sizeof(buffer))
+        return {};
+    return std::string(buffer, len);
+}
+
+std::string ConfigReader::ExpandPlaceholders(const std::string& path, const std::string& runId, DWORD pid)
+{
+    std::string result = path;
+
+    // Replace {runId}
+    size_t pos = result.find("{runId}");
+    while (pos != std::string::npos)
+    {
+        result.replace(pos, 7, runId);
+        pos = result.find("{runId}", pos + runId.length());
+    }
+
+    // Replace {pid}
+    std::string pidStr = std::to_string(pid);
+    pos = result.find("{pid}");
+    while (pos != std::string::npos)
+    {
+        result.replace(pos, 5, pidStr);
+        pos = result.find("{pid}", pos + pidStr.length());
+    }
+
+    return result;
+}
+
+bool ConfigReader::SimpleGlobMatch(const std::string& pattern, const std::string& value)
+{
+    if (pattern == "*")
+        return true;
+
+    // Check for trailing wildcard: "Prefix.*" matches "Prefix.Anything"
+    if (pattern.size() >= 2 && pattern.back() == '*' && pattern[pattern.size() - 2] == '.')
+    {
+        std::string prefix = pattern.substr(0, pattern.size() - 1);
+        return value.substr(0, prefix.size()) == prefix;
+    }
+
+    // Check for leading wildcard: "*.Suffix" matches "Anything.Suffix"
+    if (pattern.size() >= 2 && pattern.front() == '*' && pattern[1] == '.')
+    {
+        std::string suffix = pattern.substr(1);
+        if (value.size() >= suffix.size())
+            return value.substr(value.size() - suffix.size()) == suffix;
+        return false;
+    }
+
+    // Exact match
+    return pattern == value;
+}
