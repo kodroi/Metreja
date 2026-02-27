@@ -62,25 +62,23 @@ if %ERRORLEVEL% neq 0 (
 echo Skill installed to %USERPROFILE%\.claude\skills\metreja-profiler
 echo.
 
-REM Install global .NET tool if not already installed
-echo [4/4] Checking metreja CLI tool...
+REM Always update global .NET tool
+echo [4/4] Updating metreja CLI tool...
+dotnet pack src\Metreja.Cli\Metreja.Cli.csproj -c Release >nul 2>&1
+if %ERRORLEVEL% neq 0 (
+    echo FAILED: dotnet pack failed
+    exit /b 1
+)
 dotnet tool list -g 2>nul | findstr /I "metreja" >nul 2>&1
 if %ERRORLEVEL% equ 0 (
-    echo metreja CLI tool already installed, release build is up to date
-) else (
-    echo Installing metreja CLI tool...
-    dotnet pack src\Metreja.Cli\Metreja.Cli.csproj -c Release >nul 2>&1
-    if %ERRORLEVEL% neq 0 (
-        echo FAILED: dotnet pack failed
-        exit /b 1
-    )
-    dotnet tool install -g --add-source src\Metreja.Cli\bin\Release Metreja >nul 2>&1
-    if %ERRORLEVEL% neq 0 (
-        echo FAILED: Could not install metreja global tool
-        exit /b 1
-    )
-    echo metreja CLI tool installed globally
+    dotnet tool uninstall -g Metreja >nul 2>&1
 )
+dotnet tool install -g --add-source src\Metreja.Cli\bin\Release Metreja >nul 2>&1
+if %ERRORLEVEL% neq 0 (
+    echo FAILED: Could not install metreja global tool
+    exit /b 1
+)
+echo metreja CLI tool updated globally
 
 echo.
 echo === Build Complete ===

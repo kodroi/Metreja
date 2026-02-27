@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd.exe //c build.bat",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && cmd.exe /c build.bat",
             "timeout": 120
           }
         ]

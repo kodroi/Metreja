@@ -124,71 +124,94 @@ For apps that don't exit on their own:
 
 ## Phase 4: Analysis
 
-Reference [ndjson-reference.md](ndjson-reference.md) for event schemas and field meanings.
+Use the built-in analysis commands — they handle streaming, self-time calculation, and formatting. Reference [ndjson-reference.md](ndjson-reference.md) for event schemas.
 
-### Pass 1: Statistical Summary
-
-Quick overview of the trace file:
+### Step 1: Hotspots overview
 
 ```bash
-# Total events
-wc -l < trace.ndjson
+# Top-10 hotspots with self time (shows where time is actually spent)
+metreja hotspots trace.ndjson --top 10
 
-# Events by type
-grep -c '"event":"enter"' trace.ndjson
-grep -c '"event":"leave"' trace.ndjson
-grep -c '"event":"exception"' trace.ndjson
+# Sort by inclusive time (shows total wall-clock per method)
+metreja hotspots trace.ndjson --top 10 --sort inclusive
 
-# File size
-ls -lh trace.ndjson
+# Filter out noise below 1ms
+metreja hotspots trace.ndjson --top 10 --min-ms 1
 ```
 
-### Pass 2: Targeted Analysis
+Present the hotspot table to the user. Self time distinguishes orchestrators (high inclusive, low self) from actual work (high self).
 
-#### Performance hotspots
+### Step 2: Drill into slow methods
 
-Extract leave events, sort by deltaNs descending, identify the top-20 slowest method calls:
+For each suspicious method from the hotspots, drill deeper:
 
 ```bash
-grep '"event":"leave"' trace.ndjson | \
-  python3 -c "
-import sys, json
-events = [json.loads(l) for l in sys.stdin]
-events.sort(key=lambda e: e['deltaNs'], reverse=True)
-for e in events[:20]:
-    ms = e['deltaNs'] / 1_000_000
-    print(f\"{ms:>10.2f} ms  {e['ns']}.{e['cls']}.{e['m']}  (async={e['async']})\")
-"
+# Call tree: shows what a method does internally (slowest invocation by default)
+metreja calltree trace.ndjson --method "SlowMethod"
+
+# Show 2nd slowest invocation
+metreja calltree trace.ndjson --method "SlowMethod" --occurrence 2
+
+# Filter by thread ID
+metreja calltree trace.ndjson --method "SlowMethod" --tid 54576
+
+# Who calls this method? Shows caller breakdown with timing
+metreja callers trace.ndjson --method "SlowMethod"
 ```
 
-#### Exception tracing
+### Step 3: Scope-narrowed analysis
 
-Find exception events and read surrounding context to reconstruct the call stack:
+Instead of limiting output, run a tighter-scope analysis with `--filter`:
 
 ```bash
-# List all exceptions
+# Focus hotspots on a specific class or namespace
+metreja hotspots trace.ndjson --filter "SlowClass"
+metreja hotspots trace.ndjson --filter "MyApp.Data" --filter "MyApp.Services"
+```
+
+### Step 4: Iterative drill-down with new profiling sessions
+
+**When analysis reveals the bottleneck is in a specific class/namespace but you need more detail**, create a new profiling session with tighter filters and re-profile. This captures more events within the area of interest.
+
+```bash
+# Create a new drill-down session with narrower scope
+DRILL_SESSION=$(metreja init --scenario "drill-down-1")
+metreja add include -s $DRILL_SESSION --class "SlowClass"
+metreja add exclude -s $DRILL_SESSION --assembly "System.*"
+metreja add exclude -s $DRILL_SESSION --assembly "Microsoft.*"
+metreja set output -s $DRILL_SESSION "trace-drill-{runId}-{pid}.ndjson"
+metreja set compute-deltas -s $DRILL_SESSION true
+metreja set max-events -s $DRILL_SESSION 50000
+metreja validate -s $DRILL_SESSION
+
+# Re-profile with the narrower session (same Phase 3 workflow)
+metreja generate-env -s $DRILL_SESSION --format batch > env.bat
+cmd //c "env.bat && dotnet run --project <target-project-path> -c Release"
+
+# Analyze the drill-down trace
+metreja hotspots trace-drill-*.ndjson --top 20
+metreja calltree trace-drill-*.ndjson --method "SuspiciousMethod"
+```
+
+**Drill-down strategy:**
+
+| Iteration | Filter Level | When to use |
+|-----------|-------------|-------------|
+| 1 (broad) | `--assembly "AppName"` | Initial discovery |
+| 2 | `--namespace "Slow.Namespace"` | Hotspot points to a namespace |
+| 3 | `--class "SlowClass"` | Hotspot points to a specific class |
+| 4 | `--class "SlowClass" --method "SlowMethod"` | Need internal method-level detail |
+
+**Keep drilling until:** the leaf method is identified (no further children), or the bottleneck is in external code (framework/DB/IO) where profiling won't help.
+
+#### Exception tracing (when relevant)
+
+```bash
 grep '"event":"exception"' trace.ndjson | python3 -c "
 import sys, json
 for l in sys.stdin:
     e = json.loads(l)
     print(f\"  {e['exType']}  in  {e['ns']}.{e['cls']}.{e['m']}\")
-"
-
-# For each exception, read the 50 preceding lines to see the call stack leading to it
-grep -n '"event":"exception"' trace.ndjson  # get line numbers, then read context
-```
-
-#### Call tree reconstruction
-
-Filter by thread ID and use the `depth` field to build an indented call tree:
-
-```bash
-grep '"tid":1234' trace.ndjson | grep '"event":"enter"' | python3 -c "
-import sys, json
-for l in sys.stdin:
-    e = json.loads(l)
-    indent = '  ' * e['depth']
-    print(f\"{indent}{e['ns']}.{e['cls']}.{e['m']}\")
 "
 ```
 
@@ -224,6 +247,9 @@ for l in sys.stdin:
 | `validate` | `metreja validate -s ID` | Validate session config |
 | `generate-env` | `metreja generate-env -s ID [--dll-path P] [--format batch\|powershell]` | Generate env var script (DLL path auto-detected) |
 | `analyze-diff` | `metreja analyze-diff BASE COMPARE` | Compare two NDJSON traces |
+| `hotspots` | `metreja hotspots FILE [--top N] [--min-ms N] [--sort self\|inclusive] [--filter PAT]...` | Per-method timing hotspots with self time |
+| `calltree` | `metreja calltree FILE --method PAT [--tid N] [--occurrence N]` | Call tree for a specific method invocation |
+| `callers` | `metreja callers FILE --method PAT [--top N]` | Who calls a specific method, with timing |
 | `clear` | `metreja clear -s ID \| --all` | Delete session(s) |
 
 ## Common Pitfalls

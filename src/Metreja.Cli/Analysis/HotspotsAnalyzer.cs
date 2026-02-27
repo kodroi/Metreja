@@ -1,0 +1,168 @@
+using System.Text.Json;
+
+namespace Metreja.Cli.Analysis;
+
+public static class HotspotsAnalyzer
+{
+    public static async Task AnalyzeAsync(string filePath, int top, double minMs, string sortBy, string[] filters)
+    {
+        if (!File.Exists(filePath))
+        {
+            Console.Error.WriteLine($"Error: File not found: {filePath}");
+            return;
+        }
+
+        var stats = await AggregateAsync(filePath, filters);
+
+        var minNs = (long)(minMs * 1_000_000);
+        var filtered = stats
+            .Where(kv => kv.Value.SelfTotal >= minNs || kv.Value.InclusiveTotal >= minNs)
+            .ToList();
+
+        var sorted = sortBy == "inclusive"
+            ? filtered.OrderByDescending(kv => kv.Value.InclusiveTotal).ToList()
+            : filtered.OrderByDescending(kv => kv.Value.SelfTotal).ToList();
+
+        var shown = sorted.Take(top).ToList();
+
+        Console.WriteLine(
+            $"{"#",-5} {"Method",-50} {"Calls",7} {"Self Total",12} {"Self Avg",10} {"Incl Total",12} {"Incl Avg",10}");
+        Console.WriteLine(new string('-', 106));
+
+        for (var i = 0; i < shown.Count; i++)
+        {
+            var (method, s) = shown[i];
+            var selfAvg = s.Count > 0 ? s.SelfTotal / s.Count : 0;
+            var inclAvg = s.Count > 0 ? s.InclusiveTotal / s.Count : 0;
+
+            Console.WriteLine(
+                $"{i + 1,-5} {Truncate(method, 50),-50} {s.Count,7} {FormatNs(s.SelfTotal),12} {FormatNs(selfAvg),10} {FormatNs(s.InclusiveTotal),12} {FormatNs(inclAvg),10}");
+        }
+
+        Console.WriteLine(new string('-', 106));
+        Console.WriteLine(
+            $"Showing top {shown.Count} of {stats.Count} methods (min threshold: {minMs:F1}ms, sorted by: {sortBy})");
+    }
+
+    private static async Task<Dictionary<string, MethodStats>> AggregateAsync(string filePath, string[] filters)
+    {
+        var stats = new Dictionary<string, MethodStats>();
+        var threadStacks = new Dictionary<long, Stack<StackFrame>>();
+        var hasFilters = filters.Length > 0;
+
+        await foreach (var line in File.ReadLinesAsync(filePath))
+        {
+            if (string.IsNullOrWhiteSpace(line)) continue;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(line);
+                var root = doc.RootElement;
+
+                if (!root.TryGetProperty("event", out var eventProp))
+                    continue;
+
+                var eventType = eventProp.GetString();
+                var ns = root.TryGetProperty("ns", out var n) ? n.GetString() ?? "" : "";
+                var cls = root.TryGetProperty("cls", out var c) ? c.GetString() ?? "" : "";
+                var m = root.TryGetProperty("m", out var mp) ? mp.GetString() ?? "" : "";
+                var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
+                var key = string.IsNullOrEmpty(ns) ? $"{cls}.{m}" : $"{ns}.{cls}.{m}";
+
+                if (!threadStacks.TryGetValue(tid, out var stack))
+                {
+                    stack = new Stack<StackFrame>();
+                    threadStacks[tid] = stack;
+                }
+
+                if (eventType == "enter")
+                {
+                    stack.Push(new StackFrame { Key = key });
+                }
+                else if (eventType == "leave")
+                {
+                    var deltaNs = root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0;
+
+                    if (stack.Count > 0)
+                    {
+                        var frame = stack.Pop();
+                        var selfNs = deltaNs - frame.ChildrenNs;
+
+                        if (!hasFilters || MatchesAnyFilter(filters, ns, cls, m, key))
+                        {
+                            if (!stats.TryGetValue(key, out var ms))
+                            {
+                                ms = new MethodStats();
+                                stats[key] = ms;
+                            }
+
+                            ms.Count++;
+                            ms.InclusiveTotal += deltaNs;
+                            ms.SelfTotal += selfNs;
+                            if (deltaNs > ms.InclusiveMax) ms.InclusiveMax = deltaNs;
+                            if (selfNs > ms.SelfMax) ms.SelfMax = selfNs;
+                        }
+
+                        if (stack.Count > 0)
+                        {
+                            stack.Peek().ChildrenNs += deltaNs;
+                        }
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                // Skip malformed lines
+            }
+        }
+
+        return stats;
+    }
+
+    private static bool MatchesAnyFilter(string[] filters, string ns, string cls, string m, string fullKey)
+    {
+        foreach (var filter in filters)
+        {
+            if (fullKey.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(m, filter, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(cls, filter, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(ns, filter, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string FormatNs(long ns)
+    {
+        return ns switch
+        {
+            < 1_000 => $"{ns}ns",
+            < 1_000_000 => $"{ns / 1_000.0:F2}us",
+            < 1_000_000_000 => $"{ns / 1_000_000.0:F2}ms",
+            _ => $"{ns / 1_000_000_000.0:F2}s"
+        };
+    }
+
+    private static string Truncate(string value, int maxLength)
+    {
+        return value.Length <= maxLength ? value : string.Concat("...", value.AsSpan(value.Length - maxLength + 3));
+    }
+
+    private sealed class StackFrame
+    {
+        public string Key = "";
+        public long ChildrenNs;
+    }
+
+    private sealed class MethodStats
+    {
+        public int Count;
+        public long InclusiveTotal;
+        public long InclusiveMax;
+        public long SelfTotal;
+        public long SelfMax;
+    }
+}

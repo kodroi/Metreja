@@ -26,14 +26,26 @@ public static class AddCommand
 
     private static Command CreateFilterCommand(string name, string description, Option<string> sessionOption)
     {
-        var assemblyOption = new Option<string>("--assembly") { Description = "Assembly name pattern (default: *)" };
-        assemblyOption.DefaultValueFactory = _ => "*";
-        var namespaceOption = new Option<string>("--namespace") { Description = "Namespace pattern (default: *)" };
-        namespaceOption.DefaultValueFactory = _ => "*";
-        var classOption = new Option<string>("--class") { Description = "Class name pattern (default: *)" };
-        classOption.DefaultValueFactory = _ => "*";
-        var methodOption = new Option<string>("--method") { Description = "Method name pattern (default: *)" };
-        methodOption.DefaultValueFactory = _ => "*";
+        var assemblyOption = new Option<string[]>("--assembly")
+        {
+            Description = "Assembly name pattern (default: *)",
+            Arity = ArgumentArity.ZeroOrMore
+        };
+        var namespaceOption = new Option<string[]>("--namespace")
+        {
+            Description = "Namespace pattern (default: *)",
+            Arity = ArgumentArity.ZeroOrMore
+        };
+        var classOption = new Option<string[]>("--class")
+        {
+            Description = "Class name pattern (default: *)",
+            Arity = ArgumentArity.ZeroOrMore
+        };
+        var methodOption = new Option<string[]>("--method")
+        {
+            Description = "Method name pattern (default: *)",
+            Arity = ArgumentArity.ZeroOrMore
+        };
         var logLinesOption = new Option<bool>("--log-lines") { Description = "Enable line-level logging" };
 
         var command = new Command(name, description);
@@ -47,28 +59,83 @@ public static class AddCommand
         command.SetAction(async (parseResult, _) =>
         {
             var session = parseResult.GetValue(sessionOption)!;
-            var rule = new FilterRule
+            var assemblies = parseResult.GetValue(assemblyOption) ?? [];
+            var namespaces = parseResult.GetValue(namespaceOption) ?? [];
+            var classes = parseResult.GetValue(classOption) ?? [];
+            var methods = parseResult.GetValue(methodOption) ?? [];
+            var logLines = parseResult.GetValue(logLinesOption);
+
+            var rules = BuildRules(assemblies, namespaces, classes, methods, logLines);
+            if (rules is null)
             {
-                Assembly = parseResult.GetValue(assemblyOption)!,
-                Namespace = parseResult.GetValue(namespaceOption)!,
-                Class = parseResult.GetValue(classOption)!,
-                Method = parseResult.GetValue(methodOption)!,
-                LogLines = parseResult.GetValue(logLinesOption)
-            };
+                Console.Error.WriteLine(
+                    "Error: Only one filter option can have multiple values per command. " +
+                    "Run the command multiple times for complex combinations.");
+                Environment.ExitCode = 1;
+                return;
+            }
 
             var manager = new ConfigManager();
             var config = await manager.LoadConfigAsync(session);
 
             var updatedInstrumentation = name == "include"
-                ? config.Instrumentation with { Includes = [.. config.Instrumentation.Includes, rule] }
-                : config.Instrumentation with { Excludes = [.. config.Instrumentation.Excludes, rule] };
+                ? config.Instrumentation with { Includes = [.. config.Instrumentation.Includes, .. rules] }
+                : config.Instrumentation with { Excludes = [.. config.Instrumentation.Excludes, .. rules] };
 
             var updatedConfig = config with { Instrumentation = updatedInstrumentation };
             await manager.SaveConfigAsync(session, updatedConfig);
 
-            Console.WriteLine($"Added {name} rule to session {session}");
+            var ruleWord = rules.Count == 1 ? "rule" : "rules";
+            Console.WriteLine($"Added {rules.Count} {name} {ruleWord} to session {session}");
         });
 
         return command;
+    }
+
+    private static List<FilterRule>? BuildRules(
+        string[] assemblies, string[] namespaces, string[] classes, string[] methods, bool logLines)
+    {
+        var multiValueOptions = new (string[] values, string label)[]
+        {
+            (assemblies, "assembly"),
+            (namespaces, "namespace"),
+            (classes, "class"),
+            (methods, "method")
+        };
+
+        var multiCount = multiValueOptions.Count(o => o.values.Length > 1);
+        if (multiCount > 1)
+            return null;
+
+        var multiOption = multiValueOptions.FirstOrDefault(o => o.values.Length > 1);
+
+        if (multiOption.values is null || multiOption.values.Length == 0)
+        {
+            return
+            [
+                new FilterRule
+                {
+                    Assembly = assemblies.Length == 1 ? assemblies[0] : "*",
+                    Namespace = namespaces.Length == 1 ? namespaces[0] : "*",
+                    Class = classes.Length == 1 ? classes[0] : "*",
+                    Method = methods.Length == 1 ? methods[0] : "*",
+                    LogLines = logLines
+                }
+            ];
+        }
+
+        var baseAssembly = assemblies.Length == 1 ? assemblies[0] : "*";
+        var baseNamespace = namespaces.Length == 1 ? namespaces[0] : "*";
+        var baseClass = classes.Length == 1 ? classes[0] : "*";
+        var baseMethod = methods.Length == 1 ? methods[0] : "*";
+
+        return multiOption.values.Select(value => new FilterRule
+        {
+            Assembly = multiOption.label == "assembly" ? value : baseAssembly,
+            Namespace = multiOption.label == "namespace" ? value : baseNamespace,
+            Class = multiOption.label == "class" ? value : baseClass,
+            Method = multiOption.label == "method" ? value : baseMethod,
+            LogLines = logLines
+        }).ToList();
     }
 }
