@@ -4,11 +4,15 @@ A .NET profiling tool designed for AI coding assistants — Claude Code, Codex, 
 
 ## What It Does
 
-AI coding tools can run Metreja automatically to profile your .NET application, analyze the results, and write optimized code — all in one loop. Point your agent at a slow endpoint, and it will attach the profiler, capture a trace, find the bottleneck, and ship a fix without you switching context.
+AI coding tools can run Metreja automatically to profile your .NET application, analyze the results, and write optimized code — all in one loop. Point your agent at a slow endpoint, and it will measure what's slow and fix it without you switching context.
 
-Under the hood, Metreja instruments .NET applications at runtime using a native C++ profiler DLL that hooks into the CLR's Enter/Leave/Tailcall (ELT3) mechanism. It records every method enter and leave event — including timing, thread ID, and optionally GC/allocation data — into NDJSON trace files. The CLI then analyzes the results: timing hotspots, call trees, caller graphs, run comparisons, and memory allocations.
+Windows only. The profiler ships alongside the tool.
 
-Windows only. Requires the native profiler DLL, which ships alongside the tool.
+## How It Works
+
+- **Session-based** — you create a session, configure what to trace, then run your app. Everything is scoped to a session, so multiple profiling runs stay isolated and reproducible.
+- **File-based output** — configs and traces are plain text files that both humans and AI agents can read, diff, and process with standard tools.
+- **CLI-driven analysis** — built-in commands for hotspots, call trees, callers, memory, and diffs. No GUI needed — works in any terminal or agent loop.
 
 ## Installation
 
@@ -22,11 +26,11 @@ After installation, the `metreja` command is available globally.
 
 ## Workflow
 
-Profiling a .NET application follows five steps: create a session, configure filters, generate the environment script, run your app, and analyze the output.
+Profiling a .NET application follows five steps: create a session, pick what to trace, set up your environment, run your app, and analyze the results.
 
 ### 1. Initialize a Session
 
-A session is a named configuration that tells the profiler what to instrument and where to write output. Each session gets a random 6-hex-char ID.
+A session is a named configuration that tells the profiler what to measure and where to save results. Each session gets a random 6-hex-char ID.
 
 ```bash
 metreja init --scenario "baseline"
@@ -37,7 +41,7 @@ The session config is stored at `.metreja/sessions/a1b2c3.json`.
 
 ### 2. Add Filter Rules
 
-By default, nothing is instrumented. You add include rules to specify which assemblies, namespaces, classes, or methods to trace. This keeps overhead low — you instrument only your code, not the entire .NET framework.
+By default, nothing is traced. You add include rules to specify which parts of your code to trace — by assembly, namespace, class, or method. This keeps overhead low — you trace only your code, not the entire .NET framework.
 
 ```bash
 metreja add include -s a1b2c3 --assembly MyApp --namespace "MyApp.Services"
@@ -47,7 +51,7 @@ You can also add exclude rules to skip specific classes or methods within your i
 
 ### 3. Generate the Environment Script
 
-The CLR needs specific environment variables to load the profiler DLL. This command generates a batch or PowerShell script that sets them.
+Your app needs a few environment variables so the profiler can attach. This command generates a script that sets them.
 
 ```bash
 metreja generate-env -s a1b2c3
@@ -55,14 +59,14 @@ metreja generate-env -s a1b2c3
 
 ### 4. Run Your Application
 
-Run the generated script to set the environment variables, then launch your .NET app as usual. The profiler attaches automatically and writes trace events to the configured output path.
+Run the generated script to set the environment variables, then launch your .NET app as usual. The profiler attaches automatically and writes timing data to the output file.
 
 ### 5. Analyze the Output
 
-Once your app has run, use the analysis commands to explore the trace data:
+Once your app has run, use the analysis commands to explore the results:
 
 ```bash
-# Find the slowest methods by self time
+# Find the slowest methods
 metreja hotspots .metreja/output/e4f5a6b7_12345.ndjson
 
 # Inspect the call tree of a specific method
@@ -71,7 +75,7 @@ metreja calltree .metreja/output/e4f5a6b7_12345.ndjson --method DoWork
 # See who calls a method
 metreja callers .metreja/output/e4f5a6b7_12345.ndjson --method SaveChanges
 
-# View GC and allocation summary
+# View memory and allocation summary
 metreja memory .metreja/output/e4f5a6b7_12345.ndjson
 
 # Compare two runs
@@ -97,7 +101,7 @@ metreja init --scenario "before-refactor"
 
 ### `add include` / `add exclude`
 
-Add filter rules that control which methods get instrumented.
+Add filter rules that control which methods get traced.
 
 Supports multi-value expansion on a single dimension — e.g. `--assembly A --assembly B` creates two separate rules.
 
@@ -231,7 +235,7 @@ metreja validate -s a1b2c3
 
 ### `generate-env`
 
-Generate an environment variable script to attach the profiler to a .NET application. Sets `CORECLR_ENABLE_PROFILING`, `CORECLR_PROFILER`, `CORECLR_PROFILER_PATH`, and `METREJA_CONFIG`.
+Generate a script that sets the environment variables needed to attach the profiler.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -264,11 +268,11 @@ metreja clear --all
 
 ### Analysis Commands
 
-All analysis commands read NDJSON trace files produced by the profiler.
+All analysis commands read the trace files produced by the profiler.
 
 #### `hotspots`
 
-Show per-method timing hotspots with self time and allocation counts. Self time is inclusive time minus time spent in child calls. When `track-memory` is enabled, the `Allocs` column shows allocations attributed to each method. Supports filtering by method, class, or namespace name.
+Show per-method timing hotspots with self time and memory allocation counts. Self time is time spent in the method itself, excluding methods it calls. When `track-memory` is enabled, the `Allocs` column shows allocations attributed to each method. Supports filtering by method, class, or namespace name.
 
 | Option / Argument | Type | Default | Description |
 |-------------------|------|---------|-------------|
@@ -286,7 +290,7 @@ metreja hotspots trace.ndjson --filter "MyService" --min-ms 10
 
 #### `calltree`
 
-Show the call tree for a specific method invocation. Finds all invocations matching the pattern, ranked by duration (slowest first). Displays the complete subtree with indentation, timing, `[async]` tags, and exception info.
+Show the call tree for a specific method call. Finds all calls matching the pattern, ranked by duration (slowest first). Displays the complete subtree with indentation, timing, `[async]` tags, and exception info.
 
 | Option / Argument | Type | Default | Description |
 |-------------------|------|---------|-------------|
@@ -318,7 +322,7 @@ metreja callers trace.ndjson --method "Execute" --top 10
 
 #### `memory`
 
-Show GC summary and allocation hotspots by class. Displays generation counts, pause durations, and top allocating types.
+Memory summary: garbage collection stats and top allocating types. Displays generation counts, pause durations, and allocation counts by type.
 
 | Option / Argument | Type | Default | Description |
 |-------------------|------|---------|-------------|
@@ -333,7 +337,7 @@ metreja memory trace.ndjson --top 50 --filter "System.String"
 
 #### `analyze-diff`
 
-Compare two NDJSON profiling outputs. Shows a side-by-side table of per-method timing (base, compare, delta) for every method appearing in either file.
+Compare two trace files side by side. Shows a table of per-method timing (base, compare, delta) for every method appearing in either file.
 
 | Argument | Type | Description |
 |----------|------|-------------|
@@ -379,7 +383,7 @@ Session configs are stored at `.metreja/sessions/{sessionId}.json`:
 
 ### Output Path Tokens
 
-The output path supports two token placeholders expanded at runtime by the native profiler:
+The output path supports two placeholders replaced automatically when the trace file is created:
 
 | Token | Replaced With |
 |-------|---------------|
