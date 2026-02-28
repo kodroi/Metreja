@@ -160,15 +160,15 @@ void NdjsonWriter::WriteGcFinished(long long tsNs, DWORD pid, const std::string&
 }
 
 void NdjsonWriter::WriteAllocByClass(long long tsNs, DWORD pid, const std::string& runId,
-    const std::string& className, ULONG count)
+    DWORD tid, const std::string& className, ULONG count)
 {
     if (CheckEventLimit())
         return;
 
     char line[2048];
     int len = snprintf(line, sizeof(line),
-        R"({"event":"alloc_by_class","tsNs":%lld,"pid":%lu,"runId":"%s","className":"%s","count":%lu})""\n",
-        tsNs, pid, runId.c_str(), className.c_str(), count);
+        R"({"event":"alloc_by_class","tsNs":%lld,"pid":%lu,"runId":"%s","tid":%lu,"className":"%s","count":%lu})""\n",
+        tsNs, pid, runId.c_str(), tid, className.c_str(), count);
 
     if (len > 0)
         WriteLockedEvent(line, static_cast<size_t>(len));

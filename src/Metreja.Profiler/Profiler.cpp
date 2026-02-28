@@ -300,7 +300,8 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ObjectsAllocatedByClass(ULONG cClassC
         if (SUCCEEDED(hr) && typeNameLen > 0)
             className = MethodCache::WideToUtf8(typeName, static_cast<int>(typeNameLen - 1));
 
-        g_ndjsonWriter->WriteAllocByClass(tsNs, pid, g_runId, className, cObjects[i]);
+        DWORD tid = GetCurrentThreadId();
+        g_ndjsonWriter->WriteAllocByClass(tsNs, pid, g_runId, tid, className, cObjects[i]);
     }
 
     return S_OK;

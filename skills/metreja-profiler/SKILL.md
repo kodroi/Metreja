@@ -142,6 +142,12 @@ metreja hotspots trace.ndjson --top 10
 # Sort by inclusive time (shows total wall-clock per method)
 metreja hotspots trace.ndjson --top 10 --sort inclusive
 
+# Sort by call count (most-called methods first)
+metreja hotspots trace.ndjson --top 10 --sort calls
+
+# Sort by allocations (requires track-memory enabled; shows Allocs column)
+metreja hotspots trace.ndjson --top 10 --sort allocs
+
 # Filter out noise below 1ms
 metreja hotspots trace.ndjson --top 10 --min-ms 1
 ```
@@ -274,7 +280,7 @@ for l in sys.stdin:
 | `validate` | `metreja validate -s ID` | Validate session config |
 | `generate-env` | `metreja generate-env -s ID [--dll-path P] [--format batch\|powershell]` | Generate env var script (DLL path auto-detected) |
 | `analyze-diff` | `metreja analyze-diff BASE COMPARE` | Compare two NDJSON traces |
-| `hotspots` | `metreja hotspots FILE [--top N] [--min-ms N] [--sort self\|inclusive] [--filter PAT]...` | Per-method timing hotspots with self time |
+| `hotspots` | `metreja hotspots FILE [--top N] [--min-ms N] [--sort self\|inclusive\|calls\|allocs] [--filter PAT]...` | Per-method timing hotspots with self time and allocs |
 | `calltree` | `metreja calltree FILE --method PAT [--tid N] [--occurrence N]` | Call tree for a specific method invocation |
 | `callers` | `metreja callers FILE --method PAT [--top N]` | Who calls a specific method, with timing |
 | `memory` | `metreja memory FILE [--top N] [--filter PAT]...` | GC summary and allocation hotspots by class |
