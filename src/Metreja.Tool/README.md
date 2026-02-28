@@ -1,26 +1,84 @@
-# Metreja CLI
+# Metreja
 
-.NET Call-Path Profiler CLI — configure profiling sessions, attach the native profiler to .NET applications, and analyze trace output.
+A call-path profiler for .NET — trace method calls, measure timing, and find performance bottlenecks.
 
-## Quick Start
+## What It Does
+
+Metreja instruments .NET applications at runtime using a native C++ profiler DLL that hooks into the CLR's Enter/Leave/Tailcall (ELT3) mechanism. It records every method enter and leave event — including timing, thread ID, and optionally GC/allocation data — into NDJSON trace files. You then use the CLI to analyze the results: find timing hotspots, inspect call trees, see who calls what, compare runs, and track memory allocations.
+
+Windows only. Requires the native profiler DLL, which ships alongside the tool.
+
+## Installation
+
+**Prerequisites:** .NET 10 SDK, Windows
 
 ```bash
-# 1. Initialize a session
-metreja init --scenario "baseline"
-# Output: Session created: a1b2c3
-
-# 2. Add filter rules (instrument only your code)
-metreja add include -s a1b2c3 --assembly MyApp --namespace "MyApp.Services"
-
-# 3. Generate environment script
-metreja generate-env -s a1b2c3
-
-# 4. Run your app with the generated env vars, then analyze
-metreja hotspots .metreja/output/e4f5a6b7_12345.ndjson
-metreja calltree .metreja/output/e4f5a6b7_12345.ndjson --method DoWork
+dotnet tool install -g Metreja.Tool
 ```
 
-## Session Management Commands
+After installation, the `metreja` command is available globally.
+
+## Workflow
+
+Profiling a .NET application follows five steps: create a session, configure filters, generate the environment script, run your app, and analyze the output.
+
+### 1. Initialize a Session
+
+A session is a named configuration that tells the profiler what to instrument and where to write output. Each session gets a random 6-hex-char ID.
+
+```bash
+metreja init --scenario "baseline"
+# Output: Session created: a1b2c3
+```
+
+The session config is stored at `.metreja/sessions/a1b2c3.json`.
+
+### 2. Add Filter Rules
+
+By default, nothing is instrumented. You add include rules to specify which assemblies, namespaces, classes, or methods to trace. This keeps overhead low — you instrument only your code, not the entire .NET framework.
+
+```bash
+metreja add include -s a1b2c3 --assembly MyApp --namespace "MyApp.Services"
+```
+
+You can also add exclude rules to skip specific classes or methods within your includes (e.g., generated code).
+
+### 3. Generate the Environment Script
+
+The CLR needs specific environment variables to load the profiler DLL. This command generates a batch or PowerShell script that sets them.
+
+```bash
+metreja generate-env -s a1b2c3
+```
+
+### 4. Run Your Application
+
+Run the generated script to set the environment variables, then launch your .NET app as usual. The profiler attaches automatically and writes trace events to the configured output path.
+
+### 5. Analyze the Output
+
+Once your app has run, use the analysis commands to explore the trace data:
+
+```bash
+# Find the slowest methods by self time
+metreja hotspots .metreja/output/e4f5a6b7_12345.ndjson
+
+# Inspect the call tree of a specific method
+metreja calltree .metreja/output/e4f5a6b7_12345.ndjson --method DoWork
+
+# See who calls a method
+metreja callers .metreja/output/e4f5a6b7_12345.ndjson --method SaveChanges
+
+# View GC and allocation summary
+metreja memory .metreja/output/e4f5a6b7_12345.ndjson
+
+# Compare two runs
+metreja analyze-diff baseline.ndjson optimized.ndjson
+```
+
+## CLI Reference
+
+### Session Management Commands
 
 ### `init`
 
@@ -204,11 +262,11 @@ metreja clear -s a1b2c3
 metreja clear --all
 ```
 
-## Analysis Commands
+### Analysis Commands
 
 All analysis commands read NDJSON trace files produced by the profiler.
 
-### `hotspots`
+#### `hotspots`
 
 Show per-method timing hotspots with self time and allocation counts. Self time is inclusive time minus time spent in child calls. When `track-memory` is enabled, the `Allocs` column shows allocations attributed to each method. Supports filtering by method, class, or namespace name.
 
@@ -226,7 +284,7 @@ metreja hotspots trace.ndjson --top 50 --sort inclusive
 metreja hotspots trace.ndjson --filter "MyService" --min-ms 10
 ```
 
-### `calltree`
+#### `calltree`
 
 Show the call tree for a specific method invocation. Finds all invocations matching the pattern, ranked by duration (slowest first). Displays the complete subtree with indentation, timing, `[async]` tags, and exception info.
 
@@ -243,7 +301,7 @@ metreja calltree trace.ndjson --method "ProcessOrder" --occurrence 2
 metreja calltree trace.ndjson --method DoWork --tid 12345
 ```
 
-### `callers`
+#### `callers`
 
 Show which methods call a specific method. Aggregates caller info including call count, total time, and max time per caller.
 
@@ -258,7 +316,7 @@ metreja callers trace.ndjson --method SaveChanges
 metreja callers trace.ndjson --method "Execute" --top 10
 ```
 
-### `memory`
+#### `memory`
 
 Show GC summary and allocation hotspots by class. Displays generation counts, pause durations, and top allocating types.
 
@@ -273,7 +331,7 @@ metreja memory trace.ndjson
 metreja memory trace.ndjson --top 50 --filter "System.String"
 ```
 
-### `analyze-diff`
+#### `analyze-diff`
 
 Compare two NDJSON profiling outputs. Shows a side-by-side table of per-method timing (base, compare, delta) for every method appearing in either file.
 
@@ -286,7 +344,7 @@ Compare two NDJSON profiling outputs. Shows a side-by-side table of per-method t
 metreja analyze-diff baseline.ndjson optimized.ndjson
 ```
 
-## Config File Format
+### Config File Format
 
 Session configs are stored at `.metreja/sessions/{sessionId}.json`:
 
@@ -320,7 +378,7 @@ Session configs are stored at `.metreja/sessions/{sessionId}.json`:
 }
 ```
 
-## Output Path Tokens
+### Output Path Tokens
 
 The output path supports two token placeholders expanded at runtime by the native profiler:
 
