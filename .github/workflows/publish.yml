@@ -11,6 +11,9 @@ jobs:
   publish:
     runs-on: windows-latest
 
+    env:
+      HUSKY: 0
+
     steps:
       - uses: actions/checkout@v6
         with:
