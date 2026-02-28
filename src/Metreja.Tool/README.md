@@ -10,9 +10,9 @@ Windows only. The profiler ships alongside the tool.
 
 ## How It Works
 
-- **Session-based** — you create a session, configure what to trace, then run your app. Everything is scoped to a session, so multiple profiling runs stay isolated and reproducible.
+- **Fully CLI-driven** — configuration and analysis are all commands. Sessions, filters, hotspots, call trees, diffs — no GUI or config files to hand-edit. Works in any terminal or agent loop.
+- **Session-based** — your agent creates a session, configures what to trace, then runs your app. Everything is scoped to a session, so multiple profiling runs stay isolated and reproducible.
 - **File-based output** — configs and traces are plain text files that both humans and AI agents can read, diff, and process with standard tools.
-- **CLI-driven analysis** — built-in commands for hotspots, call trees, callers, memory, and diffs. No GUI needed — works in any terminal or agent loop.
 
 ## Installation
 
@@ -26,7 +26,7 @@ After installation, the `metreja` command is available globally.
 
 ## Workflow
 
-Profiling a .NET application follows five steps: create a session, pick what to trace, set up your environment, run your app, and analyze the results.
+Your agent profiles a .NET application in five steps: create a session, pick what to trace, set up the environment, run the app, and analyze the results.
 
 ### 1. Initialize a Session
 
