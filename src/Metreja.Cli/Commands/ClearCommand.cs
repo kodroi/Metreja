@@ -21,7 +21,7 @@ public static class ClearCommand
         command.Options.Add(sessionOption);
         command.Options.Add(allOption);
 
-        command.SetAction((parseResult) =>
+        command.SetAction(async (parseResult, _) =>
         {
             var session = parseResult.GetValue(sessionOption);
             var all = parseResult.GetValue(allOption);
@@ -29,17 +29,18 @@ public static class ClearCommand
 
             if (all)
             {
-                manager.DeleteAllSessions();
+                await manager.DeleteAllSessionsAsync();
                 Console.WriteLine("All sessions deleted.");
             }
             else if (!string.IsNullOrEmpty(session))
             {
-                manager.DeleteSession(session);
+                await manager.DeleteSessionAsync(session);
                 Console.WriteLine($"Session {session} deleted.");
             }
             else
             {
                 Console.Error.WriteLine("Error: specify --session <id> or --all");
+                Environment.ExitCode = 1;
             }
         });
 

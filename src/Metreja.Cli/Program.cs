@@ -15,6 +15,7 @@ rootCommand.Subcommands.Add(AnalyzeDiffCommand.Create());
 rootCommand.Subcommands.Add(HotspotsCommand.Create());
 rootCommand.Subcommands.Add(CallTreeCommand.Create());
 rootCommand.Subcommands.Add(CallersCommand.Create());
+rootCommand.Subcommands.Add(MemoryCommand.Create());
 
 var parseResult = rootCommand.Parse(args);
 return await parseResult.InvokeAsync();

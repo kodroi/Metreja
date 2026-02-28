@@ -51,6 +51,8 @@ ProfilerConfig ConfigReader::Load()
             config.maxEvents = inst["maxEvents"].get<int>();
         if (inst.contains("computeDeltas"))
             config.computeDeltas = inst["computeDeltas"].get<bool>();
+        if (inst.contains("trackMemory"))
+            config.trackMemory = inst["trackMemory"].get<bool>();
 
         auto parseRules = [](const json& arr, std::vector<FilterRule>& rules)
         {

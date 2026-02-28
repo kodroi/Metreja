@@ -71,6 +71,54 @@ Note: exception events do **not** have `depth` or `async` fields.
 {"event":"exception","tsNs":123656789,"pid":1234,"runId":"a1b2c3d4","tid":5678,"asm":"MyApp","ns":"MyApp.Services","cls":"OrderService","m":"ProcessOrder","exType":"System.InvalidOperationException"}
 ```
 
+### `gc_start` (GC collection started)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `event` | string | Always `"gc_start"` |
+| `tsNs` | long | Timestamp in nanoseconds |
+| `pid` | int | Process ID |
+| `runId` | string | Run identifier |
+| `gen0` | bool | Generation 0 collected |
+| `gen1` | bool | Generation 1 collected |
+| `gen2` | bool | Generation 2 collected |
+| `reason` | string | GC reason: `"induced"`, `"other"`, or `"unknown"` |
+
+```json
+{"event":"gc_start","tsNs":123456789,"pid":1234,"runId":"a1b2c3d4","gen0":true,"gen1":false,"gen2":false,"reason":"other"}
+```
+
+### `gc_end` (GC collection finished)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `event` | string | Always `"gc_end"` |
+| `tsNs` | long | Timestamp in nanoseconds |
+| `pid` | int | Process ID |
+| `runId` | string | Run identifier |
+| `durationNs` | long | GC pause duration in nanoseconds |
+
+```json
+{"event":"gc_end","tsNs":123556789,"pid":1234,"runId":"a1b2c3d4","durationNs":1500000}
+```
+
+### `alloc_by_class` (per-type allocation summary)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `event` | string | Always `"alloc_by_class"` |
+| `tsNs` | long | Timestamp in nanoseconds |
+| `pid` | int | Process ID |
+| `runId` | string | Run identifier |
+| `className` | string | Fully qualified type name |
+| `count` | int | Number of allocations of this type |
+
+```json
+{"event":"alloc_by_class","tsNs":123556789,"pid":1234,"runId":"a1b2c3d4","className":"System.String","count":1234}
+```
+
+Note: `gc_start` and `gc_end` events are only emitted when `trackMemory` is enabled in the session config. They do **not** count against `maxEvents`. `alloc_by_class` events **do** count against `maxEvents`.
+
 ## Field Semantics
 
 | Field | Meaning |

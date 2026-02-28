@@ -73,17 +73,19 @@ public class ConfigManager
         }
     }
 
-    public void DeleteSession(string sessionId)
+    public Task DeleteSessionAsync(string sessionId)
     {
         var path = GetSessionPath(sessionId);
         if (File.Exists(path))
             File.Delete(path);
+        return Task.CompletedTask;
     }
 
-    public void DeleteAllSessions()
+    public Task DeleteAllSessionsAsync()
     {
         if (Directory.Exists(_sessionsDir))
             Directory.Delete(_sessionsDir, true);
+        return Task.CompletedTask;
     }
 
     private static string GenerateSessionId()

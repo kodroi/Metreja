@@ -2,6 +2,7 @@
 
 #include <Windows.h>
 #include <unknwn.h>
+#include <atomic>
 
 class ClassFactory final : public IClassFactory
 {
@@ -18,5 +19,5 @@ public:
     HRESULT STDMETHODCALLTYPE LockServer(BOOL fLock) override;
 
 private:
-    volatile LONG m_refCount;
+    std::atomic<LONG> m_refCount;
 };

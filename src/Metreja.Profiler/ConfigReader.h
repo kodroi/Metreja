@@ -21,6 +21,7 @@ struct ProfilerConfig
     std::string mode = "elt3";
     int maxEvents = 0;
     bool computeDeltas = true;
+    bool trackMemory = false;
     std::vector<FilterRule> includes;
     std::vector<FilterRule> excludes;
 };

@@ -4,7 +4,7 @@ public static class ProfilerLocator
 {
     private const string DllName = "Metreja.Profiler.dll";
 
-    public static string GetDefaultProfilerPath()
+    public static string? GetDefaultProfilerPath()
     {
         // Probe 1: Adjacent to the CLI assembly (works when installed as dotnet tool)
         var appBasePath = Path.Combine(AppContext.BaseDirectory, DllName);
@@ -16,7 +16,6 @@ public static class ProfilerLocator
         if (File.Exists(devPath))
             return devPath;
 
-        // Fall back to the app-base path so the user gets a meaningful error
-        return appBasePath;
+        return null;
     }
 }

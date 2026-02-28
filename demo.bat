@@ -105,11 +105,9 @@ set "NDJSON_FILE="
 for %%f in ("%OUTPUT_DIR%\trace-*.ndjson") do set "NDJSON_FILE=%%f"
 
 if not defined NDJSON_FILE (
-    echo WARNING: No NDJSON output file found in %OUTPUT_DIR%
+    echo ERROR: No NDJSON output file found in %OUTPUT_DIR%
     echo The profiler may not have attached successfully.
-    echo This is expected if the profiler needs debugging.
-    echo.
-    echo [7/7] Skipping validation - no output file.
+    exit /b 1
 ) else (
     echo    Output: !NDJSON_FILE!
     echo.

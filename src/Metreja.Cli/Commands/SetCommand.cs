@@ -20,34 +20,34 @@ public static class SetCommand
         command.Subcommands.Add(CreateModeCommand(sessionOption));
         command.Subcommands.Add(CreateMaxEventsCommand(sessionOption));
         command.Subcommands.Add(CreateComputeDeltasCommand(sessionOption));
+        command.Subcommands.Add(CreateTrackMemoryCommand(sessionOption));
 
         return command;
     }
 
     private static Command CreateMetadataCommand(Option<string> sessionOption)
     {
-        var scenarioOption = new Option<string>("--scenario") { Description = "Scenario name" };
-        var runIdOption = new Option<string>("--run-id") { Description = "Run ID" };
+        var scenarioArg = new Argument<string?>("scenario") { Description = "Scenario name", Arity = ArgumentArity.ZeroOrOne };
+        var runIdArg = new Argument<string?>("run-id") { Description = "Run ID", Arity = ArgumentArity.ZeroOrOne };
 
         var command = new Command("metadata", "Set metadata values");
         command.Options.Add(sessionOption);
-        command.Options.Add(scenarioOption);
-        command.Options.Add(runIdOption);
+        command.Arguments.Add(scenarioArg);
+        command.Arguments.Add(runIdArg);
 
         command.SetAction(async (parseResult, _) =>
         {
             var session = parseResult.GetValue(sessionOption)!;
-            var manager = new ConfigManager();
-            var config = await manager.LoadConfigAsync(session);
+            var scenario = parseResult.GetValue(scenarioArg);
+            var runId = parseResult.GetValue(runIdArg);
 
-            var metadata = config.Metadata;
-            var scenario = parseResult.GetValue(scenarioOption);
-            var runId = parseResult.GetValue(runIdOption);
-            if (scenario is not null) metadata = metadata with { Scenario = scenario };
-            if (runId is not null) metadata = metadata with { RunId = runId };
-
-            await manager.SaveConfigAsync(session, config with { Metadata = metadata });
-            Console.WriteLine($"Updated metadata for session {session}");
+            await SetConfigPropertyAsync(session, config =>
+            {
+                var metadata = config.Metadata;
+                if (scenario is not null) metadata = metadata with { Scenario = scenario };
+                if (runId is not null) metadata = metadata with { RunId = runId };
+                return config with { Metadata = metadata };
+            }, "metadata");
         });
 
         return command;
@@ -65,11 +65,10 @@ public static class SetCommand
         {
             var session = parseResult.GetValue(sessionOption)!;
             var path = parseResult.GetValue(pathArg)!;
-            var manager = new ConfigManager();
-            var config = await manager.LoadConfigAsync(session);
 
-            await manager.SaveConfigAsync(session, config with { Output = config.Output with { Path = path } });
-            Console.WriteLine($"Set output path to: {path}");
+            await SetConfigPropertyAsync(session,
+                config => config with { Output = config.Output with { Path = path } },
+                $"output path to: {path}");
         });
 
         return command;
@@ -87,12 +86,10 @@ public static class SetCommand
         {
             var session = parseResult.GetValue(sessionOption)!;
             var mode = parseResult.GetValue(modeArg)!;
-            var manager = new ConfigManager();
-            var config = await manager.LoadConfigAsync(session);
 
-            await manager.SaveConfigAsync(session,
-                config with { Instrumentation = config.Instrumentation with { Mode = mode } });
-            Console.WriteLine($"Set mode to: {mode}");
+            await SetConfigPropertyAsync(session,
+                config => config with { Instrumentation = config.Instrumentation with { Mode = mode } },
+                $"mode to: {mode}");
         });
 
         return command;
@@ -110,12 +107,10 @@ public static class SetCommand
         {
             var session = parseResult.GetValue(sessionOption)!;
             var value = parseResult.GetValue(valueArg);
-            var manager = new ConfigManager();
-            var config = await manager.LoadConfigAsync(session);
 
-            await manager.SaveConfigAsync(session,
-                config with { Instrumentation = config.Instrumentation with { MaxEvents = value } });
-            Console.WriteLine($"Set max-events to: {value}");
+            await SetConfigPropertyAsync(session,
+                config => config with { Instrumentation = config.Instrumentation with { MaxEvents = value } },
+                $"max-events to: {value}");
         });
 
         return command;
@@ -133,14 +128,42 @@ public static class SetCommand
         {
             var session = parseResult.GetValue(sessionOption)!;
             var value = parseResult.GetValue(valueArg);
-            var manager = new ConfigManager();
-            var config = await manager.LoadConfigAsync(session);
 
-            await manager.SaveConfigAsync(session,
-                config with { Instrumentation = config.Instrumentation with { ComputeDeltas = value } });
-            Console.WriteLine($"Set compute-deltas to: {value}");
+            await SetConfigPropertyAsync(session,
+                config => config with { Instrumentation = config.Instrumentation with { ComputeDeltas = value } },
+                $"compute-deltas to: {value}");
         });
 
         return command;
+    }
+
+    private static Command CreateTrackMemoryCommand(Option<string> sessionOption)
+    {
+        var valueArg = new Argument<bool>("value") { Description = "Enable GC and allocation tracking" };
+
+        var command = new Command("track-memory", "Enable or disable GC and allocation tracking");
+        command.Options.Add(sessionOption);
+        command.Arguments.Add(valueArg);
+
+        command.SetAction(async (parseResult, _) =>
+        {
+            var session = parseResult.GetValue(sessionOption)!;
+            var value = parseResult.GetValue(valueArg);
+
+            await SetConfigPropertyAsync(session,
+                config => config with { Instrumentation = config.Instrumentation with { TrackMemory = value } },
+                $"track-memory to: {value}");
+        });
+
+        return command;
+    }
+
+    private static async Task SetConfigPropertyAsync(
+        string session, Func<ProfilerConfig, ProfilerConfig> transform, string confirmationDetail)
+    {
+        var manager = new ConfigManager();
+        var config = await manager.LoadConfigAsync(session);
+        await manager.SaveConfigAsync(session, transform(config));
+        Console.WriteLine($"Set {confirmationDetail} for session {session}");
     }
 }

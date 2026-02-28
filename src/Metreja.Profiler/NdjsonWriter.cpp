@@ -41,6 +41,18 @@ NdjsonWriter::~NdjsonWriter()
     }
 }
 
+bool NdjsonWriter::CheckEventLimit() const
+{
+    return m_maxEvents > 0 && m_eventCount >= m_maxEvents;
+}
+
+void NdjsonWriter::WriteLockedEvent(const char* line, size_t len)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    AppendToBuffer(line, len);
+    m_eventCount++;
+}
+
 void NdjsonWriter::WriteRunMetadata(const std::string& runId, const std::string& scenario, DWORD pid, long long tsNs)
 {
     char line[2048];
@@ -58,7 +70,7 @@ void NdjsonWriter::WriteRunMetadata(const std::string& runId, const std::string&
 void NdjsonWriter::WriteEnter(long long tsNs, DWORD pid, const std::string& runId,
     DWORD tid, int depth, const MethodInfo& info)
 {
-    if (m_maxEvents > 0 && m_eventCount >= m_maxEvents)
+    if (CheckEventLimit())
         return;
 
     char line[2048];
@@ -71,17 +83,13 @@ void NdjsonWriter::WriteEnter(long long tsNs, DWORD pid, const std::string& runI
         info.isAsyncStateMachine ? "true" : "false");
 
     if (len > 0)
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        AppendToBuffer(line, static_cast<size_t>(len));
-        m_eventCount++;
-    }
+        WriteLockedEvent(line, static_cast<size_t>(len));
 }
 
 void NdjsonWriter::WriteLeave(long long tsNs, DWORD pid, const std::string& runId,
     DWORD tid, int depth, const MethodInfo& info, long long deltaNs)
 {
-    if (m_maxEvents > 0 && m_eventCount >= m_maxEvents)
+    if (CheckEventLimit())
         return;
 
     char line[2048];
@@ -95,17 +103,13 @@ void NdjsonWriter::WriteLeave(long long tsNs, DWORD pid, const std::string& runI
         deltaNs);
 
     if (len > 0)
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        AppendToBuffer(line, static_cast<size_t>(len));
-        m_eventCount++;
-    }
+        WriteLockedEvent(line, static_cast<size_t>(len));
 }
 
 void NdjsonWriter::WriteException(long long tsNs, DWORD pid, const std::string& runId,
     DWORD tid, const MethodInfo& info, const std::string& exType)
 {
-    if (m_maxEvents > 0 && m_eventCount >= m_maxEvents)
+    if (CheckEventLimit())
         return;
 
     char line[2048];
@@ -117,11 +121,57 @@ void NdjsonWriter::WriteException(long long tsNs, DWORD pid, const std::string& 
         exType.c_str());
 
     if (len > 0)
+        WriteLockedEvent(line, static_cast<size_t>(len));
+}
+
+void NdjsonWriter::WriteGcStarted(long long tsNs, DWORD pid, const std::string& runId,
+    bool gen0, bool gen1, bool gen2, const char* reason)
+{
+    char line[2048];
+    int len = snprintf(line, sizeof(line),
+        R"({"event":"gc_start","tsNs":%lld,"pid":%lu,"runId":"%s","gen0":%s,"gen1":%s,"gen2":%s,"reason":"%s"})""\n",
+        tsNs, pid, runId.c_str(),
+        gen0 ? "true" : "false",
+        gen1 ? "true" : "false",
+        gen2 ? "true" : "false",
+        reason);
+
+    if (len > 0)
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         AppendToBuffer(line, static_cast<size_t>(len));
-        m_eventCount++;
+        // GC events don't count against m_maxEvents
     }
+}
+
+void NdjsonWriter::WriteGcFinished(long long tsNs, DWORD pid, const std::string& runId, long long durationNs)
+{
+    char line[2048];
+    int len = snprintf(line, sizeof(line),
+        R"({"event":"gc_end","tsNs":%lld,"pid":%lu,"runId":"%s","durationNs":%lld})""\n",
+        tsNs, pid, runId.c_str(), durationNs);
+
+    if (len > 0)
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        AppendToBuffer(line, static_cast<size_t>(len));
+        // GC events don't count against m_maxEvents
+    }
+}
+
+void NdjsonWriter::WriteAllocByClass(long long tsNs, DWORD pid, const std::string& runId,
+    const std::string& className, ULONG count)
+{
+    if (CheckEventLimit())
+        return;
+
+    char line[2048];
+    int len = snprintf(line, sizeof(line),
+        R"({"event":"alloc_by_class","tsNs":%lld,"pid":%lu,"runId":"%s","className":"%s","count":%lu})""\n",
+        tsNs, pid, runId.c_str(), className.c_str(), count);
+
+    if (len > 0)
+        WriteLockedEvent(line, static_cast<size_t>(len));
 }
 
 void NdjsonWriter::Flush()
@@ -141,7 +191,7 @@ void NdjsonWriter::AppendToBuffer(const char* data, size_t len)
     if (len == 0)
         return;
 
-    // Flush at 80% capacity
+    // Flush at 80% capacity to avoid frequent small writes
     if (m_bufferPos + len > BUFFER_SIZE * 80 / 100)
     {
         if (m_fileHandle != INVALID_HANDLE_VALUE && m_bufferPos > 0)

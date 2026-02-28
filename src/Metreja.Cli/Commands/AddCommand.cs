@@ -65,8 +65,7 @@ public static class AddCommand
             var methods = parseResult.GetValue(methodOption) ?? [];
             var logLines = parseResult.GetValue(logLinesOption);
 
-            var rules = BuildRules(assemblies, namespaces, classes, methods, logLines);
-            if (rules is null)
+            if (!TryBuildRules(assemblies, namespaces, classes, methods, logLines, out var rules))
             {
                 Console.Error.WriteLine(
                     "Error: Only one filter option can have multiple values per command. " +
@@ -92,9 +91,11 @@ public static class AddCommand
         return command;
     }
 
-    private static List<FilterRule>? BuildRules(
-        string[] assemblies, string[] namespaces, string[] classes, string[] methods, bool logLines)
+    private static bool TryBuildRules(
+        string[] assemblies, string[] namespaces, string[] classes, string[] methods, bool logLines,
+        out List<FilterRule> rules)
     {
+        rules = [];
         var multiValueOptions = new (string[] values, string label)[]
         {
             (assemblies, "assembly"),
@@ -105,13 +106,13 @@ public static class AddCommand
 
         var multiCount = multiValueOptions.Count(o => o.values.Length > 1);
         if (multiCount > 1)
-            return null;
+            return false;
 
         var multiOption = multiValueOptions.FirstOrDefault(o => o.values.Length > 1);
 
         if (multiOption.values is null || multiOption.values.Length == 0)
         {
-            return
+            rules =
             [
                 new FilterRule
                 {
@@ -122,6 +123,7 @@ public static class AddCommand
                     LogLines = logLines
                 }
             ];
+            return true;
         }
 
         var baseAssembly = assemblies.Length == 1 ? assemblies[0] : "*";
@@ -129,7 +131,7 @@ public static class AddCommand
         var baseClass = classes.Length == 1 ? classes[0] : "*";
         var baseMethod = methods.Length == 1 ? methods[0] : "*";
 
-        return multiOption.values.Select(value => new FilterRule
+        rules = multiOption.values.Select(value => new FilterRule
         {
             Assembly = multiOption.label == "assembly" ? value : baseAssembly,
             Namespace = multiOption.label == "namespace" ? value : baseNamespace,
@@ -137,5 +139,6 @@ public static class AddCommand
             Method = multiOption.label == "method" ? value : baseMethod,
             LogLines = logLines
         }).ToList();
+        return true;
     }
 }

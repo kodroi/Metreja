@@ -6,16 +6,10 @@ public static class DiffAnalyzer
 {
     public static async Task AnalyzeAsync(string basePath, string comparePath)
     {
-        if (!File.Exists(basePath))
-        {
-            Console.Error.WriteLine($"Error: Base file not found: {basePath}");
+        if (!AnalyzerHelpers.ValidateFileExists(basePath, "Base file"))
             return;
-        }
-        if (!File.Exists(comparePath))
-        {
-            Console.Error.WriteLine($"Error: Compare file not found: {comparePath}");
+        if (!AnalyzerHelpers.ValidateFileExists(comparePath, "Compare file"))
             return;
-        }
 
         var baseTimings = await CollectMethodTimingsAsync(basePath);
         var compareTimings = await CollectMethodTimingsAsync(comparePath);
@@ -57,9 +51,7 @@ public static class DiffAnalyzer
                     continue;
 
                 var asm = root.TryGetProperty("asm", out var a) ? a.GetString() ?? "" : "";
-                var ns = root.TryGetProperty("ns", out var n) ? n.GetString() ?? "" : "";
-                var cls = root.TryGetProperty("cls", out var c) ? c.GetString() ?? "" : "";
-                var m = root.TryGetProperty("m", out var mp) ? mp.GetString() ?? "" : "";
+                var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
                 var deltaNs = root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0;
 
                 var key = $"{asm}.{ns}.{cls}.{m}";

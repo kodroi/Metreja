@@ -17,13 +17,16 @@ The native profiler DLL is bundled inside the tool package and auto-discovered a
 
 ## Use-Case Detection
 
-Activate this skill when the user's request matches either category:
+Activate this skill when the user's request matches any category:
 
 ```
 User request
   |
   |-- Contains performance keywords? --> Performance profiling
   |     (slow, optimize, bottleneck, performance, latency, profile)
+  |
+  |-- Contains memory keywords? --> Memory profiling
+  |     (memory, GC, garbage collection, allocation, heap, leak)
   |
   |-- Contains debugging keywords? --> Execution tracing
         (trace, exception, bug, flow, call path, what's happening, logging)
@@ -48,12 +51,13 @@ dotnet tool install -g Metreja
 1. **Identify the target project** — find the `.csproj` file and extract the assembly name (usually `<AssemblyName>` or the project file name without extension)
 2. **Choose a filter strategy** based on the use case:
 
-| Use Case | Include Filters | Exclude Filters | max-events |
-|----------|----------------|-----------------|------------|
-| Broad performance scan | `--assembly "AppName"` | `System.*`, `Microsoft.*` | 50000 |
-| Focused method perf | `--assembly "AppName" --class "ClassName"` | `System.*`, `Microsoft.*` | 50000 |
-| Debug specific flow | `--assembly "AppName" --namespace "Ns"` | (none) | 100000 |
-| Debug exception | `--assembly "AppName"` | (none) | 100000 |
+| Use Case | Include Filters | Exclude Filters | max-events | track-memory |
+|----------|----------------|-----------------|------------|--------------|
+| Broad performance scan | `--assembly "AppName"` | `System.*`, `Microsoft.*` | 50000 | false |
+| Focused method perf | `--assembly "AppName" --class "ClassName"` | `System.*`, `Microsoft.*` | 50000 | false |
+| Debug specific flow | `--assembly "AppName" --namespace "Ns"` | (none) | 100000 | false |
+| Debug exception | `--assembly "AppName"` | (none) | 100000 | false |
+| Memory / GC analysis | `--assembly "AppName"` | `System.*`, `Microsoft.*` | 50000 | **true** |
 
 **Filter patterns** support `*` as wildcard (e.g., `System.*` matches `System.IO`, `System.Linq`, etc.).
 
@@ -81,7 +85,10 @@ metreja set compute-deltas -s $SESSION true
 # 6. Set max events cap
 metreja set max-events -s $SESSION 50000
 
-# 7. Validate the session configuration
+# 7. Enable memory tracking (for GC/allocation analysis)
+metreja set track-memory -s $SESSION true
+
+# 8. Validate the session configuration
 metreja validate -s $SESSION
 ```
 
@@ -169,7 +176,26 @@ metreja hotspots trace.ndjson --filter "SlowClass"
 metreja hotspots trace.ndjson --filter "MyApp.Data" --filter "MyApp.Services"
 ```
 
-### Step 4: Iterative drill-down with new profiling sessions
+### Step 4: Memory analysis (when `track-memory` is enabled)
+
+```bash
+# GC summary + top-20 allocation-by-class hotspots
+metreja memory trace.ndjson
+
+# Show top 50 allocation types
+metreja memory trace.ndjson --top 50
+
+# Filter to specific types
+metreja memory trace.ndjson --filter "System.String" --filter "MyApp.Models"
+```
+
+The memory command shows:
+- **GC Summary**: total GC count by generation (gen0/1/2), total/avg/max pause time
+- **Allocation Hotspots**: per-class allocation counts sorted by count descending
+
+Use this to identify: frequent gen2 collections (memory pressure), high allocation rates for specific types, and correlate GC pauses with call-path timing.
+
+### Step 5: Iterative drill-down with new profiling sessions
 
 **When analysis reveals the bottleneck is in a specific class/namespace but you need more detail**, create a new profiling session with tighter filters and re-profile. This captures more events within the area of interest.
 
@@ -243,6 +269,7 @@ for l in sys.stdin:
 | `set compute-deltas` | `metreja set compute-deltas -s ID true\|false` | Enable/disable delta timing |
 | `set max-events` | `metreja set max-events -s ID N` | Cap event count (0 = unlimited) |
 | `set metadata` | `metreja set metadata -s ID [--scenario S] [--run-id R]` | Update scenario/runId |
+| `set track-memory` | `metreja set track-memory -s ID true\|false` | Enable/disable GC and allocation tracking |
 | `set mode` | `metreja set mode -s ID MODE` | Set instrumentation mode (`elt3`) |
 | `validate` | `metreja validate -s ID` | Validate session config |
 | `generate-env` | `metreja generate-env -s ID [--dll-path P] [--format batch\|powershell]` | Generate env var script (DLL path auto-detected) |
@@ -250,6 +277,7 @@ for l in sys.stdin:
 | `hotspots` | `metreja hotspots FILE [--top N] [--min-ms N] [--sort self\|inclusive] [--filter PAT]...` | Per-method timing hotspots with self time |
 | `calltree` | `metreja calltree FILE --method PAT [--tid N] [--occurrence N]` | Call tree for a specific method invocation |
 | `callers` | `metreja callers FILE --method PAT [--top N]` | Who calls a specific method, with timing |
+| `memory` | `metreja memory FILE [--top N] [--filter PAT]...` | GC summary and allocation hotspots by class |
 | `clear` | `metreja clear -s ID \| --all` | Delete session(s) |
 
 ## Common Pitfalls

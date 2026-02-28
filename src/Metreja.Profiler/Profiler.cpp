@@ -14,6 +14,7 @@ NdjsonWriter* g_ndjsonWriter = nullptr;
 // Global config (kept alive for the profiler lifetime)
 static ProfilerConfig g_config;
 static std::string g_runId;
+static long long g_gcStartNs = 0;
 
 MetrejaProfiler::MetrejaProfiler()
     : m_refCount(1)
@@ -96,6 +97,8 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Initialize(IUnknown* pICorProfilerInf
                     | COR_PRF_MONITOR_EXCEPTIONS
                     | COR_PRF_MONITOR_JIT_COMPILATION
                     | COR_PRF_ENABLE_FRAME_INFO;
+    if (g_config.trackMemory)
+        eventMask |= COR_PRF_MONITOR_GC;
     hr = m_profilerInfo->SetEventMask(eventMask);
     if (FAILED(hr))
         return hr;
@@ -257,7 +260,51 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::RuntimeThreadSuspended(ThreadID threa
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::RuntimeThreadResumed(ThreadID threadId) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::MovedReferences(ULONG cMovedObjectIDRanges, ObjectID oldObjectIDRangeStart[], ObjectID newObjectIDRangeStart[], ULONG cObjectIDRangeLength[]) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ObjectAllocated(ObjectID objectId, ClassID classId) { return S_OK; }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::ObjectsAllocatedByClass(ULONG cClassCount, ClassID classIds[], ULONG cObjects[]) { return S_OK; }
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::ObjectsAllocatedByClass(ULONG cClassCount, ClassID classIds[], ULONG cObjects[])
+{
+    if (g_ndjsonWriter == nullptr || m_profilerInfo == nullptr || !g_config.trackMemory)
+        return S_OK;
+
+    long long tsNs = CallStackManager::GetTimestampNs();
+    DWORD pid = GetCurrentProcessId();
+
+    for (ULONG i = 0; i < cClassCount; i++)
+    {
+        if (classIds[i] == 0 || cObjects[i] == 0)
+            continue;
+
+        // Resolve ClassID -> class name via metadata (same chain as ExceptionThrown)
+        ModuleID moduleId = 0;
+        mdTypeDef typeDef = 0;
+        HRESULT hr = m_profilerInfo->GetClassIDInfo(classIds[i], &moduleId, &typeDef);
+        if (FAILED(hr))
+            continue;
+
+        IUnknown* pUnk = nullptr;
+        hr = m_profilerInfo->GetModuleMetaData(moduleId, ofRead, IID_IMetaDataImport, &pUnk);
+        if (FAILED(hr) || pUnk == nullptr)
+            continue;
+
+        IMetaDataImport* metaImport = nullptr;
+        hr = pUnk->QueryInterface(IID_IMetaDataImport, reinterpret_cast<void**>(&metaImport));
+        pUnk->Release();
+        if (FAILED(hr) || metaImport == nullptr)
+            continue;
+
+        WCHAR typeName[512];
+        ULONG typeNameLen = 0;
+        hr = metaImport->GetTypeDefProps(typeDef, typeName, 512, &typeNameLen, nullptr, nullptr);
+        metaImport->Release();
+
+        std::string className = "Unknown";
+        if (SUCCEEDED(hr) && typeNameLen > 0)
+            className = MethodCache::WideToUtf8(typeName, static_cast<int>(typeNameLen - 1));
+
+        g_ndjsonWriter->WriteAllocByClass(tsNs, pid, g_runId, className, cObjects[i]);
+    }
+
+    return S_OK;
+}
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ObjectReferences(ObjectID objectId, ClassID classId, ULONG cObjectRefs, ObjectID objectRefIds[]) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::RootReferences(ULONG cRootRefs, ObjectID rootRefIds[]) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionSearchFunctionEnter(FunctionID functionId) { return S_OK; }
@@ -280,9 +327,42 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionCLRCatcherExecute() { return
 
 // ICorProfilerCallback2 - No-op stubs
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ThreadNameChanged(ThreadID threadId, ULONG cchName, WCHAR name[]) { return S_OK; }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::GarbageCollectionStarted(int cGenerations, BOOL generationCollected[], COR_PRF_GC_REASON reason) { return S_OK; }
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::GarbageCollectionStarted(int cGenerations, BOOL generationCollected[], COR_PRF_GC_REASON reason)
+{
+    if (g_ndjsonWriter == nullptr || !g_config.trackMemory)
+        return S_OK;
+
+    g_gcStartNs = CallStackManager::GetTimestampNs();
+    DWORD pid = GetCurrentProcessId();
+
+    bool gen0 = cGenerations > 0 && generationCollected[0];
+    bool gen1 = cGenerations > 1 && generationCollected[1];
+    bool gen2 = cGenerations > 2 && generationCollected[2];
+
+    const char* reasonStr;
+    switch (reason)
+    {
+    case COR_PRF_GC_INDUCED: reasonStr = "induced"; break;
+    case COR_PRF_GC_OTHER:   reasonStr = "other";   break;
+    default:                 reasonStr = "unknown";  break;
+    }
+
+    g_ndjsonWriter->WriteGcStarted(g_gcStartNs, pid, g_runId, gen0, gen1, gen2, reasonStr);
+    return S_OK;
+}
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::SurvivingReferences(ULONG cSurvivingObjectIDRanges, ObjectID objectIDRangeStart[], ULONG cObjectIDRangeLength[]) { return S_OK; }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::GarbageCollectionFinished() { return S_OK; }
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::GarbageCollectionFinished()
+{
+    if (g_ndjsonWriter == nullptr || !g_config.trackMemory)
+        return S_OK;
+
+    long long nowNs = CallStackManager::GetTimestampNs();
+    long long durationNs = (g_gcStartNs > 0) ? (nowNs - g_gcStartNs) : 0;
+    DWORD pid = GetCurrentProcessId();
+
+    g_ndjsonWriter->WriteGcFinished(nowNs, pid, g_runId, durationNs);
+    return S_OK;
+}
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::FinalizeableObjectQueued(DWORD finalizerFlags, ObjectID objectID) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::RootReferences2(ULONG cRootRefs, ObjectID rootRefIds[], COR_PRF_GC_ROOT_KIND rootKinds[], COR_PRF_GC_ROOT_FLAGS rootFlags[], UINT_PTR rootIds[]) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::HandleCreated(GCHandleID handleId, ObjectID initialObjectId) { return S_OK; }
@@ -295,44 +375,55 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ProfilerDetachSucceeded() { return S_
 
 // ELT3 C++ Stubs (called from MASM naked hooks)
 
-extern "C" void STDMETHODCALLTYPE EnterStub(FunctionIDOrClientID functionIDOrClientID, COR_PRF_ELT_INFO eltInfo)
+// Common preamble: validates subsystems, resolves method info, captures timing context.
+// Returns false if the event should be skipped.
+static inline bool PrepareStubContext(
+    FunctionIDOrClientID functionIDOrClientID,
+    const MethodInfo*& info, FunctionID& funcId,
+    long long& tsNs, DWORD& pid, DWORD& tid)
 {
     if (g_methodCache == nullptr || g_ndjsonWriter == nullptr || g_callStackManager == nullptr)
-        return;
+        return false;
 
-    FunctionID funcId = functionIDOrClientID.functionID;
-    const MethodInfo* info = g_methodCache->Lookup(funcId);
+    funcId = functionIDOrClientID.functionID;
+    info = g_methodCache->Lookup(funcId);
     if (info == nullptr || !info->isIncluded)
+        return false;
+
+    tsNs = CallStackManager::GetTimestampNs();
+    pid = GetCurrentProcessId();
+    tid = GetCurrentThreadId();
+    return true;
+}
+
+extern "C" void STDMETHODCALLTYPE EnterStub(FunctionIDOrClientID functionIDOrClientID, COR_PRF_ELT_INFO eltInfo)
+{
+    const MethodInfo* info;
+    FunctionID funcId;
+    long long tsNs;
+    DWORD pid, tid;
+    if (!PrepareStubContext(functionIDOrClientID, info, funcId, tsNs, pid, tid))
         return;
 
-    long long tsNs = CallStackManager::GetTimestampNs();
-    DWORD pid = GetCurrentProcessId();
-    DWORD tid = GetCurrentThreadId();
-    int depth = g_callStackManager->GetDepth(tid);
-
-    g_callStackManager->Push(tid, funcId, tsNs);
+    int depth = g_callStackManager->GetDepth();
+    g_callStackManager->Push(funcId, tsNs);
     g_ndjsonWriter->WriteEnter(tsNs, pid, g_runId, tid, depth, *info);
 }
 
 extern "C" void STDMETHODCALLTYPE LeaveStub(FunctionIDOrClientID functionIDOrClientID, COR_PRF_ELT_INFO eltInfo)
 {
-    if (g_methodCache == nullptr || g_ndjsonWriter == nullptr || g_callStackManager == nullptr)
+    const MethodInfo* info;
+    FunctionID funcId;
+    long long tsNs;
+    DWORD pid, tid;
+    if (!PrepareStubContext(functionIDOrClientID, info, funcId, tsNs, pid, tid))
         return;
 
-    FunctionID funcId = functionIDOrClientID.functionID;
-    const MethodInfo* info = g_methodCache->Lookup(funcId);
-    if (info == nullptr || !info->isIncluded)
-        return;
-
-    long long tsNs = CallStackManager::GetTimestampNs();
-    DWORD pid = GetCurrentProcessId();
-    DWORD tid = GetCurrentThreadId();
-
-    CallEntry entry = g_callStackManager->Pop(tid);
+    CallEntry entry = g_callStackManager->Pop();
     long long deltaNs = (g_config.computeDeltas && entry.enterTimestamp > 0)
         ? (tsNs - entry.enterTimestamp)
         : 0;
-    int depth = g_callStackManager->GetDepth(tid);
+    int depth = g_callStackManager->GetDepth();
 
     g_ndjsonWriter->WriteLeave(tsNs, pid, g_runId, tid, depth, *info, deltaNs);
 }

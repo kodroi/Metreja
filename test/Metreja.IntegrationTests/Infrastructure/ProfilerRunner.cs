@@ -1,12 +1,12 @@
 using System.Diagnostics;
 using System.Text.Json;
+using Metreja.Cli;
 using Metreja.Cli.Config;
 
 namespace Metreja.IntegrationTests.Infrastructure;
 
 public sealed class ProfilerRunner : IAsyncDisposable
 {
-    private const string ProfilerClsid = "{7C8F944B-4810-4999-BF98-6A3361185FC2}";
     private const string OutputFileName = "trace.ndjson";
 
     private readonly string _tempDir;
@@ -73,7 +73,7 @@ public sealed class ProfilerRunner : IAsyncDisposable
             };
 
             psi.Environment["CORECLR_ENABLE_PROFILING"] = "1";
-            psi.Environment["CORECLR_PROFILER"] = ProfilerClsid;
+            psi.Environment["CORECLR_PROFILER"] = MetrejaConstants.ProfilerClsid;
             psi.Environment["CORECLR_PROFILER_PATH"] = profilerDll;
             psi.Environment["METREJA_CONFIG"] = Path.GetFullPath(configPath);
 

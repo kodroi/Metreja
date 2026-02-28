@@ -6,11 +6,8 @@ public static class CallersAnalyzer
 {
     public static async Task AnalyzeAsync(string filePath, string methodPattern, int top)
     {
-        if (!File.Exists(filePath))
-        {
-            Console.Error.WriteLine($"Error: File not found: {filePath}");
+        if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
             return;
-        }
 
         var (callerStats, totalCalls) = await AggregateAsync(filePath, methodPattern);
 
@@ -34,7 +31,7 @@ public static class CallersAnalyzer
         {
             var avg = s.Count > 0 ? s.TotalNs / s.Count : 0;
             Console.WriteLine(
-                $"  {Truncate(caller, 50),-50} {s.Count,7} {FormatNs(s.TotalNs),12} {FormatNs(avg),12} {FormatNs(s.MaxNs),12}");
+                $"  {AnalyzerHelpers.Truncate(caller, 50),-50} {s.Count,7} {AnalyzerHelpers.FormatNs(s.TotalNs),12} {AnalyzerHelpers.FormatNs(avg),12} {AnalyzerHelpers.FormatNs(s.MaxNs),12}");
         }
 
         Console.WriteLine($"  {new string('-', 93)}");
@@ -60,11 +57,9 @@ public static class CallersAnalyzer
                     continue;
 
                 var eventType = eventProp.GetString();
-                var ns = root.TryGetProperty("ns", out var n) ? n.GetString() ?? "" : "";
-                var cls = root.TryGetProperty("cls", out var c) ? c.GetString() ?? "" : "";
-                var m = root.TryGetProperty("m", out var mp) ? mp.GetString() ?? "" : "";
+                var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
                 var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
-                var key = string.IsNullOrEmpty(ns) ? $"{cls}.{m}" : $"{ns}.{cls}.{m}";
+                var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
 
                 if (!threadStacks.TryGetValue(tid, out var stack))
                 {
@@ -80,7 +75,7 @@ public static class CallersAnalyzer
                 {
                     if (stack.Count > 0) stack.Pop();
 
-                    if (MatchesPattern(methodPattern, ns, cls, m))
+                    if (AnalyzerHelpers.MatchesPattern(methodPattern, ns, cls, m))
                     {
                         totalCalls++;
                         var deltaNs = root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0;
@@ -106,33 +101,6 @@ public static class CallersAnalyzer
         }
 
         return (callerStats, totalCalls);
-    }
-
-    private static bool MatchesPattern(string pattern, string ns, string cls, string m)
-    {
-        var full = string.IsNullOrEmpty(ns) ? $"{cls}.{m}" : $"{ns}.{cls}.{m}";
-        var clsMethod = $"{cls}.{m}";
-
-        return string.Equals(m, pattern, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(clsMethod, pattern, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(full, pattern, StringComparison.OrdinalIgnoreCase) ||
-               full.Contains(pattern, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string FormatNs(long ns)
-    {
-        return ns switch
-        {
-            < 1_000 => $"{ns}ns",
-            < 1_000_000 => $"{ns / 1_000.0:F2}us",
-            < 1_000_000_000 => $"{ns / 1_000_000.0:F2}ms",
-            _ => $"{ns / 1_000_000_000.0:F2}s"
-        };
-    }
-
-    private static string Truncate(string value, int maxLength)
-    {
-        return value.Length <= maxLength ? value : string.Concat("...", value.AsSpan(value.Length - maxLength + 3));
     }
 
     private sealed class CallerStats

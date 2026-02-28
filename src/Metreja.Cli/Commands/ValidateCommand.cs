@@ -29,10 +29,12 @@ public static class ValidateCommand
             catch (FileNotFoundException ex)
             {
                 Console.Error.WriteLine($"Error: {ex.Message}");
+                Environment.ExitCode = 1;
                 return;
             }
 
             var errors = new List<string>();
+            var warnings = new List<string>();
 
             if (string.IsNullOrWhiteSpace(config.Metadata.RunId))
                 errors.Add("metadata.runId is required");
@@ -41,7 +43,7 @@ public static class ValidateCommand
                 errors.Add("output.path is required");
 
             if (config.Instrumentation.Includes.Count == 0)
-                errors.Add("At least one include rule is recommended (currently includes everything)");
+                warnings.Add("At least one include rule is recommended (currently includes everything)");
 
             // Check output directory is writable
             var outputDir = Path.GetDirectoryName(config.Output.Path);
@@ -57,17 +59,27 @@ public static class ValidateCommand
                 }
             }
 
+            if (warnings.Count > 0)
+            {
+                Console.Error.WriteLine($"Warning(s):");
+                foreach (var warning in warnings)
+                {
+                    Console.Error.WriteLine($"  - {warning}");
+                }
+            }
+
             if (errors.Count == 0)
             {
-                Console.WriteLine("Validation passed. 0 errors.");
+                Console.WriteLine($"Validation passed. {warnings.Count} warning(s).");
             }
             else
             {
-                Console.WriteLine($"Validation found {errors.Count} issue(s):");
+                Console.Error.WriteLine($"Validation failed with {errors.Count} error(s):");
                 foreach (var error in errors)
                 {
-                    Console.WriteLine($"  - {error}");
+                    Console.Error.WriteLine($"  - {error}");
                 }
+                Environment.ExitCode = 1;
             }
         });
 

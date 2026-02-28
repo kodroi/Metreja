@@ -25,12 +25,12 @@ HRESULT STDMETHODCALLTYPE ClassFactory::QueryInterface(REFIID riid, void** ppvOb
 
 ULONG STDMETHODCALLTYPE ClassFactory::AddRef()
 {
-    return InterlockedIncrement(&m_refCount);
+    return m_refCount.fetch_add(1) + 1;
 }
 
 ULONG STDMETHODCALLTYPE ClassFactory::Release()
 {
-    ULONG count = InterlockedDecrement(&m_refCount);
+    LONG count = m_refCount.fetch_sub(1) - 1;
     if (count == 0)
         delete this;
     return count;

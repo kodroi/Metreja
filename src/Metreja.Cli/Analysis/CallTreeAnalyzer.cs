@@ -6,11 +6,8 @@ public static class CallTreeAnalyzer
 {
     public static async Task AnalyzeAsync(string filePath, string methodPattern, long? tidFilter, int occurrence)
     {
-        if (!File.Exists(filePath))
-        {
-            Console.Error.WriteLine($"Error: File not found: {filePath}");
+        if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
             return;
-        }
 
         // Pass 1: Find all occurrences of the method
         var occurrences = await FindOccurrencesAsync(filePath, methodPattern, tidFilter);
@@ -36,7 +33,7 @@ public static class CallTreeAnalyzer
         Console.WriteLine(
             $"Found {occurrences.Count} invocation(s). Showing #{occurrence} (slowest-first).");
         Console.WriteLine(
-            $"Call tree for tid {selected.Tid} (total: {FormatNs(selected.DeltaNs)})");
+            $"Call tree for tid {selected.Tid} (total: {AnalyzerHelpers.FormatNs(selected.DeltaNs)})");
         Console.WriteLine(new string('-', 80));
 
         // Pass 2: Extract and print the subtree
@@ -84,13 +81,11 @@ public static class CallTreeAnalyzer
                     var depth = stack.Count > 0 ? stack.Count - 1 : 0;
                     if (stack.Count > 0) stack.Pop();
 
-                    var ns = root.TryGetProperty("ns", out var n) ? n.GetString() ?? "" : "";
-                    var cls = root.TryGetProperty("cls", out var c) ? c.GetString() ?? "" : "";
-                    var m = root.TryGetProperty("m", out var mp) ? mp.GetString() ?? "" : "";
+                    var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
                     var deltaNs = root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0;
                     var tsNs = root.TryGetProperty("tsNs", out var ts) ? ts.GetInt64() : 0;
 
-                    if (MatchesPattern(methodPattern, ns, cls, m))
+                    if (AnalyzerHelpers.MatchesPattern(methodPattern, ns, cls, m))
                     {
                         occurrences.Add(new Occurrence
                         {
@@ -151,12 +146,10 @@ public static class CallTreeAnalyzer
 
                     if (inSubtree && depth >= target.Depth)
                     {
-                        var ns = root.TryGetProperty("ns", out var n) ? n.GetString() ?? "" : "";
-                        var cls = root.TryGetProperty("cls", out var c) ? c.GetString() ?? "" : "";
-                        var m = root.TryGetProperty("m", out var mp) ? mp.GetString() ?? "" : "";
+                        var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
                         var isAsync = root.TryGetProperty("async", out var asyncProp) &&
                                       asyncProp.ValueKind == JsonValueKind.True;
-                        var key = string.IsNullOrEmpty(ns) ? $"{cls}.{m}" : $"{ns}.{cls}.{m}";
+                        var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
 
                         var entry = new DisplayEntry
                         {
@@ -199,7 +192,7 @@ public static class CallTreeAnalyzer
         {
             var indent = new string(' ', entry.Depth * 2);
             var asyncTag = entry.IsAsync ? " [async]" : "";
-            var timing = entry.DeltaNs >= 0 ? $" ({FormatNs(entry.DeltaNs)})" : "";
+            var timing = entry.DeltaNs >= 0 ? $" ({AnalyzerHelpers.FormatNs(entry.DeltaNs)})" : "";
             Console.WriteLine($"{indent}{entry.Name}{asyncTag}{timing}");
 
             if (entry.IsException)
@@ -207,28 +200,6 @@ public static class CallTreeAnalyzer
                 Console.WriteLine($"{indent}  !! {entry.ExceptionType}");
             }
         }
-    }
-
-    private static bool MatchesPattern(string pattern, string ns, string cls, string m)
-    {
-        var full = string.IsNullOrEmpty(ns) ? $"{cls}.{m}" : $"{ns}.{cls}.{m}";
-        var clsMethod = $"{cls}.{m}";
-
-        return string.Equals(m, pattern, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(clsMethod, pattern, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(full, pattern, StringComparison.OrdinalIgnoreCase) ||
-               full.Contains(pattern, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string FormatNs(long ns)
-    {
-        return ns switch
-        {
-            < 1_000 => $"{ns}ns",
-            < 1_000_000 => $"{ns / 1_000.0:F2}us",
-            < 1_000_000_000 => $"{ns / 1_000_000.0:F2}ms",
-            _ => $"{ns / 1_000_000_000.0:F2}s"
-        };
     }
 
     private sealed class Occurrence

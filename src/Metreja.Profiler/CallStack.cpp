@@ -17,18 +17,18 @@ CallStackManager::~CallStackManager()
         TlsFree(m_tlsIndex);
 }
 
-void CallStackManager::Push(DWORD tid, UINT_PTR functionId, long long timestamp)
+void CallStackManager::Push(UINT_PTR functionId, long long timestamp)
 {
-    auto* stack = GetOrCreateStack(tid);
+    auto* stack = GetOrCreateStack();
     if (stack != nullptr)
     {
         stack->stack.push_back({ functionId, timestamp });
     }
 }
 
-CallEntry CallStackManager::Pop(DWORD tid)
+CallEntry CallStackManager::Pop()
 {
-    auto* stack = GetOrCreateStack(tid);
+    auto* stack = GetOrCreateStack();
     if (stack == nullptr || stack->stack.empty())
         return { 0, 0 };
 
@@ -37,7 +37,7 @@ CallEntry CallStackManager::Pop(DWORD tid)
     return entry;
 }
 
-int CallStackManager::GetDepth(DWORD tid) const
+int CallStackManager::GetDepth() const
 {
     if (m_tlsIndex == TLS_OUT_OF_INDEXES)
         return 0;
@@ -49,9 +49,9 @@ int CallStackManager::GetDepth(DWORD tid) const
     return static_cast<int>(stack->stack.size());
 }
 
-ThreadCallStack* CallStackManager::GetThreadStack(DWORD tid)
+ThreadCallStack* CallStackManager::GetThreadStack()
 {
-    return GetOrCreateStack(tid);
+    return GetOrCreateStack();
 }
 
 long long CallStackManager::GetTimestampNs()
@@ -76,7 +76,7 @@ void CallStackManager::InitFrequency()
     }
 }
 
-ThreadCallStack* CallStackManager::GetOrCreateStack(DWORD /*tid*/)
+ThreadCallStack* CallStackManager::GetOrCreateStack()
 {
     if (m_tlsIndex == TLS_OUT_OF_INDEXES)
         return nullptr;

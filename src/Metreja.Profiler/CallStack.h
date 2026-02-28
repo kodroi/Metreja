@@ -21,16 +21,16 @@ public:
     CallStackManager();
     ~CallStackManager();
 
-    void Push(DWORD tid, UINT_PTR functionId, long long timestamp);
-    CallEntry Pop(DWORD tid);
-    int GetDepth(DWORD tid) const;
-    ThreadCallStack* GetThreadStack(DWORD tid);
+    void Push(UINT_PTR functionId, long long timestamp);
+    CallEntry Pop();
+    int GetDepth() const;
+    ThreadCallStack* GetThreadStack();
 
     static long long GetTimestampNs();
     static void InitFrequency();
 
 private:
-    ThreadCallStack* GetOrCreateStack(DWORD tid);
+    ThreadCallStack* GetOrCreateStack();
 
     DWORD m_tlsIndex;
     static long long s_frequency;

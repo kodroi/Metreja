@@ -6,11 +6,8 @@ public static class HotspotsAnalyzer
 {
     public static async Task AnalyzeAsync(string filePath, int top, double minMs, string sortBy, string[] filters)
     {
-        if (!File.Exists(filePath))
-        {
-            Console.Error.WriteLine($"Error: File not found: {filePath}");
+        if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
             return;
-        }
 
         var stats = await AggregateAsync(filePath, filters);
 
@@ -36,7 +33,7 @@ public static class HotspotsAnalyzer
             var inclAvg = s.Count > 0 ? s.InclusiveTotal / s.Count : 0;
 
             Console.WriteLine(
-                $"{i + 1,-5} {Truncate(method, 50),-50} {s.Count,7} {FormatNs(s.SelfTotal),12} {FormatNs(selfAvg),10} {FormatNs(s.InclusiveTotal),12} {FormatNs(inclAvg),10}");
+                $"{i + 1,-5} {AnalyzerHelpers.Truncate(method, 50),-50} {s.Count,7} {AnalyzerHelpers.FormatNs(s.SelfTotal),12} {AnalyzerHelpers.FormatNs(selfAvg),10} {AnalyzerHelpers.FormatNs(s.InclusiveTotal),12} {AnalyzerHelpers.FormatNs(inclAvg),10}");
         }
 
         Console.WriteLine(new string('-', 106));
@@ -63,11 +60,9 @@ public static class HotspotsAnalyzer
                     continue;
 
                 var eventType = eventProp.GetString();
-                var ns = root.TryGetProperty("ns", out var n) ? n.GetString() ?? "" : "";
-                var cls = root.TryGetProperty("cls", out var c) ? c.GetString() ?? "" : "";
-                var m = root.TryGetProperty("m", out var mp) ? mp.GetString() ?? "" : "";
+                var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
                 var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
-                var key = string.IsNullOrEmpty(ns) ? $"{cls}.{m}" : $"{ns}.{cls}.{m}";
+                var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
 
                 if (!threadStacks.TryGetValue(tid, out var stack))
                 {
@@ -133,22 +128,6 @@ public static class HotspotsAnalyzer
         }
 
         return false;
-    }
-
-    private static string FormatNs(long ns)
-    {
-        return ns switch
-        {
-            < 1_000 => $"{ns}ns",
-            < 1_000_000 => $"{ns / 1_000.0:F2}us",
-            < 1_000_000_000 => $"{ns / 1_000_000.0:F2}ms",
-            _ => $"{ns / 1_000_000_000.0:F2}s"
-        };
-    }
-
-    private static string Truncate(string value, int maxLength)
-    {
-        return value.Length <= maxLength ? value : string.Concat("...", value.AsSpan(value.Length - maxLength + 3));
     }
 
     private sealed class StackFrame
