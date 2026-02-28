@@ -7,6 +7,9 @@ concurrency:
   group: publish
   cancel-in-progress: false
 
+permissions:
+  contents: write
+
 jobs:
   publish:
     runs-on: windows-latest
