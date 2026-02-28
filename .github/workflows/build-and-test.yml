@@ -1,0 +1,34 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Restore .NET dependencies
+        run: dotnet restore
+
+      - name: Build Metreja.Cli
+        run: dotnet build src/Metreja.Cli/Metreja.Cli.csproj -c Release --no-restore
+
+      - name: Build Metreja.Profiler (C++ DLL)
+        run: msbuild src/Metreja.Profiler/Metreja.Profiler.vcxproj /p:Configuration=Release /p:Platform=x64 "/p:SolutionDir=${{ github.workspace }}/"
+
+      - name: Run integration tests
+        run: dotnet test test/Metreja.IntegrationTests/Metreja.IntegrationTests.csproj -c Release --no-restore --verbosity normal
