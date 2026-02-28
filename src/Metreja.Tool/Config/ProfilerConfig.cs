@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Metreja.Cli.Config;
+namespace Metreja.Tool.Config;
 
 public record ProfilerConfig
 {

@@ -1,4 +1,4 @@
-namespace Metreja.Cli.Config;
+namespace Metreja.Tool.Config;
 
 public static class ProfilerLocator
 {

@@ -5,7 +5,7 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Metreja.Profiler", "src\Metreja.Profiler\Metreja.Profiler.vcxproj", "{A1B2C3D4-1234-5678-9ABC-DEF012345678}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Metreja.Cli", "src\Metreja.Cli\Metreja.Cli.csproj", "{B2C3D4E5-2345-6789-ABCD-EF0123456789}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Metreja.Tool", "src\Metreja.Tool\Metreja.Tool.csproj", "{B2C3D4E5-2345-6789-ABCD-EF0123456789}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Metreja.TestApp", "test\Metreja.TestApp\Metreja.TestApp.csproj", "{C3D4E5F6-3456-789A-BCDE-F01234567890}"
 EndProject

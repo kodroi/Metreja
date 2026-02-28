@@ -1,5 +1,5 @@
 using System.CommandLine;
-using Metreja.Cli.Commands;
+using Metreja.Tool.Commands;
 
 var rootCommand = new RootCommand("Metreja - .NET Call-Path Profiler CLI");
 
@@ -18,4 +18,8 @@ rootCommand.Subcommands.Add(CallersCommand.Create());
 rootCommand.Subcommands.Add(MemoryCommand.Create());
 
 var parseResult = rootCommand.Parse(args);
-return await parseResult.InvokeAsync();
+var exitCode = await parseResult.InvokeAsync();
+
+await Metreja.Tool.UpdateChecker.CheckForUpdateAsync();
+
+return exitCode;

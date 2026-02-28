@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Metreja.Cli\Metreja.Cli.csproj" />
+    <ProjectReference Include="..\..\src\Metreja.Tool\Metreja.Tool.csproj" />
   </ItemGroup>
 
 </Project>

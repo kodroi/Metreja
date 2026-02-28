@@ -210,14 +210,14 @@ All analysis commands read NDJSON trace files produced by the profiler.
 
 ### `hotspots`
 
-Show per-method timing hotspots with self time. Self time is inclusive time minus time spent in child calls. Supports filtering by method, class, or namespace name.
+Show per-method timing hotspots with self time and allocation counts. Self time is inclusive time minus time spent in child calls. When `track-memory` is enabled, the `Allocs` column shows allocations attributed to each method. Supports filtering by method, class, or namespace name.
 
 | Option / Argument | Type | Default | Description |
 |-------------------|------|---------|-------------|
 | `file` | string | — | **Required.** NDJSON trace file path |
 | `--top` | int | `20` | Number of methods to show |
 | `--min-ms` | double | `0.0` | Minimum time threshold in milliseconds |
-| `--sort` | string | `self` | Sort by: `self` or `inclusive` |
+| `--sort` | string | `self` | Sort by: `self`, `inclusive`, `calls`, or `allocs` |
 | `--filter` | string[] | — | Include only methods matching pattern(s) |
 
 ```bash

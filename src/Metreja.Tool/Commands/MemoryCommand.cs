@@ -1,7 +1,7 @@
 using System.CommandLine;
-using Metreja.Cli.Analysis;
+using Metreja.Tool.Analysis;
 
-namespace Metreja.Cli.Commands;
+namespace Metreja.Tool.Commands;
 
 public static class MemoryCommand
 {

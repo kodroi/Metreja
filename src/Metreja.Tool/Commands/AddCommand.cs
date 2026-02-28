@@ -1,7 +1,7 @@
 using System.CommandLine;
-using Metreja.Cli.Config;
+using Metreja.Tool.Config;
 
-namespace Metreja.Cli.Commands;
+namespace Metreja.Tool.Commands;
 
 public static class AddCommand
 {

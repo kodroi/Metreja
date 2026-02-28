@@ -1,4 +1,4 @@
-namespace Metreja.Cli;
+namespace Metreja.Tool;
 
 public static class MetrejaConstants
 {

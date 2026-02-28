@@ -7,7 +7,7 @@ echo ============================================
 echo.
 
 set "ROOT=%~dp0"
-set "CLI=%ROOT%src\Metreja.Cli\bin\Release\net10.0\metreja.exe"
+set "CLI=%ROOT%src\Metreja.Tool\bin\Release\net10.0\metreja.exe"
 set "DLL=%ROOT%bin\Release\Metreja.Profiler.dll"
 set "TESTAPP=%ROOT%test\Metreja.TestApp"
 set "OUTPUT_DIR=%ROOT%demo_output"

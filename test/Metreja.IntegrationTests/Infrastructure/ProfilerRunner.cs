@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
-using Metreja.Cli;
-using Metreja.Cli.Config;
+using Metreja.Tool;
+using Metreja.Tool.Config;
 
 namespace Metreja.IntegrationTests.Infrastructure;
 

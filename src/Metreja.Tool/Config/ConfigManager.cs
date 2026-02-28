@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 
-namespace Metreja.Cli.Config;
+namespace Metreja.Tool.Config;
 
 public class ConfigManager
 {

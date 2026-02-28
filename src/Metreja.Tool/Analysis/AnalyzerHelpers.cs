@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Metreja.Cli.Analysis;
+namespace Metreja.Tool.Analysis;
 
 internal static class AnalyzerHelpers
 {

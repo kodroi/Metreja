@@ -1,4 +1,4 @@
-using Metreja.Cli.Analysis;
+using Metreja.Tool.Analysis;
 using Metreja.IntegrationTests.Infrastructure;
 
 namespace Metreja.IntegrationTests.Tests;
