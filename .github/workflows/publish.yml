@@ -58,9 +58,11 @@ jobs:
         run: dotnet pack src/Metreja.Tool/Metreja.Tool.csproj -c Release --no-build -o artifacts /p:PackageVersion=${{ steps.gitversion.outputs.semVer }}
 
       - name: Push to NuGet.org
+        shell: bash
         run: dotnet nuget push artifacts/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
 
       - name: Create GitHub release
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "v${{ steps.gitversion.outputs.semVer }}" artifacts/*.nupkg --title "v${{ steps.gitversion.outputs.semVer }}" --generate-notes
