@@ -29,12 +29,12 @@ public static class ClearCommand
 
             if (all)
             {
-                await manager.DeleteAllSessionsAsync();
+                manager.DeleteAllSessions();
                 Console.WriteLine("All sessions deleted.");
             }
             else if (!string.IsNullOrEmpty(session))
             {
-                await manager.DeleteSessionAsync(session);
+                manager.DeleteSession(session);
                 Console.WriteLine($"Session {session} deleted.");
             }
             else

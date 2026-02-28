@@ -1,0 +1,53 @@
+---
+Language: Cpp
+BasedOnStyle: Microsoft
+
+# Indentation
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+NamespaceIndentation: None
+AccessModifierOffset: -4
+IndentCaseLabels: false
+
+# Braces — Allman style (opening brace on new line)
+BreakBeforeBraces: Allman
+Cpp11BracedListStyle: true
+
+# Line length
+ColumnLimit: 120
+
+# Includes — don't reorder (project has specific ordering needs)
+SortIncludes: Never
+
+# Pointers and references
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+# Spaces
+SpaceAfterCStyleCast: false
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+SpacesInAngles: Never
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+
+# One-line rules
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+
+# Other
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignTrailingComments: true
+BinPackArguments: true
+BinPackParameters: true
+BreakConstructorInitializers: BeforeComma
+ConstructorInitializerIndentWidth: 4
+MaxEmptyLinesToKeep: 1
+ReflowComments: true
+SortUsingDeclarations: true

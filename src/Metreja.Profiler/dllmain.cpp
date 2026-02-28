@@ -7,11 +7,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 {
     switch (ul_reason_for_call)
     {
-    case DLL_PROCESS_ATTACH:
-        DisableThreadLibraryCalls(hModule);
-        break;
-    case DLL_PROCESS_DETACH:
-        break;
+    case DLL_PROCESS_ATTACH: DisableThreadLibraryCalls(hModule); break;
+    case DLL_PROCESS_DETACH: break;
     }
     return TRUE;
 }
@@ -33,7 +30,4 @@ extern "C" HRESULT STDAPICALLTYPE DllGetClassObject(REFCLSID rclsid, REFIID riid
     return hr;
 }
 
-extern "C" HRESULT STDAPICALLTYPE DllCanUnloadNow()
-{
-    return S_FALSE;
-}
+extern "C" HRESULT STDAPICALLTYPE DllCanUnloadNow() { return S_FALSE; }

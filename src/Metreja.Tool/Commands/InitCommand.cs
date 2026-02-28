@@ -15,7 +15,7 @@ public static class InitCommand
         var command = new Command("init", "Initialize a new profiling session");
         command.Options.Add(scenarioOption);
 
-        command.SetAction(async (parseResult, cancellationToken) =>
+        command.SetAction(async (parseResult, _) =>
         {
             var scenario = parseResult.GetValue(scenarioOption);
             var manager = new ConfigManager();

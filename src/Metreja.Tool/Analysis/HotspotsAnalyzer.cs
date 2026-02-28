@@ -151,17 +151,17 @@ public static class HotspotsAnalyzer
 
     private sealed class StackFrame
     {
-        public string Key = "";
-        public long ChildrenNs;
+        public string Key { get; set; } = "";
+        public long ChildrenNs { get; set; }
     }
 
     private sealed class MethodStats
     {
-        public int Count;
-        public long InclusiveTotal;
-        public long InclusiveMax;
-        public long SelfTotal;
-        public long SelfMax;
-        public long AllocCount;
+        public int Count { get; set; }
+        public long InclusiveTotal { get; set; }
+        public long InclusiveMax { get; set; }
+        public long SelfTotal { get; set; }
+        public long SelfMax { get; set; }
+        public long AllocCount { get; set; }
     }
 }

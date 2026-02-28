@@ -15,9 +15,9 @@ struct FilterRule
 
 struct ProfilerConfig
 {
-    std::string runId;
+    std::string sessionId;
     std::string scenario;
-    std::string outputPath = ".metreja/output/{runId}_{pid}.ndjson";
+    std::string outputPath = ".metreja/output/{sessionId}_{pid}.ndjson";
     std::string mode = "elt3";
     int maxEvents = 0;
     bool computeDeltas = true;
@@ -34,5 +34,5 @@ public:
 
 private:
     static std::string GetEnvVar(const char* name);
-    static std::string ExpandPlaceholders(const std::string& path, const std::string& runId, DWORD pid);
+    static std::string ExpandPlaceholders(const std::string& path, const std::string& sessionId, DWORD pid);
 };

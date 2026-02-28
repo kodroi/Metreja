@@ -1,0 +1,12 @@
+{
+   "$schema": "https://alirezanet.github.io/Husky.Net/schema.json",
+   "tasks": [
+      {
+         "name": "clang-format-check",
+         "group": "pre-commit",
+         "command": "bash",
+         "args": ["-c", ".husky/clang-format-check.sh"],
+         "pathFilter": ["**/*.cpp", "**/*.h"]
+      }
+   ]
+}

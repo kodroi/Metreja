@@ -51,7 +51,7 @@ echo    Filters configured.
 echo.
 
 echo [3/7] Setting output...
-"%CLI%" set output -s %SESSION% "%OUTPUT_DIR%\trace-{runId}-{pid}.ndjson"
+"%CLI%" set output -s %SESSION% "%OUTPUT_DIR%\trace-{sessionId}-{pid}.ndjson"
 "%CLI%" set max-events -s %SESSION% 50000
 "%CLI%" set compute-deltas -s %SESSION% true
 echo    Output configured.

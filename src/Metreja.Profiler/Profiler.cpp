@@ -13,8 +13,8 @@ NdjsonWriter* g_ndjsonWriter = nullptr;
 
 // Global config (kept alive for the profiler lifetime)
 static ProfilerConfig g_config;
-static std::string g_runId;
-static long long g_gcStartNs = 0;
+static std::string g_sessionId;
+static long long g_gcStartNs;
 
 MetrejaProfiler::MetrejaProfiler()
     : m_refCount(1)
@@ -38,9 +38,7 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::QueryInterface(REFIID riid, void** pp
     if (ppvObject == nullptr)
         return E_POINTER;
 
-    if (riid == IID_IUnknown ||
-        riid == IID_ICorProfilerCallback ||
-        riid == IID_ICorProfilerCallback2 ||
+    if (riid == IID_IUnknown || riid == IID_ICorProfilerCallback || riid == IID_ICorProfilerCallback2 ||
         riid == IID_ICorProfilerCallback3)
     {
         *ppvObject = static_cast<ICorProfilerCallback3*>(this);
@@ -52,10 +50,7 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::QueryInterface(REFIID riid, void** pp
     return E_NOINTERFACE;
 }
 
-ULONG STDMETHODCALLTYPE MetrejaProfiler::AddRef()
-{
-    return m_refCount.fetch_add(1) + 1;
-}
+ULONG STDMETHODCALLTYPE MetrejaProfiler::AddRef() { return m_refCount.fetch_add(1) + 1; }
 
 ULONG STDMETHODCALLTYPE MetrejaProfiler::Release()
 {
@@ -78,7 +73,7 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Initialize(IUnknown* pICorProfilerInf
 
     // Load config
     g_config = ConfigReader::Load();
-    g_runId = g_config.runId;
+    g_sessionId = g_config.sessionId;
 
     // Init subsystems
     CallStackManager::InitFrequency();
@@ -86,17 +81,15 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Initialize(IUnknown* pICorProfilerInf
     g_methodCache = new MethodCache(m_profilerInfo, g_config);
     g_ndjsonWriter = new NdjsonWriter(g_config.outputPath, g_config.maxEvents);
 
-    // Write run_metadata event
+    // Write session_metadata event
     DWORD pid = GetCurrentProcessId();
     long long tsNs = CallStackManager::GetTimestampNs();
-    g_ndjsonWriter->WriteRunMetadata(g_runId, g_config.scenario, pid, tsNs);
+    g_ndjsonWriter->WriteSessionMetadata(g_sessionId, g_config.scenario, pid, tsNs);
 
     // Set event mask: ENTERLEAVE + EXCEPTIONS + JIT_COMPILATION + FRAME_INFO
     // COR_PRF_ENABLE_FRAME_INFO is required for SetEnterLeaveFunctionHooks3WithInfo
-    DWORD eventMask = COR_PRF_MONITOR_ENTERLEAVE
-                    | COR_PRF_MONITOR_EXCEPTIONS
-                    | COR_PRF_MONITOR_JIT_COMPILATION
-                    | COR_PRF_ENABLE_FRAME_INFO;
+    DWORD eventMask = COR_PRF_MONITOR_ENTERLEAVE | COR_PRF_MONITOR_EXCEPTIONS | COR_PRF_MONITOR_JIT_COMPILATION |
+                      COR_PRF_ENABLE_FRAME_INFO;
     if (g_config.trackMemory)
         eventMask |= COR_PRF_MONITOR_GC;
     hr = m_profilerInfo->SetEventMask(eventMask);
@@ -105,15 +98,13 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Initialize(IUnknown* pICorProfilerInf
 
     // Set ELT3 hooks via assembly naked stubs
     hr = m_profilerInfo->SetEnterLeaveFunctionHooks3WithInfo(
-        reinterpret_cast<FunctionEnter3WithInfo*>(EnterNaked),
-        reinterpret_cast<FunctionLeave3WithInfo*>(LeaveNaked),
+        reinterpret_cast<FunctionEnter3WithInfo*>(EnterNaked), reinterpret_cast<FunctionLeave3WithInfo*>(LeaveNaked),
         reinterpret_cast<FunctionTailcall3WithInfo*>(TailcallNaked));
     if (FAILED(hr))
         return hr;
 
     // Set FunctionIDMapper2 to filter excluded functions at JIT time
-    hr = m_profilerInfo->SetFunctionIDMapper2(
-        reinterpret_cast<FunctionIDMapper2*>(FunctionMapper), nullptr);
+    hr = m_profilerInfo->SetFunctionIDMapper2(reinterpret_cast<FunctionIDMapper2*>(FunctionMapper), nullptr);
     if (FAILED(hr))
         return hr;
 
@@ -155,10 +146,10 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Shutdown()
 
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::JITCompilationStarted(FunctionID functionId, BOOL fIsSafeToBlock)
 {
-    if (g_methodCache != nullptr)
-    {
-        g_methodCache->ResolveAndCache(functionId);
-    }
+    if (g_methodCache == nullptr)
+        return S_OK;
+
+    g_methodCache->ResolveAndCache(functionId);
     return S_OK;
 }
 
@@ -208,7 +199,7 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionThrown(ObjectID thrownObject
     DWORD tid = GetCurrentThreadId();
 
     MethodInfo exInfo{};
-    g_ndjsonWriter->WriteException(tsNs, pid, g_runId, tid, exInfo, exTypeName);
+    g_ndjsonWriter->WriteException(tsNs, pid, g_sessionId, tid, exInfo, exTypeName);
 
     return S_OK;
 }
@@ -216,31 +207,64 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionThrown(ObjectID thrownObject
 // ICorProfilerCallback - No-op stubs
 
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::AppDomainCreationStarted(AppDomainID appDomainId) { return S_OK; }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::AppDomainCreationFinished(AppDomainID appDomainId, HRESULT hrStatus) { return S_OK; }
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::AppDomainCreationFinished(AppDomainID appDomainId, HRESULT hrStatus)
+{
+    return S_OK;
+}
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::AppDomainShutdownStarted(AppDomainID appDomainId) { return S_OK; }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::AppDomainShutdownFinished(AppDomainID appDomainId, HRESULT hrStatus) { return S_OK; }
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::AppDomainShutdownFinished(AppDomainID appDomainId, HRESULT hrStatus)
+{
+    return S_OK;
+}
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::AssemblyLoadStarted(AssemblyID assemblyId) { return S_OK; }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::AssemblyLoadFinished(AssemblyID assemblyId, HRESULT hrStatus) { return S_OK; }
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::AssemblyLoadFinished(AssemblyID assemblyId, HRESULT hrStatus)
+{
+    return S_OK;
+}
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::AssemblyUnloadStarted(AssemblyID assemblyId) { return S_OK; }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::AssemblyUnloadFinished(AssemblyID assemblyId, HRESULT hrStatus) { return S_OK; }
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::AssemblyUnloadFinished(AssemblyID assemblyId, HRESULT hrStatus)
+{
+    return S_OK;
+}
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ModuleLoadStarted(ModuleID moduleId) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ModuleLoadFinished(ModuleID moduleId, HRESULT hrStatus) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ModuleUnloadStarted(ModuleID moduleId) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ModuleUnloadFinished(ModuleID moduleId, HRESULT hrStatus) { return S_OK; }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::ModuleAttachedToAssembly(ModuleID moduleId, AssemblyID AssemblyId) { return S_OK; }
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::ModuleAttachedToAssembly(ModuleID moduleId, AssemblyID AssemblyId)
+{
+    return S_OK;
+}
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ClassLoadStarted(ClassID classId) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ClassLoadFinished(ClassID classId, HRESULT hrStatus) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ClassUnloadStarted(ClassID classId) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ClassUnloadFinished(ClassID classId, HRESULT hrStatus) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::FunctionUnloadStarted(FunctionID functionId) { return S_OK; }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::JITCompilationFinished(FunctionID functionId, HRESULT hrStatus, BOOL fIsSafeToBlock) { return S_OK; }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::JITCachedFunctionSearchStarted(FunctionID functionId, BOOL* pbUseCachedFunction) { return S_OK; }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::JITCachedFunctionSearchFinished(FunctionID functionId, COR_PRF_JIT_CACHE result) { return S_OK; }
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::JITCompilationFinished(FunctionID functionId, HRESULT hrStatus,
+                                                                  BOOL fIsSafeToBlock)
+{
+    return S_OK;
+}
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::JITCachedFunctionSearchStarted(FunctionID functionId,
+                                                                          BOOL* pbUseCachedFunction)
+{
+    return S_OK;
+}
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::JITCachedFunctionSearchFinished(FunctionID functionId,
+                                                                           COR_PRF_JIT_CACHE result)
+{
+    return S_OK;
+}
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::JITFunctionPitched(FunctionID functionId) { return S_OK; }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::JITInlining(FunctionID callerId, FunctionID calleeId, BOOL* pfShouldInline) { return S_OK; }
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::JITInlining(FunctionID callerId, FunctionID calleeId, BOOL* pfShouldInline)
+{
+    return S_OK;
+}
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ThreadCreated(ThreadID threadId) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ThreadDestroyed(ThreadID threadId) { return S_OK; }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::ThreadAssignedToOSThread(ThreadID managedThreadId, DWORD osThreadId) { return S_OK; }
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::ThreadAssignedToOSThread(ThreadID managedThreadId, DWORD osThreadId)
+{
+    return S_OK;
+}
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::RemotingClientInvocationStarted() { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::RemotingClientSendingMessage(GUID* pCookie, BOOL fIsAsync) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::RemotingClientReceivingReply(GUID* pCookie, BOOL fIsAsync) { return S_OK; }
@@ -249,8 +273,16 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::RemotingServerReceivingMessage(GUID* 
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::RemotingServerInvocationStarted() { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::RemotingServerInvocationReturned() { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::RemotingServerSendingReply(GUID* pCookie, BOOL fIsAsync) { return S_OK; }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::UnmanagedToManagedTransition(FunctionID functionId, COR_PRF_TRANSITION_REASON reason) { return S_OK; }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::ManagedToUnmanagedTransition(FunctionID functionId, COR_PRF_TRANSITION_REASON reason) { return S_OK; }
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::UnmanagedToManagedTransition(FunctionID functionId,
+                                                                        COR_PRF_TRANSITION_REASON reason)
+{
+    return S_OK;
+}
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::ManagedToUnmanagedTransition(FunctionID functionId,
+                                                                        COR_PRF_TRANSITION_REASON reason)
+{
+    return S_OK;
+}
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::RuntimeSuspendStarted(COR_PRF_SUSPEND_REASON suspendReason) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::RuntimeSuspendFinished() { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::RuntimeSuspendAborted() { return S_OK; }
@@ -258,9 +290,15 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::RuntimeResumeStarted() { return S_OK;
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::RuntimeResumeFinished() { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::RuntimeThreadSuspended(ThreadID threadId) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::RuntimeThreadResumed(ThreadID threadId) { return S_OK; }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::MovedReferences(ULONG cMovedObjectIDRanges, ObjectID oldObjectIDRangeStart[], ObjectID newObjectIDRangeStart[], ULONG cObjectIDRangeLength[]) { return S_OK; }
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::MovedReferences(ULONG cMovedObjectIDRanges, ObjectID oldObjectIDRangeStart[],
+                                                           ObjectID newObjectIDRangeStart[],
+                                                           ULONG cObjectIDRangeLength[])
+{
+    return S_OK;
+}
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ObjectAllocated(ObjectID objectId, ClassID classId) { return S_OK; }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::ObjectsAllocatedByClass(ULONG cClassCount, ClassID classIds[], ULONG cObjects[])
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::ObjectsAllocatedByClass(ULONG cClassCount, ClassID classIds[],
+                                                                   ULONG cObjects[])
 {
     if (g_ndjsonWriter == nullptr || m_profilerInfo == nullptr || !g_config.trackMemory)
         return S_OK;
@@ -301,12 +339,16 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ObjectsAllocatedByClass(ULONG cClassC
             className = MethodCache::WideToUtf8(typeName, static_cast<int>(typeNameLen - 1));
 
         DWORD tid = GetCurrentThreadId();
-        g_ndjsonWriter->WriteAllocByClass(tsNs, pid, g_runId, tid, className, cObjects[i]);
+        g_ndjsonWriter->WriteAllocByClass(tsNs, pid, g_sessionId, tid, className, cObjects[i]);
     }
 
     return S_OK;
 }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::ObjectReferences(ObjectID objectId, ClassID classId, ULONG cObjectRefs, ObjectID objectRefIds[]) { return S_OK; }
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::ObjectReferences(ObjectID objectId, ClassID classId, ULONG cObjectRefs,
+                                                            ObjectID objectRefIds[])
+{
+    return S_OK;
+}
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::RootReferences(ULONG cRootRefs, ObjectID rootRefIds[]) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionSearchFunctionEnter(FunctionID functionId) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionSearchFunctionLeave() { return S_OK; }
@@ -319,16 +361,31 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionUnwindFunctionEnter(Function
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionUnwindFunctionLeave() { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionUnwindFinallyEnter(FunctionID functionId) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionUnwindFinallyLeave() { return S_OK; }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionCatcherEnter(FunctionID functionId, ObjectID objectId) { return S_OK; }
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionCatcherEnter(FunctionID functionId, ObjectID objectId)
+{
+    return S_OK;
+}
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionCatcherLeave() { return S_OK; }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::COMClassicVTableCreated(ClassID wrappedClassId, REFGUID implementedIID, void* pVTable, ULONG cSlots) { return S_OK; }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::COMClassicVTableDestroyed(ClassID wrappedClassId, REFGUID implementedIID, void* pVTable) { return S_OK; }
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::COMClassicVTableCreated(ClassID wrappedClassId, REFGUID implementedIID,
+                                                                   void* pVTable, ULONG cSlots)
+{
+    return S_OK;
+}
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::COMClassicVTableDestroyed(ClassID wrappedClassId, REFGUID implementedIID,
+                                                                     void* pVTable)
+{
+    return S_OK;
+}
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionCLRCatcherFound() { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionCLRCatcherExecute() { return S_OK; }
 
 // ICorProfilerCallback2 - No-op stubs
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::ThreadNameChanged(ThreadID threadId, ULONG cchName, WCHAR name[]) { return S_OK; }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::GarbageCollectionStarted(int cGenerations, BOOL generationCollected[], COR_PRF_GC_REASON reason)
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::ThreadNameChanged(ThreadID threadId, ULONG cchName, WCHAR name[])
+{
+    return S_OK;
+}
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::GarbageCollectionStarted(int cGenerations, BOOL generationCollected[],
+                                                                    COR_PRF_GC_REASON reason)
 {
     if (g_ndjsonWriter == nullptr || !g_config.trackMemory)
         return S_OK;
@@ -344,14 +401,19 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::GarbageCollectionStarted(int cGenerat
     switch (reason)
     {
     case COR_PRF_GC_INDUCED: reasonStr = "induced"; break;
-    case COR_PRF_GC_OTHER:   reasonStr = "other";   break;
-    default:                 reasonStr = "unknown";  break;
+    case COR_PRF_GC_OTHER: reasonStr = "other"; break;
+    default: reasonStr = "unknown"; break;
     }
 
-    g_ndjsonWriter->WriteGcStarted(g_gcStartNs, pid, g_runId, gen0, gen1, gen2, reasonStr);
+    g_ndjsonWriter->WriteGcStarted(g_gcStartNs, pid, g_sessionId, gen0, gen1, gen2, reasonStr);
     return S_OK;
 }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::SurvivingReferences(ULONG cSurvivingObjectIDRanges, ObjectID objectIDRangeStart[], ULONG cObjectIDRangeLength[]) { return S_OK; }
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::SurvivingReferences(ULONG cSurvivingObjectIDRanges,
+                                                               ObjectID objectIDRangeStart[],
+                                                               ULONG cObjectIDRangeLength[])
+{
+    return S_OK;
+}
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::GarbageCollectionFinished()
 {
     if (g_ndjsonWriter == nullptr || !g_config.trackMemory)
@@ -361,16 +423,28 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::GarbageCollectionFinished()
     long long durationNs = (g_gcStartNs > 0) ? (nowNs - g_gcStartNs) : 0;
     DWORD pid = GetCurrentProcessId();
 
-    g_ndjsonWriter->WriteGcFinished(nowNs, pid, g_runId, durationNs);
+    g_ndjsonWriter->WriteGcFinished(nowNs, pid, g_sessionId, durationNs);
     return S_OK;
 }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::FinalizeableObjectQueued(DWORD finalizerFlags, ObjectID objectID) { return S_OK; }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::RootReferences2(ULONG cRootRefs, ObjectID rootRefIds[], COR_PRF_GC_ROOT_KIND rootKinds[], COR_PRF_GC_ROOT_FLAGS rootFlags[], UINT_PTR rootIds[]) { return S_OK; }
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::FinalizeableObjectQueued(DWORD finalizerFlags, ObjectID objectID)
+{
+    return S_OK;
+}
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::RootReferences2(ULONG cRootRefs, ObjectID rootRefIds[],
+                                                           COR_PRF_GC_ROOT_KIND rootKinds[],
+                                                           COR_PRF_GC_ROOT_FLAGS rootFlags[], UINT_PTR rootIds[])
+{
+    return S_OK;
+}
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::HandleCreated(GCHandleID handleId, ObjectID initialObjectId) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::HandleDestroyed(GCHandleID handleId) { return S_OK; }
 
 // ICorProfilerCallback3 - No-op stubs
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::InitializeForAttach(IUnknown* pCorProfilerInfoUnk, void* pvClientData, UINT cbClientData) { return S_OK; }
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::InitializeForAttach(IUnknown* pCorProfilerInfoUnk, void* pvClientData,
+                                                               UINT cbClientData)
+{
+    return S_OK;
+}
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ProfilerAttachComplete() { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ProfilerDetachSucceeded() { return S_OK; }
 
@@ -378,10 +452,8 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ProfilerDetachSucceeded() { return S_
 
 // Common preamble: validates subsystems, resolves method info, captures timing context.
 // Returns false if the event should be skipped.
-static inline bool PrepareStubContext(
-    FunctionIDOrClientID functionIDOrClientID,
-    const MethodInfo*& info, FunctionID& funcId,
-    long long& tsNs, DWORD& pid, DWORD& tid)
+static inline bool PrepareStubContext(FunctionIDOrClientID functionIDOrClientID, const MethodInfo*& info,
+                                      FunctionID& funcId, long long& tsNs, DWORD& pid, DWORD& tid)
 {
     if (g_methodCache == nullptr || g_ndjsonWriter == nullptr || g_callStackManager == nullptr)
         return false;
@@ -408,7 +480,7 @@ extern "C" void STDMETHODCALLTYPE EnterStub(FunctionIDOrClientID functionIDOrCli
 
     int depth = g_callStackManager->GetDepth();
     g_callStackManager->Push(funcId, tsNs);
-    g_ndjsonWriter->WriteEnter(tsNs, pid, g_runId, tid, depth, *info);
+    g_ndjsonWriter->WriteEnter(tsNs, pid, g_sessionId, tid, depth, *info);
 }
 
 extern "C" void STDMETHODCALLTYPE LeaveStub(FunctionIDOrClientID functionIDOrClientID, COR_PRF_ELT_INFO eltInfo)
@@ -421,12 +493,10 @@ extern "C" void STDMETHODCALLTYPE LeaveStub(FunctionIDOrClientID functionIDOrCli
         return;
 
     CallEntry entry = g_callStackManager->Pop();
-    long long deltaNs = (g_config.computeDeltas && entry.enterTimestamp > 0)
-        ? (tsNs - entry.enterTimestamp)
-        : 0;
+    long long deltaNs = (g_config.computeDeltas && entry.enterTsNs > 0) ? (tsNs - entry.enterTsNs) : 0;
     int depth = g_callStackManager->GetDepth();
 
-    g_ndjsonWriter->WriteLeave(tsNs, pid, g_runId, tid, depth, *info, deltaNs);
+    g_ndjsonWriter->WriteLeave(tsNs, pid, g_sessionId, tid, depth, *info, deltaNs);
 }
 
 extern "C" void STDMETHODCALLTYPE TailcallStub(FunctionIDOrClientID functionIDOrClientID, COR_PRF_ELT_INFO eltInfo)

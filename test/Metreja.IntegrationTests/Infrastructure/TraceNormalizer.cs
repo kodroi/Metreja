@@ -16,7 +16,7 @@ public static class TraceNormalizer
         {
             var line = evt switch
             {
-                RunMetadataEvent meta => $"run_metadata scenario={Quote(meta.Scenario)}",
+                SessionMetadataEvent meta => $"session_metadata scenario={Quote(meta.Scenario)}",
                 LeaveEvent leave => FormatEnterLeave("leave", leave, ResolveThread(leave.Tid, threadMap, ref threadCounter)),
                 EnterEvent enter => FormatEnterLeave("enter", enter, ResolveThread(enter.Tid, threadMap, ref threadCounter)),
                 ExceptionEvent ex => FormatException(ex, ResolveThread(ex.Tid, threadMap, ref threadCounter)),

@@ -56,7 +56,7 @@ public class FullTraceSnapshotTests
         foreach (var evt in _fixture.Events)
         {
             Assert.True(
-                evt is RunMetadataEvent or EnterEvent or LeaveEvent or ExceptionEvent,
+                evt is SessionMetadataEvent or EnterEvent or LeaveEvent or ExceptionEvent,
                 $"Unexpected event type: {evt.GetType().Name}");
         }
     }

@@ -1,21 +1,21 @@
 # Metreja NDJSON Output Reference
 
-Metreja writes **Newline-Delimited JSON** — one event per line. The first event is always `run_metadata`, followed by `enter`, `leave`, and `exception` events.
+Metreja writes **Newline-Delimited JSON** — one event per line. The first event is always `session_metadata`, followed by `enter`, `leave`, and `exception` events.
 
 ## Event Type Schemas
 
-### `run_metadata` (first event in file)
+### `session_metadata` (first event in file)
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `event` | string | Always `"run_metadata"` |
+| `event` | string | Always `"session_metadata"` |
 | `tsNs` | long | Timestamp in nanoseconds |
 | `pid` | int | Process ID |
-| `runId` | string | Run identifier (8-char hex) |
+| `sessionId` | string | Session identifier (6-char hex) |
 | `scenario` | string | Scenario name from session config |
 
 ```json
-{"event":"run_metadata","tsNs":123456789,"pid":1234,"runId":"a1b2c3d4","scenario":"perf-test"}
+{"event":"session_metadata","tsNs":123456789,"pid":1234,"sessionId":"a1b2c3","scenario":"perf-test"}
 ```
 
 ### `enter` (method entry)
@@ -25,7 +25,7 @@ Metreja writes **Newline-Delimited JSON** — one event per line. The first even
 | `event` | string | Always `"enter"` |
 | `tsNs` | long | Monotonic nanosecond timestamp (QPC-based) |
 | `pid` | int | Process ID |
-| `runId` | string | Run identifier |
+| `sessionId` | string | Session identifier |
 | `tid` | int | OS thread ID |
 | `depth` | int | Call stack depth (0 = top-level) |
 | `asm` | string | Assembly name |
@@ -35,7 +35,7 @@ Metreja writes **Newline-Delimited JSON** — one event per line. The first even
 | `async` | bool | `true` if async state machine MoveNext |
 
 ```json
-{"event":"enter","tsNs":123456789,"pid":1234,"runId":"a1b2c3d4","tid":5678,"depth":2,"asm":"MyApp","ns":"MyApp.Services","cls":"OrderService","m":"ProcessOrder","async":false}
+{"event":"enter","tsNs":123456789,"pid":1234,"sessionId":"a1b2c3","tid":5678,"depth":2,"asm":"MyApp","ns":"MyApp.Services","cls":"OrderService","m":"ProcessOrder","async":false}
 ```
 
 ### `leave` (method exit)
@@ -47,7 +47,7 @@ Same fields as `enter` plus:
 | `deltaNs` | long | Elapsed nanoseconds from enter to leave |
 
 ```json
-{"event":"leave","tsNs":123556789,"pid":1234,"runId":"a1b2c3d4","tid":5678,"depth":2,"asm":"MyApp","ns":"MyApp.Services","cls":"OrderService","m":"ProcessOrder","async":false,"deltaNs":100000}
+{"event":"leave","tsNs":123556789,"pid":1234,"sessionId":"a1b2c3","tid":5678,"depth":2,"asm":"MyApp","ns":"MyApp.Services","cls":"OrderService","m":"ProcessOrder","async":false,"deltaNs":100000}
 ```
 
 ### `exception` (exception thrown)
@@ -57,7 +57,7 @@ Same fields as `enter` plus:
 | `event` | string | Always `"exception"` |
 | `tsNs` | long | Timestamp in nanoseconds |
 | `pid` | int | Process ID |
-| `runId` | string | Run identifier |
+| `sessionId` | string | Session identifier |
 | `tid` | int | OS thread ID |
 | `asm` | string | Assembly name |
 | `ns` | string | Namespace |
@@ -68,7 +68,7 @@ Same fields as `enter` plus:
 Note: exception events do **not** have `depth` or `async` fields.
 
 ```json
-{"event":"exception","tsNs":123656789,"pid":1234,"runId":"a1b2c3d4","tid":5678,"asm":"MyApp","ns":"MyApp.Services","cls":"OrderService","m":"ProcessOrder","exType":"System.InvalidOperationException"}
+{"event":"exception","tsNs":123656789,"pid":1234,"sessionId":"a1b2c3","tid":5678,"asm":"MyApp","ns":"MyApp.Services","cls":"OrderService","m":"ProcessOrder","exType":"System.InvalidOperationException"}
 ```
 
 ### `gc_start` (GC collection started)
@@ -78,14 +78,14 @@ Note: exception events do **not** have `depth` or `async` fields.
 | `event` | string | Always `"gc_start"` |
 | `tsNs` | long | Timestamp in nanoseconds |
 | `pid` | int | Process ID |
-| `runId` | string | Run identifier |
+| `sessionId` | string | Session identifier |
 | `gen0` | bool | Generation 0 collected |
 | `gen1` | bool | Generation 1 collected |
 | `gen2` | bool | Generation 2 collected |
 | `reason` | string | GC reason: `"induced"`, `"other"`, or `"unknown"` |
 
 ```json
-{"event":"gc_start","tsNs":123456789,"pid":1234,"runId":"a1b2c3d4","gen0":true,"gen1":false,"gen2":false,"reason":"other"}
+{"event":"gc_start","tsNs":123456789,"pid":1234,"sessionId":"a1b2c3","gen0":true,"gen1":false,"gen2":false,"reason":"other"}
 ```
 
 ### `gc_end` (GC collection finished)
@@ -95,11 +95,11 @@ Note: exception events do **not** have `depth` or `async` fields.
 | `event` | string | Always `"gc_end"` |
 | `tsNs` | long | Timestamp in nanoseconds |
 | `pid` | int | Process ID |
-| `runId` | string | Run identifier |
+| `sessionId` | string | Session identifier |
 | `durationNs` | long | GC pause duration in nanoseconds |
 
 ```json
-{"event":"gc_end","tsNs":123556789,"pid":1234,"runId":"a1b2c3d4","durationNs":1500000}
+{"event":"gc_end","tsNs":123556789,"pid":1234,"sessionId":"a1b2c3","durationNs":1500000}
 ```
 
 ### `alloc_by_class` (per-type allocation summary)
@@ -109,13 +109,13 @@ Note: exception events do **not** have `depth` or `async` fields.
 | `event` | string | Always `"alloc_by_class"` |
 | `tsNs` | long | Timestamp in nanoseconds |
 | `pid` | int | Process ID |
-| `runId` | string | Run identifier |
+| `sessionId` | string | Session identifier |
 | `tid` | int | OS thread ID |
 | `className` | string | Fully qualified type name |
 | `count` | int | Number of allocations of this type |
 
 ```json
-{"event":"alloc_by_class","tsNs":123556789,"pid":1234,"runId":"a1b2c3d4","tid":5678,"className":"System.String","count":1234}
+{"event":"alloc_by_class","tsNs":123556789,"pid":1234,"sessionId":"a1b2c3","tid":5678,"className":"System.String","count":1234}
 ```
 
 Note: `gc_start` and `gc_end` events are only emitted when `trackMemory` is enabled in the session config. They do **not** count against `maxEvents`. `alloc_by_class` events **do** count against `maxEvents`.
@@ -129,7 +129,7 @@ Note: `gc_start` and `gc_end` events are only emitted when `trackMemory` is enab
 | `depth` | Call stack depth. 0 = top-level entry point. Increases by 1 for each nested call. |
 | `tid` | OS thread ID. Use to separate interleaved events from concurrent threads. |
 | `async` | `true` when the method is an async state machine `MoveNext`. The `m` field contains the original method name (not `MoveNext`). |
-| `runId` | Unique per profiled execution. Matches the `run_metadata` event. |
+| `sessionId` | Session identifier. Matches the `session_metadata` event. |
 
 ## Async Method Interpretation
 
@@ -190,7 +190,7 @@ Async methods in .NET compile to state machine classes named `<MethodName>d__N`.
 
 The NDJSON output follows these invariants (enforced by `test/validate.py`):
 
-1. First event must be `run_metadata`
+1. First event must be `session_metadata`
 2. Each line must be valid JSON
 3. All required fields must be present for each event type
 4. Timestamps must be monotonically non-decreasing

@@ -105,8 +105,8 @@ public static class CallersAnalyzer
 
     private sealed class CallerStats
     {
-        public int Count;
-        public long TotalNs;
-        public long MaxNs;
+        public int Count { get; set; }
+        public long TotalNs { get; set; }
+        public long MaxNs { get; set; }
     }
 }

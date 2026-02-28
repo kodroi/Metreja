@@ -7,7 +7,7 @@
 
 struct MethodInfo
 {
-    FunctionID functionId = 0;
+    FunctionID methodId = 0;
     std::string assemblyName;
     std::string namespaceName;
     std::string className;
@@ -31,7 +31,8 @@ public:
     static std::string WideToUtf8(const WCHAR* wide, int len = -1);
 
 private:
-    bool EvaluateFilters(const std::string& assembly, const std::string& ns, const std::string& cls, const std::string& method, bool& outLogLines) const;
+    bool EvaluateFilters(const std::string& assembly, const std::string& ns, const std::string& cls,
+                         const std::string& method, bool& outLogLines) const;
     bool IsAsyncStateMachine(const std::string& className, const std::string& methodName) const;
     std::string ExtractOriginalMethodName(const std::string& className) const;
 

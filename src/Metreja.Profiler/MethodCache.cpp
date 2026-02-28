@@ -14,15 +14,14 @@ void MethodCache::ResolveAndCache(FunctionID functionId)
         return;
 
     MethodInfo info{};
-    info.functionId = functionId;
+    info.methodId = functionId;
 
     // Step 1: GetFunctionInfo2 -> ClassID, ModuleID, mdMethodDef
     ClassID classId = 0;
     ModuleID moduleId = 0;
     mdToken token = 0;
 
-    HRESULT hr = m_profilerInfo->GetFunctionInfo2(
-        functionId, 0, &classId, &moduleId, &token, 0, nullptr, nullptr);
+    HRESULT hr = m_profilerInfo->GetFunctionInfo2(functionId, 0, &classId, &moduleId, &token, 0, nullptr, nullptr);
     if (FAILED(hr))
     {
         // Fallback: try GetFunctionInfo (ICorProfilerInfo basic version)
@@ -62,9 +61,8 @@ void MethodCache::ResolveAndCache(FunctionID functionId)
     WCHAR methodName[512];
     ULONG methodNameLen = 0;
     mdTypeDef typeDef = 0;
-    hr = metaImport->GetMethodProps(
-        info.methodToken, &typeDef, methodName, 512, &methodNameLen,
-        nullptr, nullptr, nullptr, nullptr, nullptr);
+    hr = metaImport->GetMethodProps(info.methodToken, &typeDef, methodName, 512, &methodNameLen, nullptr, nullptr,
+                                    nullptr, nullptr, nullptr);
     if (SUCCEEDED(hr))
     {
         info.methodName = WideToUtf8(methodName, static_cast<int>(methodNameLen - 1));
@@ -106,13 +104,9 @@ void MethodCache::ResolveAndCache(FunctionID functionId)
         size_t lastSlash = fullPath.rfind('\\');
         if (lastSlash == std::string::npos)
             lastSlash = fullPath.rfind('/');
-        std::string fileName = (lastSlash != std::string::npos)
-            ? fullPath.substr(lastSlash + 1)
-            : fullPath;
+        std::string fileName = (lastSlash != std::string::npos) ? fullPath.substr(lastSlash + 1) : fullPath;
         size_t dotPos = fileName.rfind('.');
-        info.assemblyName = (dotPos != std::string::npos)
-            ? fileName.substr(0, dotPos)
-            : fileName;
+        info.assemblyName = (dotPos != std::string::npos) ? fileName.substr(0, dotPos) : fileName;
     }
 
     // Step 6: Detect async state machine
@@ -124,8 +118,7 @@ void MethodCache::ResolveAndCache(FunctionID functionId)
 
     // Step 7: Evaluate include/exclude filters
     bool logLines = false;
-    info.isIncluded = EvaluateFilters(
-        info.assemblyName, info.namespaceName, info.className, info.methodName, logLines);
+    info.isIncluded = EvaluateFilters(info.assemblyName, info.namespaceName, info.className, info.methodName, logLines);
     info.logLines = logLines;
 
     m_cache[functionId] = info;
@@ -146,8 +139,8 @@ bool MethodCache::ShouldHook(FunctionID functionId)
     return info != nullptr && info->isIncluded;
 }
 
-bool MethodCache::EvaluateFilters(const std::string& assembly, const std::string& ns,
-    const std::string& cls, const std::string& method, bool& outLogLines) const
+bool MethodCache::EvaluateFilters(const std::string& assembly, const std::string& ns, const std::string& cls,
+                                  const std::string& method, bool& outLogLines) const
 {
     outLogLines = false;
 
@@ -158,8 +151,7 @@ bool MethodCache::EvaluateFilters(const std::string& assembly, const std::string
     for (const auto& rule : m_config.includes)
     {
         if (ConfigReader::SimpleGlobMatch(rule.assembly, assembly) &&
-            ConfigReader::SimpleGlobMatch(rule.nameSpace, ns) &&
-            ConfigReader::SimpleGlobMatch(rule.cls, cls) &&
+            ConfigReader::SimpleGlobMatch(rule.nameSpace, ns) && ConfigReader::SimpleGlobMatch(rule.cls, cls) &&
             ConfigReader::SimpleGlobMatch(rule.method, method))
         {
             included = true;
@@ -176,8 +168,7 @@ bool MethodCache::EvaluateFilters(const std::string& assembly, const std::string
     for (const auto& rule : m_config.excludes)
     {
         if (ConfigReader::SimpleGlobMatch(rule.assembly, assembly) &&
-            ConfigReader::SimpleGlobMatch(rule.nameSpace, ns) &&
-            ConfigReader::SimpleGlobMatch(rule.cls, cls) &&
+            ConfigReader::SimpleGlobMatch(rule.nameSpace, ns) && ConfigReader::SimpleGlobMatch(rule.cls, cls) &&
             ConfigReader::SimpleGlobMatch(rule.method, method))
         {
             return false;

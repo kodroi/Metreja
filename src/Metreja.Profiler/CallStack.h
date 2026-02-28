@@ -6,7 +6,7 @@
 struct CallEntry
 {
     UINT_PTR functionId;
-    long long enterTimestamp;
+    long long enterTsNs;
 };
 
 struct ThreadCallStack

@@ -49,7 +49,8 @@ public:
     HRESULT STDMETHODCALLTYPE ClassUnloadFinished(ClassID classId, HRESULT hrStatus) override;
     HRESULT STDMETHODCALLTYPE FunctionUnloadStarted(FunctionID functionId) override;
     HRESULT STDMETHODCALLTYPE JITCompilationStarted(FunctionID functionId, BOOL fIsSafeToBlock) override;
-    HRESULT STDMETHODCALLTYPE JITCompilationFinished(FunctionID functionId, HRESULT hrStatus, BOOL fIsSafeToBlock) override;
+    HRESULT STDMETHODCALLTYPE JITCompilationFinished(FunctionID functionId, HRESULT hrStatus,
+                                                     BOOL fIsSafeToBlock) override;
     HRESULT STDMETHODCALLTYPE JITCachedFunctionSearchStarted(FunctionID functionId, BOOL* pbUseCachedFunction) override;
     HRESULT STDMETHODCALLTYPE JITCachedFunctionSearchFinished(FunctionID functionId, COR_PRF_JIT_CACHE result) override;
     HRESULT STDMETHODCALLTYPE JITFunctionPitched(FunctionID functionId) override;
@@ -65,8 +66,10 @@ public:
     HRESULT STDMETHODCALLTYPE RemotingServerInvocationStarted() override;
     HRESULT STDMETHODCALLTYPE RemotingServerInvocationReturned() override;
     HRESULT STDMETHODCALLTYPE RemotingServerSendingReply(GUID* pCookie, BOOL fIsAsync) override;
-    HRESULT STDMETHODCALLTYPE UnmanagedToManagedTransition(FunctionID functionId, COR_PRF_TRANSITION_REASON reason) override;
-    HRESULT STDMETHODCALLTYPE ManagedToUnmanagedTransition(FunctionID functionId, COR_PRF_TRANSITION_REASON reason) override;
+    HRESULT STDMETHODCALLTYPE UnmanagedToManagedTransition(FunctionID functionId,
+                                                           COR_PRF_TRANSITION_REASON reason) override;
+    HRESULT STDMETHODCALLTYPE ManagedToUnmanagedTransition(FunctionID functionId,
+                                                           COR_PRF_TRANSITION_REASON reason) override;
     HRESULT STDMETHODCALLTYPE RuntimeSuspendStarted(COR_PRF_SUSPEND_REASON suspendReason) override;
     HRESULT STDMETHODCALLTYPE RuntimeSuspendFinished() override;
     HRESULT STDMETHODCALLTYPE RuntimeSuspendAborted() override;
@@ -74,10 +77,12 @@ public:
     HRESULT STDMETHODCALLTYPE RuntimeResumeFinished() override;
     HRESULT STDMETHODCALLTYPE RuntimeThreadSuspended(ThreadID threadId) override;
     HRESULT STDMETHODCALLTYPE RuntimeThreadResumed(ThreadID threadId) override;
-    HRESULT STDMETHODCALLTYPE MovedReferences(ULONG cMovedObjectIDRanges, ObjectID oldObjectIDRangeStart[], ObjectID newObjectIDRangeStart[], ULONG cObjectIDRangeLength[]) override;
+    HRESULT STDMETHODCALLTYPE MovedReferences(ULONG cMovedObjectIDRanges, ObjectID oldObjectIDRangeStart[],
+                                              ObjectID newObjectIDRangeStart[], ULONG cObjectIDRangeLength[]) override;
     HRESULT STDMETHODCALLTYPE ObjectAllocated(ObjectID objectId, ClassID classId) override;
     HRESULT STDMETHODCALLTYPE ObjectsAllocatedByClass(ULONG cClassCount, ClassID classIds[], ULONG cObjects[]) override;
-    HRESULT STDMETHODCALLTYPE ObjectReferences(ObjectID objectId, ClassID classId, ULONG cObjectRefs, ObjectID objectRefIds[]) override;
+    HRESULT STDMETHODCALLTYPE ObjectReferences(ObjectID objectId, ClassID classId, ULONG cObjectRefs,
+                                               ObjectID objectRefIds[]) override;
     HRESULT STDMETHODCALLTYPE RootReferences(ULONG cRootRefs, ObjectID rootRefIds[]) override;
     HRESULT STDMETHODCALLTYPE ExceptionThrown(ObjectID thrownObjectId) override;
     HRESULT STDMETHODCALLTYPE ExceptionSearchFunctionEnter(FunctionID functionId) override;
@@ -93,23 +98,29 @@ public:
     HRESULT STDMETHODCALLTYPE ExceptionUnwindFinallyLeave() override;
     HRESULT STDMETHODCALLTYPE ExceptionCatcherEnter(FunctionID functionId, ObjectID objectId) override;
     HRESULT STDMETHODCALLTYPE ExceptionCatcherLeave() override;
-    HRESULT STDMETHODCALLTYPE COMClassicVTableCreated(ClassID wrappedClassId, REFGUID implementedIID, void* pVTable, ULONG cSlots) override;
-    HRESULT STDMETHODCALLTYPE COMClassicVTableDestroyed(ClassID wrappedClassId, REFGUID implementedIID, void* pVTable) override;
+    HRESULT STDMETHODCALLTYPE COMClassicVTableCreated(ClassID wrappedClassId, REFGUID implementedIID, void* pVTable,
+                                                      ULONG cSlots) override;
+    HRESULT STDMETHODCALLTYPE COMClassicVTableDestroyed(ClassID wrappedClassId, REFGUID implementedIID,
+                                                        void* pVTable) override;
     HRESULT STDMETHODCALLTYPE ExceptionCLRCatcherFound() override;
     HRESULT STDMETHODCALLTYPE ExceptionCLRCatcherExecute() override;
 
     // ICorProfilerCallback2
     HRESULT STDMETHODCALLTYPE ThreadNameChanged(ThreadID threadId, ULONG cchName, WCHAR name[]) override;
-    HRESULT STDMETHODCALLTYPE GarbageCollectionStarted(int cGenerations, BOOL generationCollected[], COR_PRF_GC_REASON reason) override;
-    HRESULT STDMETHODCALLTYPE SurvivingReferences(ULONG cSurvivingObjectIDRanges, ObjectID objectIDRangeStart[], ULONG cObjectIDRangeLength[]) override;
+    HRESULT STDMETHODCALLTYPE GarbageCollectionStarted(int cGenerations, BOOL generationCollected[],
+                                                       COR_PRF_GC_REASON reason) override;
+    HRESULT STDMETHODCALLTYPE SurvivingReferences(ULONG cSurvivingObjectIDRanges, ObjectID objectIDRangeStart[],
+                                                  ULONG cObjectIDRangeLength[]) override;
     HRESULT STDMETHODCALLTYPE GarbageCollectionFinished() override;
     HRESULT STDMETHODCALLTYPE FinalizeableObjectQueued(DWORD finalizerFlags, ObjectID objectID) override;
-    HRESULT STDMETHODCALLTYPE RootReferences2(ULONG cRootRefs, ObjectID rootRefIds[], COR_PRF_GC_ROOT_KIND rootKinds[], COR_PRF_GC_ROOT_FLAGS rootFlags[], UINT_PTR rootIds[]) override;
+    HRESULT STDMETHODCALLTYPE RootReferences2(ULONG cRootRefs, ObjectID rootRefIds[], COR_PRF_GC_ROOT_KIND rootKinds[],
+                                              COR_PRF_GC_ROOT_FLAGS rootFlags[], UINT_PTR rootIds[]) override;
     HRESULT STDMETHODCALLTYPE HandleCreated(GCHandleID handleId, ObjectID initialObjectId) override;
     HRESULT STDMETHODCALLTYPE HandleDestroyed(GCHandleID handleId) override;
 
     // ICorProfilerCallback3
-    HRESULT STDMETHODCALLTYPE InitializeForAttach(IUnknown* pCorProfilerInfoUnk, void* pvClientData, UINT cbClientData) override;
+    HRESULT STDMETHODCALLTYPE InitializeForAttach(IUnknown* pCorProfilerInfoUnk, void* pvClientData,
+                                                  UINT cbClientData) override;
     HRESULT STDMETHODCALLTYPE ProfilerAttachComplete() override;
     HRESULT STDMETHODCALLTYPE ProfilerDetachSucceeded() override;
 

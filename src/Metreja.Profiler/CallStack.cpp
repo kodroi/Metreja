@@ -22,7 +22,7 @@ void CallStackManager::Push(UINT_PTR functionId, long long timestamp)
     auto* stack = GetOrCreateStack();
     if (stack != nullptr)
     {
-        stack->stack.push_back({ functionId, timestamp });
+        stack->stack.push_back({functionId, timestamp});
     }
 }
 
@@ -30,7 +30,7 @@ CallEntry CallStackManager::Pop()
 {
     auto* stack = GetOrCreateStack();
     if (stack == nullptr || stack->stack.empty())
-        return { 0, 0 };
+        return {0, 0};
 
     CallEntry entry = stack->stack.back();
     stack->stack.pop_back();
@@ -49,10 +49,7 @@ int CallStackManager::GetDepth() const
     return static_cast<int>(stack->stack.size());
 }
 
-ThreadCallStack* CallStackManager::GetThreadStack()
-{
-    return GetOrCreateStack();
-}
+ThreadCallStack* CallStackManager::GetThreadStack() { return GetOrCreateStack(); }
 
 long long CallStackManager::GetTimestampNs()
 {

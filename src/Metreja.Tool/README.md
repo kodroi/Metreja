@@ -82,7 +82,7 @@ metreja analyze-diff baseline.ndjson optimized.ndjson
 
 ### `init`
 
-Initialize a new profiling session. Creates a config file at `.metreja/sessions/{sessionId}.json` with a random 6-hex-char session ID and an auto-generated 8-char run ID.
+Initialize a new profiling session. Creates a config file at `.metreja/sessions/{sessionId}.json` with a random 6-hex-char session ID.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -155,11 +155,9 @@ Set session configuration values via subcommands.
 |-------------------|------|-------------|
 | `-s`, `--session` | string | **Required.** Session ID |
 | `scenario` | string | Scenario name |
-| `run-id` | string | Run ID |
 
 ```bash
 metreja set metadata -s a1b2c3 "after-refactor"
-metreja set metadata -s a1b2c3 "after-refactor" "run002"
 ```
 
 #### `set output`
@@ -170,7 +168,7 @@ metreja set metadata -s a1b2c3 "after-refactor" "run002"
 | `path` | string | **Required.** Output file path pattern |
 
 ```bash
-metreja set output -s a1b2c3 ".metreja/output/{runId}_{pid}.ndjson"
+metreja set output -s a1b2c3 ".metreja/output/{sessionId}_{pid}.ndjson"
 ```
 
 #### `set mode`
@@ -219,7 +217,7 @@ metreja set track-memory -s a1b2c3 true
 
 ### `validate`
 
-Validate session configuration. Checks for missing run ID, missing output path, and verifies the output directory can be created. Exits with code 1 on errors.
+Validate session configuration. Checks for missing output path and verifies the output directory can be created. Exits with code 1 on errors.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -352,8 +350,7 @@ Session configs are stored at `.metreja/sessions/{sessionId}.json`:
 {
   "sessionId": "a1b2c3",
   "metadata": {
-    "scenario": "baseline",
-    "runId": "e4f5a6b7"
+    "scenario": "baseline"
   },
   "instrumentation": {
     "mode": "elt3",
@@ -372,7 +369,7 @@ Session configs are stored at `.metreja/sessions/{sessionId}.json`:
     "excludes": []
   },
   "output": {
-    "path": ".metreja/output/{runId}_{pid}.ndjson",
+    "path": ".metreja/output/{sessionId}_{pid}.ndjson",
     "format": "ndjson"
   }
 }
@@ -384,7 +381,7 @@ The output path supports two token placeholders expanded at runtime by the nativ
 
 | Token | Replaced With |
 |-------|---------------|
-| `{runId}` | The `metadata.runId` value from the session config |
+| `{sessionId}` | The `sessionId` value from the session config |
 | `{pid}` | The process ID of the profiled application |
 
-Default output path: `.metreja/output/{runId}_{pid}.ndjson`
+Default output path: `.metreja/output/{sessionId}_{pid}.ndjson`

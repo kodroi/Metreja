@@ -204,20 +204,20 @@ public static class CallTreeAnalyzer
 
     private sealed class Occurrence
     {
-        public long Tid;
-        public int Depth;
-        public long EnterTsNs;
-        public long LeaveTsNs;
-        public long DeltaNs;
+        public long Tid { get; set; }
+        public int Depth { get; set; }
+        public long EnterTsNs { get; set; }
+        public long LeaveTsNs { get; set; }
+        public long DeltaNs { get; set; }
     }
 
     private sealed class DisplayEntry
     {
-        public int Depth;
-        public string Name = "";
-        public bool IsAsync;
-        public long DeltaNs = -1;
-        public bool IsException;
-        public string ExceptionType = "";
+        public int Depth { get; set; }
+        public string Name { get; set; } = "";
+        public bool IsAsync { get; set; }
+        public long DeltaNs { get; set; } = -1;
+        public bool IsException { get; set; }
+        public string ExceptionType { get; set; } = "";
     }
 }

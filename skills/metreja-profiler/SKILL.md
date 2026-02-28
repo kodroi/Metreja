@@ -77,7 +77,7 @@ metreja add exclude -s $SESSION --assembly "System.*"
 metreja add exclude -s $SESSION --assembly "Microsoft.*"
 
 # 4. Set output path (use tokens for unique filenames)
-metreja set output -s $SESSION "trace-{runId}-{pid}.ndjson"
+metreja set output -s $SESSION "trace-{sessionId}-{pid}.ndjson"
 
 # 5. Enable delta timing (required for performance analysis)
 metreja set compute-deltas -s $SESSION true
@@ -92,7 +92,7 @@ metreja set track-memory -s $SESSION true
 metreja validate -s $SESSION
 ```
 
-Validation checks: `runId` exists, `output.path` set, at least one include rule, output directory writable. Fix any reported errors before proceeding.
+Validation checks: `sessionId` exists, `output.path` set, at least one include rule, output directory writable. Fix any reported errors before proceeding.
 
 ## Phase 3: Profiled Execution
 
@@ -211,7 +211,7 @@ DRILL_SESSION=$(metreja init --scenario "drill-down-1")
 metreja add include -s $DRILL_SESSION --class "SlowClass"
 metreja add exclude -s $DRILL_SESSION --assembly "System.*"
 metreja add exclude -s $DRILL_SESSION --assembly "Microsoft.*"
-metreja set output -s $DRILL_SESSION "trace-drill-{runId}-{pid}.ndjson"
+metreja set output -s $DRILL_SESSION "trace-drill-{sessionId}-{pid}.ndjson"
 metreja set compute-deltas -s $DRILL_SESSION true
 metreja set max-events -s $DRILL_SESSION 50000
 metreja validate -s $DRILL_SESSION
@@ -271,10 +271,10 @@ for l in sys.stdin:
 | `init` | `metreja init [--scenario NAME]` | Create session, prints session ID |
 | `add include` | `metreja add include -s ID [--assembly P] [--namespace P] [--class P] [--method P]` | Add include filter |
 | `add exclude` | `metreja add exclude -s ID [--assembly P] [--namespace P] [--class P] [--method P]` | Add exclude filter |
-| `set output` | `metreja set output -s ID PATH` | Set output path (supports `{runId}`, `{pid}` tokens) |
+| `set output` | `metreja set output -s ID PATH` | Set output path (supports `{sessionId}`, `{pid}` tokens) |
 | `set compute-deltas` | `metreja set compute-deltas -s ID true\|false` | Enable/disable delta timing |
 | `set max-events` | `metreja set max-events -s ID N` | Cap event count (0 = unlimited) |
-| `set metadata` | `metreja set metadata -s ID [--scenario S] [--run-id R]` | Update scenario/runId |
+| `set metadata` | `metreja set metadata -s ID [--scenario S]` | Update scenario |
 | `set track-memory` | `metreja set track-memory -s ID true\|false` | Enable/disable GC and allocation tracking |
 | `set mode` | `metreja set mode -s ID MODE` | Set instrumentation mode (`elt3`) |
 | `validate` | `metreja validate -s ID` | Validate session config |

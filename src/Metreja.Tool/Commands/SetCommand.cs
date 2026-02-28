@@ -28,24 +28,20 @@ public static class SetCommand
     private static Command CreateMetadataCommand(Option<string> sessionOption)
     {
         var scenarioArg = new Argument<string?>("scenario") { Description = "Scenario name", Arity = ArgumentArity.ZeroOrOne };
-        var runIdArg = new Argument<string?>("run-id") { Description = "Run ID", Arity = ArgumentArity.ZeroOrOne };
 
         var command = new Command("metadata", "Set metadata values");
         command.Options.Add(sessionOption);
         command.Arguments.Add(scenarioArg);
-        command.Arguments.Add(runIdArg);
 
         command.SetAction(async (parseResult, _) =>
         {
             var session = parseResult.GetValue(sessionOption)!;
             var scenario = parseResult.GetValue(scenarioArg);
-            var runId = parseResult.GetValue(runIdArg);
 
             await SetConfigPropertyAsync(session, config =>
             {
                 var metadata = config.Metadata;
                 if (scenario is not null) metadata = metadata with { Scenario = scenario };
-                if (runId is not null) metadata = metadata with { RunId = runId };
                 return config with { Metadata = metadata };
             }, "metadata");
         });

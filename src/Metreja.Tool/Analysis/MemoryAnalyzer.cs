@@ -144,11 +144,11 @@ public static class MemoryAnalyzer
 
     private sealed class GcSummary
     {
-        public int TotalCount;
-        public int Gen0Count;
-        public int Gen1Count;
-        public int Gen2Count;
-        public long TotalPauseNs;
-        public long MaxPauseNs;
+        public int TotalCount { get; set; }
+        public int Gen0Count { get; set; }
+        public int Gen1Count { get; set; }
+        public int Gen2Count { get; set; }
+        public long TotalPauseNs { get; set; }
+        public long MaxPauseNs { get; set; }
     }
 }

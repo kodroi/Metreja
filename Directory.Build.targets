@@ -1,0 +1,9 @@
+<Project>
+  <!-- Auto-install Husky.Net git hooks on restore -->
+  <Target Name="HuskyInstall" BeforeTargets="Restore;CollectPackageReferences"
+          Condition="'$(HUSKY)' != '0' AND '$(IsCrossTargetingBuild)' != 'true'">
+    <Exec Command="dotnet tool restore" StandardOutputImportance="Low" StandardErrorImportance="High" />
+    <Exec Command="dotnet husky install" StandardOutputImportance="Low" StandardErrorImportance="High"
+          WorkingDirectory="$(MSBuildThisFileDirectory)" />
+  </Target>
+</Project>

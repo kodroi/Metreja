@@ -10,12 +10,12 @@ public class StructuralValidationTests
     public StructuralValidationTests(ProfilerSessionFixture fixture) => _fixture = fixture;
 
     [Fact]
-    public void FirstEvent_IsRunMetadata()
+    public void FirstEvent_IsSessionMetadata()
     {
         var first = _fixture.Events[0];
-        Assert.IsType<RunMetadataEvent>(first);
-        Assert.Equal("run_metadata", first.Event);
-        Assert.NotEmpty(first.RunId);
+        Assert.IsType<SessionMetadataEvent>(first);
+        Assert.Equal("session_metadata", first.Event);
+        Assert.NotEmpty(first.SessionId);
     }
 
     [Fact]
@@ -26,7 +26,7 @@ public class StructuralValidationTests
             Assert.NotEmpty(evt.Event);
             Assert.True(evt.TsNs >= 0, $"TsNs should be non-negative, got {evt.TsNs}");
             Assert.True(evt.Pid > 0, $"Pid should be positive, got {evt.Pid}");
-            Assert.NotEmpty(evt.RunId);
+            Assert.NotEmpty(evt.SessionId);
 
             switch (evt)
             {

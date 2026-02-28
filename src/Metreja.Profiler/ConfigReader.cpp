@@ -31,12 +31,14 @@ ProfilerConfig ConfigReader::Load()
         return config;
     }
 
+    // Parse top-level session ID
+    if (root.contains("sessionId"))
+        config.sessionId = root["sessionId"].get<std::string>();
+
     // Parse metadata
     if (root.contains("metadata"))
     {
         auto& meta = root["metadata"];
-        if (meta.contains("runId"))
-            config.runId = meta["runId"].get<std::string>();
         if (meta.contains("scenario"))
             config.scenario = meta["scenario"].get<std::string>();
     }
@@ -88,9 +90,9 @@ ProfilerConfig ConfigReader::Load()
     }
 
     // Override from environment variables
-    std::string envRunId = GetEnvVar("METREJA_RUN_ID");
-    if (!envRunId.empty())
-        config.runId = envRunId;
+    std::string envSessionId = GetEnvVar("METREJA_SESSION_ID");
+    if (!envSessionId.empty())
+        config.sessionId = envSessionId;
 
     std::string envOutput = GetEnvVar("METREJA_OUTPUT");
     if (!envOutput.empty())
@@ -98,7 +100,7 @@ ProfilerConfig ConfigReader::Load()
 
     // Expand placeholders in output path
     DWORD pid = GetCurrentProcessId();
-    config.outputPath = ExpandPlaceholders(config.outputPath, config.runId, pid);
+    config.outputPath = ExpandPlaceholders(config.outputPath, config.sessionId, pid);
 
     return config;
 }
@@ -112,16 +114,16 @@ std::string ConfigReader::GetEnvVar(const char* name)
     return std::string(buffer, len);
 }
 
-std::string ConfigReader::ExpandPlaceholders(const std::string& path, const std::string& runId, DWORD pid)
+std::string ConfigReader::ExpandPlaceholders(const std::string& path, const std::string& sessionId, DWORD pid)
 {
     std::string result = path;
 
-    // Replace {runId}
-    size_t pos = result.find("{runId}");
+    // Replace {sessionId}
+    size_t pos = result.find("{sessionId}");
     while (pos != std::string::npos)
     {
-        result.replace(pos, 7, runId);
-        pos = result.find("{runId}", pos + runId.length());
+        result.replace(pos, 11, sessionId);
+        pos = result.find("{sessionId}", pos + sessionId.length());
     }
 
     // Replace {pid}

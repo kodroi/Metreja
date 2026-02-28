@@ -1,0 +1,54 @@
+---
+Checks: >
+  -*,
+  readability-identifier-naming,
+  misc-unused-parameters,
+  readability-redundant-control-flow,
+  readability-simplify-boolean-expr,
+  bugprone-suspicious-include,
+  bugprone-macro-parentheses
+
+# Naming conventions matching the existing codebase style
+CheckOptions:
+  # Classes: PascalCase
+  - key: readability-identifier-naming.ClassCase
+    value: CamelCase
+  # Structs: PascalCase
+  - key: readability-identifier-naming.StructCase
+    value: CamelCase
+  # Public methods: PascalCase
+  - key: readability-identifier-naming.PublicMethodCase
+    value: CamelCase
+  # Private methods: PascalCase
+  - key: readability-identifier-naming.PrivateMethodCase
+    value: CamelCase
+  # Member variables: camelCase with m_ prefix
+  - key: readability-identifier-naming.MemberCase
+    value: camelCase
+  - key: readability-identifier-naming.MemberPrefix
+    value: m_
+  # Static member variables: camelCase with s_ prefix
+  - key: readability-identifier-naming.ClassMemberCase
+    value: camelCase
+  - key: readability-identifier-naming.ClassMemberPrefix
+    value: s_
+  # Global variables: camelCase with g_ prefix
+  - key: readability-identifier-naming.GlobalVariableCase
+    value: camelCase
+  - key: readability-identifier-naming.GlobalVariablePrefix
+    value: g_
+  # Local variables: camelCase
+  - key: readability-identifier-naming.LocalVariableCase
+    value: camelCase
+  # Parameters: camelCase
+  - key: readability-identifier-naming.ParameterCase
+    value: camelCase
+  # Constants: UPPER_CASE
+  - key: readability-identifier-naming.ConstexprVariableCase
+    value: UPPER_CASE
+  # Enum members: PascalCase (matches Windows SDK style)
+  - key: readability-identifier-naming.EnumConstantCase
+    value: CamelCase
+  # Namespaces: PascalCase
+  - key: readability-identifier-naming.NamespaceCase
+    value: CamelCase

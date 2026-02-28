@@ -29,8 +29,7 @@ public class ConfigManager
             SessionId = sessionId,
             Metadata = new MetadataConfig
             {
-                Scenario = scenario ?? "",
-                RunId = Guid.NewGuid().ToString("N")[..8]
+                Scenario = scenario ?? ""
             }
         };
 
@@ -73,19 +72,17 @@ public class ConfigManager
         }
     }
 
-    public Task DeleteSessionAsync(string sessionId)
+    public void DeleteSession(string sessionId)
     {
         var path = GetSessionPath(sessionId);
         if (File.Exists(path))
             File.Delete(path);
-        return Task.CompletedTask;
     }
 
-    public Task DeleteAllSessionsAsync()
+    public void DeleteAllSessions()
     {
         if (Directory.Exists(_sessionsDir))
             Directory.Delete(_sessionsDir, true);
-        return Task.CompletedTask;
     }
 
     private static string GenerateSessionId()

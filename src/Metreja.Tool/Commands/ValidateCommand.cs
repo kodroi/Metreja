@@ -36,8 +36,8 @@ public static class ValidateCommand
             var errors = new List<string>();
             var warnings = new List<string>();
 
-            if (string.IsNullOrWhiteSpace(config.Metadata.RunId))
-                errors.Add("metadata.runId is required");
+            if (string.IsNullOrWhiteSpace(config.SessionId))
+                errors.Add("sessionId is required");
 
             if (string.IsNullOrWhiteSpace(config.Output.Path))
                 errors.Add("output.path is required");

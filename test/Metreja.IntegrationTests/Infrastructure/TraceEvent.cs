@@ -5,10 +5,10 @@ public abstract record TraceEvent
     public required string Event { get; init; }
     public required long TsNs { get; init; }
     public required int Pid { get; init; }
-    public required string RunId { get; init; }
+    public required string SessionId { get; init; }
 }
 
-public record RunMetadataEvent : TraceEvent
+public record SessionMetadataEvent : TraceEvent
 {
     public string Scenario { get; init; } = "";
 }

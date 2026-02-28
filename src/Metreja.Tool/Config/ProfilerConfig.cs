@@ -21,9 +21,6 @@ public record MetadataConfig
 {
     [JsonPropertyName("scenario")]
     public string Scenario { get; init; } = "";
-
-    [JsonPropertyName("runId")]
-    public string RunId { get; init; } = "";
 }
 
 public record InstrumentationConfig
@@ -68,7 +65,7 @@ public record FilterRule
 public record OutputConfig
 {
     [JsonPropertyName("path")]
-    public string Path { get; init; } = ".metreja/output/{runId}_{pid}.ndjson";
+    public string Path { get; init; } = ".metreja/output/{sessionId}_{pid}.ndjson";
 
     [JsonPropertyName("format")]
     public string Format { get; init; } = "ndjson";

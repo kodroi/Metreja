@@ -19,7 +19,7 @@ internal static class UpdateChecker
     {
         try
         {
-            var latestVersion = await GetLatestVersionAsync().ConfigureAwait(false);
+            var latestVersion = await GetLatestVersionAsync();
             if (latestVersion is null)
                 return;
 
@@ -32,9 +32,9 @@ internal static class UpdateChecker
             if (latest > current)
             {
                 await Console.Error.WriteLineAsync(
-                    $"A new version of Metreja is available: v{latestVersion} (current: v{GitVersionInformation.MajorMinorPatch})").ConfigureAwait(false);
+                    $"A new version of Metreja is available: v{latestVersion} (current: v{GitVersionInformation.MajorMinorPatch})");
                 await Console.Error.WriteLineAsync(
-                    "Run 'dotnet tool update -g Metreja.Tool' to update.").ConfigureAwait(false);
+                    "Run 'dotnet tool update -g Metreja.Tool' to update.");
             }
         }
         catch
@@ -50,7 +50,7 @@ internal static class UpdateChecker
             return cached;
 
         using var httpClient = new HttpClient { Timeout = HttpTimeout };
-        var json = await httpClient.GetStringAsync(NuGetIndexUrl).ConfigureAwait(false);
+        var json = await httpClient.GetStringAsync(NuGetIndexUrl);
 
         using var doc = JsonDocument.Parse(json);
         var versions = doc.RootElement.GetProperty("versions");

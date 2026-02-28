@@ -23,10 +23,7 @@ HRESULT STDMETHODCALLTYPE ClassFactory::QueryInterface(REFIID riid, void** ppvOb
     return E_NOINTERFACE;
 }
 
-ULONG STDMETHODCALLTYPE ClassFactory::AddRef()
-{
-    return m_refCount.fetch_add(1) + 1;
-}
+ULONG STDMETHODCALLTYPE ClassFactory::AddRef() { return m_refCount.fetch_add(1) + 1; }
 
 ULONG STDMETHODCALLTYPE ClassFactory::Release()
 {
@@ -50,7 +47,4 @@ HRESULT STDMETHODCALLTYPE ClassFactory::CreateInstance(IUnknown* pUnkOuter, REFI
     return hr;
 }
 
-HRESULT STDMETHODCALLTYPE ClassFactory::LockServer(BOOL fLock)
-{
-    return S_OK;
-}
+HRESULT STDMETHODCALLTYPE ClassFactory::LockServer(BOOL fLock) { return S_OK; }

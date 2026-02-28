@@ -20,12 +20,12 @@ public static class TraceParser
 
             TraceEvent parsed = eventType switch
             {
-                "run_metadata" => new RunMetadataEvent
+                "session_metadata" => new SessionMetadataEvent
                 {
                     Event = eventType,
                     TsNs = root.GetProperty("tsNs").GetInt64(),
                     Pid = root.GetProperty("pid").GetInt32(),
-                    RunId = root.GetProperty("runId").GetString()!,
+                    SessionId = root.GetProperty("sessionId").GetString()!,
                     Scenario = root.TryGetProperty("scenario", out var s) ? s.GetString() ?? "" : ""
                 },
                 "enter" => new EnterEvent
@@ -33,7 +33,7 @@ public static class TraceParser
                     Event = eventType,
                     TsNs = root.GetProperty("tsNs").GetInt64(),
                     Pid = root.GetProperty("pid").GetInt32(),
-                    RunId = root.GetProperty("runId").GetString()!,
+                    SessionId = root.GetProperty("sessionId").GetString()!,
                     Tid = root.GetProperty("tid").GetInt32(),
                     Depth = root.GetProperty("depth").GetInt32(),
                     Asm = root.GetProperty("asm").GetString()!,
@@ -47,7 +47,7 @@ public static class TraceParser
                     Event = eventType,
                     TsNs = root.GetProperty("tsNs").GetInt64(),
                     Pid = root.GetProperty("pid").GetInt32(),
-                    RunId = root.GetProperty("runId").GetString()!,
+                    SessionId = root.GetProperty("sessionId").GetString()!,
                     Tid = root.GetProperty("tid").GetInt32(),
                     Depth = root.GetProperty("depth").GetInt32(),
                     Asm = root.GetProperty("asm").GetString()!,
@@ -62,7 +62,7 @@ public static class TraceParser
                     Event = eventType,
                     TsNs = root.GetProperty("tsNs").GetInt64(),
                     Pid = root.GetProperty("pid").GetInt32(),
-                    RunId = root.GetProperty("runId").GetString()!,
+                    SessionId = root.GetProperty("sessionId").GetString()!,
                     Tid = root.GetProperty("tid").GetInt32(),
                     Asm = root.GetProperty("asm").GetString()!,
                     Ns = root.GetProperty("ns").GetString()!,
