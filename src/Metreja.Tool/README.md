@@ -1,10 +1,12 @@
 # Metreja
 
-A call-path profiler for .NET — trace method calls, measure timing, and find performance bottlenecks.
+A .NET profiling tool designed for AI coding assistants — Claude Code, Codex, and Cursor can automatically profile your app, identify bottlenecks, and optimize code.
 
 ## What It Does
 
-Metreja instruments .NET applications at runtime using a native C++ profiler DLL that hooks into the CLR's Enter/Leave/Tailcall (ELT3) mechanism. It records every method enter and leave event — including timing, thread ID, and optionally GC/allocation data — into NDJSON trace files. You then use the CLI to analyze the results: find timing hotspots, inspect call trees, see who calls what, compare runs, and track memory allocations.
+AI coding tools can run Metreja automatically to profile your .NET application, analyze the results, and write optimized code — all in one loop. Point your agent at a slow endpoint, and it will attach the profiler, capture a trace, find the bottleneck, and ship a fix without you switching context.
+
+Under the hood, Metreja instruments .NET applications at runtime using a native C++ profiler DLL that hooks into the CLR's Enter/Leave/Tailcall (ELT3) mechanism. It records every method enter and leave event — including timing, thread ID, and optionally GC/allocation data — into NDJSON trace files. The CLI then analyzes the results: timing hotspots, call trees, caller graphs, run comparisons, and memory allocations.
 
 Windows only. Requires the native profiler DLL, which ships alongside the tool.
 
