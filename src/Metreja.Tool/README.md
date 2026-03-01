@@ -16,7 +16,7 @@ Windows only. The profiler ships alongside the tool.
 
 ## Installation
 
-**Prerequisites:** .NET 10 SDK, Windows
+**Prerequisites:** .NET 8 SDK or later, Windows
 
 ```bash
 dotnet tool install -g Metreja.Tool
@@ -240,14 +240,12 @@ Generate a script that sets the environment variables needed to attach the profi
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `-s`, `--session` | string | — | **Required.** Session ID |
-| `--dll-path` | string | Auto-detected | Path to Metreja.Profiler.dll |
 | `--format` | string | `batch` | Output format: `batch` or `powershell` |
 | `--force` | bool | `false` | Generate script even if profiler DLL is not found |
 
 ```bash
 metreja generate-env -s a1b2c3
 metreja generate-env -s a1b2c3 --format powershell
-metreja generate-env -s a1b2c3 --dll-path "C:\tools\Metreja.Profiler.dll"
 ```
 
 ### `clear`

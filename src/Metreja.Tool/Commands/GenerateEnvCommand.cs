@@ -13,12 +13,6 @@ public static class GenerateEnvCommand
             Required = true
         };
 
-        var dllPathOption = new Option<string>("--dll-path")
-        {
-            Description = "Path to Metreja.Profiler.dll (auto-detected if not specified)"
-        };
-        dllPathOption.DefaultValueFactory = _ => ProfilerLocator.GetDefaultProfilerPath() ?? "";
-
         var formatOption = new Option<string>("--format")
         {
             Description = "Output format: batch or powershell"
@@ -32,26 +26,24 @@ public static class GenerateEnvCommand
 
         var command = new Command("generate-env", "Generate environment variable script for profiling");
         command.Options.Add(sessionOption);
-        command.Options.Add(dllPathOption);
         command.Options.Add(formatOption);
         command.Options.Add(forceOption);
 
         command.SetAction(async (parseResult, _) =>
         {
             var session = parseResult.GetValue(sessionOption)!;
-            var dllPath = parseResult.GetValue(dllPathOption)!;
             var format = parseResult.GetValue(formatOption)!;
             var force = parseResult.GetValue(forceOption);
 
             var manager = new ConfigManager();
             var configPath = Path.GetFullPath(manager.GetSessionPath(session));
 
-            // Resolve dll path to absolute
-            var absoluteDllPath = string.IsNullOrEmpty(dllPath) ? "" : Path.GetFullPath(dllPath);
+            var detectedPath = ProfilerLocator.GetDefaultProfilerPath();
+            var absoluteDllPath = string.IsNullOrEmpty(detectedPath) ? "" : Path.GetFullPath(detectedPath);
 
             if (string.IsNullOrEmpty(absoluteDllPath) || !File.Exists(absoluteDllPath))
             {
-                Console.Error.WriteLine($"Error: Profiler DLL not found at '{absoluteDllPath}'");
+                Console.Error.WriteLine($"Error: Profiler DLL not found. Searched adjacent to CLI assembly and bin/Release/.");
                 if (!force)
                 {
                     Console.Error.WriteLine("Use --force to generate the script anyway.");
