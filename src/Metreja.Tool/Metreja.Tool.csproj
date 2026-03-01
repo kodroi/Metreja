@@ -16,6 +16,7 @@
     <PackageTags>profiler;dotnet;performance;tracing;instrumentation;diagnostics;elt3;ndjson</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <ProfilerDllPath>$(MSBuildThisFileDirectory)..\..\bin\Release\Metreja.Profiler.dll</ProfilerDllPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,17 +28,17 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="$(SolutionDir)bin\Release\Metreja.Profiler.dll"
+    <Content Include="$(ProfilerDllPath)"
              Pack="false"
              CopyToOutputDirectory="PreserveNewest"
              Link="Metreja.Profiler.dll"
-             Condition="Exists('$(SolutionDir)bin\Release\Metreja.Profiler.dll')" />
+             Condition="Exists('$(ProfilerDllPath)')" />
   </ItemGroup>
 
   <Target Name="IncludeNativeProfilerInToolPackage" BeforeTargets="GenerateNuspec"
-          Condition="Exists('$(SolutionDir)bin\Release\Metreja.Profiler.dll')">
+          Condition="Exists('$(ProfilerDllPath)')">
     <ItemGroup>
-      <_PackageFiles Include="$(SolutionDir)bin\Release\Metreja.Profiler.dll"
+      <_PackageFiles Include="$(ProfilerDllPath)"
                      PackagePath="tools/$(TargetFramework)/any/" />
     </ItemGroup>
   </Target>
