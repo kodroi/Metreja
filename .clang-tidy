@@ -1,12 +1,29 @@
 ---
 Checks: >
   -*,
-  readability-identifier-naming,
-  misc-unused-parameters,
-  readability-redundant-control-flow,
-  readability-simplify-boolean-expr,
-  bugprone-suspicious-include,
-  bugprone-macro-parentheses
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  misc-*,
+  -misc-no-recursion,
+  -misc-non-private-member-variables-in-classes,
+  -misc-include-cleaner,
+  modernize-*,
+  -modernize-use-trailing-return-type,
+  -modernize-avoid-c-arrays,
+  performance-*,
+  readability-*,
+  -readability-magic-numbers,
+  -readability-function-cognitive-complexity,
+  -readability-identifier-length,
+  -readability-uppercase-literal-suffix,
+  concurrency-*
+
+WarningsAsErrors: >
+  bugprone-*,
+  modernize-use-override,
+  modernize-use-nullptr,
+  readability-identifier-naming
 
 # Naming conventions matching the existing codebase style
 CheckOptions:

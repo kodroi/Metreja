@@ -25,7 +25,7 @@ public static class DiffAnalyzer
             var baseNs = baseTimings.GetValueOrDefault(method, 0);
             var compareNs = compareTimings.GetValueOrDefault(method, 0);
             var delta = compareNs - baseNs;
-            var deltaStr = delta >= 0 ? $"+{delta}" : delta.ToString();
+            var deltaStr = delta >= 0 ? $"+{delta}" : delta.ToString(System.Globalization.CultureInfo.InvariantCulture);
             Console.WriteLine($"{method,-50} {baseNs,12} {compareNs,12} {deltaStr,10}");
         }
 
