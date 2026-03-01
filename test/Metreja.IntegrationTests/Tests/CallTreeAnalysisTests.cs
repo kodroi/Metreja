@@ -16,9 +16,7 @@ public class CallTreeAnalysisTests
         var tracePath = await WriteTraceToTempFileAsync();
 
         var output = await CaptureConsoleOutputAsync(async () =>
-        {
-            await CallTreeAnalyzer.AnalyzeAsync(tracePath, "RunSyncCallPaths", tidFilter: null, occurrence: 1);
-        });
+            await CallTreeAnalyzer.AnalyzeAsync(tracePath, "RunSyncCallPaths", tidFilter: null, occurrence: 1));
 
         Assert.Contains("RunSyncCallPaths", output);
         Assert.Contains("OuterMethod", output);
@@ -39,9 +37,7 @@ public class CallTreeAnalysisTests
         var tracePath = await WriteTraceToTempFileAsync();
 
         var output = await CaptureConsoleOutputAsync(async () =>
-        {
-            await CallTreeAnalyzer.AnalyzeAsync(tracePath, "RunSyncCallPaths", tidFilter: null, occurrence: 1);
-        });
+            await CallTreeAnalyzer.AnalyzeAsync(tracePath, "RunSyncCallPaths", tidFilter: null, occurrence: 1));
 
         // Should contain timing info in parentheses
         Assert.Matches(@"\(\d+[\.,]\d+", output);
@@ -53,9 +49,7 @@ public class CallTreeAnalysisTests
         var tracePath = await WriteTraceToTempFileAsync();
 
         var errorOutput = await CaptureConsoleErrorAsync(async () =>
-        {
-            await CallTreeAnalyzer.AnalyzeAsync(tracePath, "NonExistentMethod123", tidFilter: null, occurrence: 1);
-        });
+            await CallTreeAnalyzer.AnalyzeAsync(tracePath, "NonExistentMethod123", tidFilter: null, occurrence: 1));
 
         Assert.Contains("No invocations found", errorOutput);
     }
@@ -66,9 +60,7 @@ public class CallTreeAnalysisTests
         var tracePath = await WriteTraceToTempFileAsync();
 
         var output = await CaptureConsoleOutputAsync(async () =>
-        {
-            await CallTreeAnalyzer.AnalyzeAsync(tracePath, "Main", tidFilter: null, occurrence: 1);
-        });
+            await CallTreeAnalyzer.AnalyzeAsync(tracePath, "Main", tidFilter: null, occurrence: 1));
 
         Assert.Contains("invocation(s)", output);
     }

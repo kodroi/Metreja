@@ -16,9 +16,7 @@ public class CallersAnalysisTests
         var tracePath = await WriteTraceToTempFileAsync();
 
         var output = await CaptureConsoleOutputAsync(async () =>
-        {
-            await CallersAnalyzer.AnalyzeAsync(tracePath, "InnerMethod", top: 20);
-        });
+            await CallersAnalyzer.AnalyzeAsync(tracePath, "InnerMethod", top: 20));
 
         Assert.Contains("Callers of InnerMethod", output);
         Assert.Contains("MiddleMethod", output);
@@ -30,9 +28,7 @@ public class CallersAnalysisTests
         var tracePath = await WriteTraceToTempFileAsync();
 
         var output = await CaptureConsoleOutputAsync(async () =>
-        {
-            await CallersAnalyzer.AnalyzeAsync(tracePath, "InnerMethod", top: 20);
-        });
+            await CallersAnalyzer.AnalyzeAsync(tracePath, "InnerMethod", top: 20));
 
         Assert.Contains("Total", output);
         Assert.Contains("Avg", output);
@@ -45,9 +41,7 @@ public class CallersAnalysisTests
         var tracePath = await WriteTraceToTempFileAsync();
 
         var errorOutput = await CaptureConsoleErrorAsync(async () =>
-        {
-            await CallersAnalyzer.AnalyzeAsync(tracePath, "NonExistentMethod999", top: 20);
-        });
+            await CallersAnalyzer.AnalyzeAsync(tracePath, "NonExistentMethod999", top: 20));
 
         Assert.Contains("No calls found", errorOutput);
     }
@@ -58,9 +52,7 @@ public class CallersAnalysisTests
         var tracePath = await WriteTraceToTempFileAsync();
 
         var output = await CaptureConsoleOutputAsync(async () =>
-        {
-            await CallersAnalyzer.AnalyzeAsync(tracePath, "InnerMethod", top: 20);
-        });
+            await CallersAnalyzer.AnalyzeAsync(tracePath, "InnerMethod", top: 20));
 
         Assert.Contains("total calls", output);
     }

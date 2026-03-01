@@ -16,9 +16,7 @@ public class HotspotsAnalysisTests
         var tracePath = await WriteTraceToTempFileAsync();
 
         var output = await CaptureConsoleOutputAsync(async () =>
-        {
-            await HotspotsAnalyzer.AnalyzeAsync(tracePath, top: 20, minMs: 0, sortBy: "self", filters: []);
-        });
+            await HotspotsAnalyzer.AnalyzeAsync(tracePath, top: 20, minMs: 0, sortBy: "self", filters: []));
 
         Assert.Contains("Self Total", output);
         Assert.Contains("Incl Total", output);
@@ -32,9 +30,7 @@ public class HotspotsAnalysisTests
         var tracePath = await WriteTraceToTempFileAsync();
 
         var output = await CaptureConsoleOutputAsync(async () =>
-        {
-            await HotspotsAnalyzer.AnalyzeAsync(tracePath, top: 5, minMs: 0, sortBy: "inclusive", filters: []);
-        });
+            await HotspotsAnalyzer.AnalyzeAsync(tracePath, top: 5, minMs: 0, sortBy: "inclusive", filters: []));
 
         Assert.Contains("Incl Total", output);
         // The method with highest inclusive time should be first (Main or <Main>)
@@ -48,10 +44,8 @@ public class HotspotsAnalysisTests
         var tracePath = await WriteTraceToTempFileAsync();
 
         var output = await CaptureConsoleOutputAsync(async () =>
-        {
             await HotspotsAnalyzer.AnalyzeAsync(tracePath, top: 20, minMs: 0, sortBy: "self",
-                filters: ["InnerMethod", "MiddleMethod"]);
-        });
+                filters: ["InnerMethod", "MiddleMethod"]));
 
         Assert.Contains("InnerMethod", output);
         Assert.Contains("MiddleMethod", output);
@@ -64,9 +58,7 @@ public class HotspotsAnalysisTests
         var tracePath = await WriteTraceToTempFileAsync();
 
         var output = await CaptureConsoleOutputAsync(async () =>
-        {
-            await HotspotsAnalyzer.AnalyzeAsync(tracePath, top: 20, minMs: 100, sortBy: "self", filters: []);
-        });
+            await HotspotsAnalyzer.AnalyzeAsync(tracePath, top: 20, minMs: 100, sortBy: "self", filters: []));
 
         // With a 100ms threshold, most methods should be filtered out
         Assert.DoesNotContain("InnerMethod", output);
