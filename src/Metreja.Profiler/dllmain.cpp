@@ -30,4 +30,4 @@ _Check_return_ STDAPI DllGetClassObject(_In_ REFCLSID rclsid, _In_ REFIID riid, 
     return hr;
 }
 
-_Check_return_ STDAPI DllCanUnloadNow() { return S_FALSE; }
+__control_entrypoint(DllExport) STDAPI DllCanUnloadNow() { return S_FALSE; }
