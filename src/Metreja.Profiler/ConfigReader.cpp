@@ -47,8 +47,6 @@ ProfilerConfig ConfigReader::Load()
     if (root.contains("instrumentation"))
     {
         auto& inst = root["instrumentation"];
-        if (inst.contains("mode"))
-            config.mode = inst["mode"].get<std::string>();
         if (inst.contains("maxEvents"))
             config.maxEvents = inst["maxEvents"].get<int>();
         if (inst.contains("computeDeltas"))
@@ -69,8 +67,6 @@ ProfilerConfig ConfigReader::Load()
                     rule.cls = item["class"].get<std::string>();
                 if (item.contains("method"))
                     rule.method = item["method"].get<std::string>();
-                if (item.contains("logLines"))
-                    rule.logLines = item["logLines"].get<bool>();
                 rules.push_back(rule);
             }
         };

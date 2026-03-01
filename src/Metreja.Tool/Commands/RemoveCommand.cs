@@ -34,15 +34,12 @@ public static class RemoveCommand
         classOption.DefaultValueFactory = _ => "*";
         var methodOption = new Option<string>("--method") { Description = "Method name pattern (default: *)" };
         methodOption.DefaultValueFactory = _ => "*";
-        var logLinesOption = new Option<bool>("--log-lines") { Description = "Enable line-level logging" };
-
         var command = new Command(name, description);
         command.Options.Add(sessionOption);
         command.Options.Add(assemblyOption);
         command.Options.Add(namespaceOption);
         command.Options.Add(classOption);
         command.Options.Add(methodOption);
-        command.Options.Add(logLinesOption);
 
         command.SetAction(async (parseResult, _) =>
         {
@@ -52,8 +49,7 @@ public static class RemoveCommand
                 Assembly = parseResult.GetValue(assemblyOption)!,
                 Namespace = parseResult.GetValue(namespaceOption)!,
                 Class = parseResult.GetValue(classOption)!,
-                Method = parseResult.GetValue(methodOption)!,
-                LogLines = parseResult.GetValue(logLinesOption)
+                Method = parseResult.GetValue(methodOption)!
             };
 
             var manager = new ConfigManager();

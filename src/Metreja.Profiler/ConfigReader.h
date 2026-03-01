@@ -10,7 +10,6 @@ struct FilterRule
     std::string nameSpace = "*";
     std::string cls = "*";
     std::string method = "*";
-    bool logLines = false;
 };
 
 struct ProfilerConfig
@@ -18,7 +17,6 @@ struct ProfilerConfig
     std::string sessionId;
     std::string scenario;
     std::string outputPath = ".metreja/output/{sessionId}_{pid}.ndjson";
-    std::string mode = "elt3";
     int maxEvents = 0;
     bool computeDeltas = true;
     bool trackMemory = false;

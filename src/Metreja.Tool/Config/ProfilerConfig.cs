@@ -25,9 +25,6 @@ public record MetadataConfig
 
 public record InstrumentationConfig
 {
-    [JsonPropertyName("mode")]
-    public string Mode { get; init; } = "elt3";
-
     [JsonPropertyName("maxEvents")]
     public int MaxEvents { get; init; } = 0;
 
@@ -57,16 +54,10 @@ public record FilterRule
 
     [JsonPropertyName("method")]
     public string Method { get; init; } = "*";
-
-    [JsonPropertyName("logLines")]
-    public bool LogLines { get; init; } = false;
 }
 
 public record OutputConfig
 {
     [JsonPropertyName("path")]
     public string Path { get; init; } = ".metreja/output/{sessionId}_{pid}.ndjson";
-
-    [JsonPropertyName("format")]
-    public string Format { get; init; } = "ndjson";
 }

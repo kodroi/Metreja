@@ -17,7 +17,6 @@ public static class SetCommand
 
         command.Subcommands.Add(CreateMetadataCommand(sessionOption));
         command.Subcommands.Add(CreateOutputCommand(sessionOption));
-        command.Subcommands.Add(CreateModeCommand(sessionOption));
         command.Subcommands.Add(CreateMaxEventsCommand(sessionOption));
         command.Subcommands.Add(CreateComputeDeltasCommand(sessionOption));
         command.Subcommands.Add(CreateTrackMemoryCommand(sessionOption));
@@ -65,27 +64,6 @@ public static class SetCommand
             await SetConfigPropertyAsync(session,
                 config => config with { Output = config.Output with { Path = path } },
                 $"output path to: {path}");
-        });
-
-        return command;
-    }
-
-    private static Command CreateModeCommand(Option<string> sessionOption)
-    {
-        var modeArg = new Argument<string>("mode") { Description = "Instrumentation mode (elt3)" };
-
-        var command = new Command("mode", "Set instrumentation mode");
-        command.Options.Add(sessionOption);
-        command.Arguments.Add(modeArg);
-
-        command.SetAction(async (parseResult, _) =>
-        {
-            var session = parseResult.GetValue(sessionOption)!;
-            var mode = parseResult.GetValue(modeArg)!;
-
-            await SetConfigPropertyAsync(session,
-                config => config with { Instrumentation = config.Instrumentation with { Mode = mode } },
-                $"mode to: {mode}");
         });
 
         return command;

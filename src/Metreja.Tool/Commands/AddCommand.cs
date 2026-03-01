@@ -46,15 +46,12 @@ public static class AddCommand
             Description = "Method name pattern (default: *)",
             Arity = ArgumentArity.ZeroOrMore
         };
-        var logLinesOption = new Option<bool>("--log-lines") { Description = "Enable line-level logging" };
-
         var command = new Command(name, description);
         command.Options.Add(sessionOption);
         command.Options.Add(assemblyOption);
         command.Options.Add(namespaceOption);
         command.Options.Add(classOption);
         command.Options.Add(methodOption);
-        command.Options.Add(logLinesOption);
 
         command.SetAction(async (parseResult, _) =>
         {
@@ -63,9 +60,7 @@ public static class AddCommand
             var namespaces = parseResult.GetValue(namespaceOption) ?? [];
             var classes = parseResult.GetValue(classOption) ?? [];
             var methods = parseResult.GetValue(methodOption) ?? [];
-            var logLines = parseResult.GetValue(logLinesOption);
-
-            if (!TryBuildRules(assemblies, namespaces, classes, methods, logLines, out var rules))
+            if (!TryBuildRules(assemblies, namespaces, classes, methods, out var rules))
             {
                 Console.Error.WriteLine(
                     "Error: Only one filter option can have multiple values per command. " +
@@ -92,7 +87,7 @@ public static class AddCommand
     }
 
     private static bool TryBuildRules(
-        string[] assemblies, string[] namespaces, string[] classes, string[] methods, bool logLines,
+        string[] assemblies, string[] namespaces, string[] classes, string[] methods,
         out List<FilterRule> rules)
     {
         rules = [];
@@ -119,8 +114,7 @@ public static class AddCommand
                     Assembly = assemblies.Length == 1 ? assemblies[0] : "*",
                     Namespace = namespaces.Length == 1 ? namespaces[0] : "*",
                     Class = classes.Length == 1 ? classes[0] : "*",
-                    Method = methods.Length == 1 ? methods[0] : "*",
-                    LogLines = logLines
+                    Method = methods.Length == 1 ? methods[0] : "*"
                 }
             ];
             return true;
@@ -136,8 +130,7 @@ public static class AddCommand
             Assembly = multiOption.label == "assembly" ? value : baseAssembly,
             Namespace = multiOption.label == "namespace" ? value : baseNamespace,
             Class = multiOption.label == "class" ? value : baseClass,
-            Method = multiOption.label == "method" ? value : baseMethod,
-            LogLines = logLines
+            Method = multiOption.label == "method" ? value : baseMethod
         }).ToList();
         return true;
     }

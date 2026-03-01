@@ -112,7 +112,6 @@ Supports multi-value expansion on a single dimension — e.g. `--assembly A --as
 | `--namespace` | string[] | `*` | Namespace pattern |
 | `--class` | string[] | `*` | Class name pattern |
 | `--method` | string[] | `*` | Method name pattern |
-| `--log-lines` | bool | `false` | Enable line-level logging |
 
 ```bash
 metreja add include -s a1b2c3 --assembly MyApp
@@ -131,7 +130,6 @@ Remove a specific filter rule by exact match.
 | `--namespace` | string | `*` | Namespace pattern |
 | `--class` | string | `*` | Class name pattern |
 | `--method` | string | `*` | Method name pattern |
-| `--log-lines` | bool | `false` | Enable line-level logging |
 
 ```bash
 metreja remove include -s a1b2c3 --assembly MyApp --namespace "MyApp.Core"
@@ -175,17 +173,6 @@ metreja set metadata -s a1b2c3 "after-refactor"
 
 ```bash
 metreja set output -s a1b2c3 ".metreja/output/{sessionId}_{pid}.ndjson"
-```
-
-#### `set mode`
-
-| Option / Argument | Type | Description |
-|-------------------|------|-------------|
-| `-s`, `--session` | string | **Required.** Session ID |
-| `mode` | string | **Required.** Instrumentation mode (`elt3`) |
-
-```bash
-metreja set mode -s a1b2c3 elt3
 ```
 
 #### `set max-events`
@@ -357,7 +344,6 @@ Session configs are stored at `.metreja/sessions/{sessionId}.json`:
     "scenario": "baseline"
   },
   "instrumentation": {
-    "mode": "elt3",
     "maxEvents": 0,
     "computeDeltas": true,
     "trackMemory": false,
@@ -366,18 +352,24 @@ Session configs are stored at `.metreja/sessions/{sessionId}.json`:
         "assembly": "MyApp",
         "namespace": "*",
         "class": "*",
-        "method": "*",
-        "logLines": false
+        "method": "*"
       }
     ],
     "excludes": []
   },
   "output": {
-    "path": ".metreja/output/{sessionId}_{pid}.ndjson",
-    "format": "ndjson"
+    "path": ".metreja/output/{sessionId}_{pid}.ndjson"
   }
 }
 ```
+
+### Configuration Field Reference
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `maxEvents` | int | `0` | Maximum number of events per session. `0` means unlimited. |
+| `computeDeltas` | bool | `true` | When enabled, `leave` events include delta timing — the time spent inside the method. |
+| `trackMemory` | bool | `false` | Enables GC event tracking and per-method allocation counting. |
 
 ### Output Path Tokens
 

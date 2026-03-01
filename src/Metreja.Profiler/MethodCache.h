@@ -17,7 +17,6 @@ struct MethodInfo
     bool isIncluded = false;
     bool isAsyncStateMachine = false;
     std::string originalMethodName;
-    bool logLines = false;
 };
 
 class MethodCache
@@ -32,7 +31,7 @@ public:
 
 private:
     bool EvaluateFilters(const std::string& assembly, const std::string& ns, const std::string& cls,
-                         const std::string& method, bool& outLogLines) const;
+                         const std::string& method) const;
     bool IsAsyncStateMachine(const std::string& className, const std::string& methodName) const;
     std::string ExtractOriginalMethodName(const std::string& className) const;
 

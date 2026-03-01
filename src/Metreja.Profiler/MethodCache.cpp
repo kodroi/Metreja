@@ -117,9 +117,7 @@ void MethodCache::ResolveAndCache(FunctionID functionId)
     }
 
     // Step 7: Evaluate include/exclude filters
-    bool logLines = false;
-    info.isIncluded = EvaluateFilters(info.assemblyName, info.namespaceName, info.className, info.methodName, logLines);
-    info.logLines = logLines;
+    info.isIncluded = EvaluateFilters(info.assemblyName, info.namespaceName, info.className, info.methodName);
 
     m_cache[functionId] = info;
 }
@@ -140,10 +138,8 @@ bool MethodCache::ShouldHook(FunctionID functionId)
 }
 
 bool MethodCache::EvaluateFilters(const std::string& assembly, const std::string& ns, const std::string& cls,
-                                  const std::string& method, bool& outLogLines) const
+                                  const std::string& method) const
 {
-    outLogLines = false;
-
     // If no includes defined, include everything by default
     bool included = m_config.includes.empty();
 
@@ -155,8 +151,6 @@ bool MethodCache::EvaluateFilters(const std::string& assembly, const std::string
             ConfigReader::SimpleGlobMatch(rule.method, method))
         {
             included = true;
-            if (rule.logLines)
-                outLogLines = true;
             break;
         }
     }
