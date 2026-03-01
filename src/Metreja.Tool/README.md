@@ -8,6 +8,10 @@ AI coding tools can run Metreja automatically to profile your .NET application, 
 
 Windows only. The profiler ships alongside the tool.
 
+## Claude Code Integration
+
+For Claude Code users: install the [metreja-profiler](https://github.com/kodroi/metreja-profiler) plugin to give Claude automatic access to profiling commands — no manual setup needed.
+
 ## How It Works
 
 - **Fully CLI-driven** — configuration and analysis are all commands. Sessions, filters, hotspots, call trees, diffs — no GUI or config files to hand-edit. Works in any terminal or agent loop.
