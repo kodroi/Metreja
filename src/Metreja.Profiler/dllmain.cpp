@@ -13,12 +13,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
     return TRUE;
 }
 
-// SDK combaseapi.h declares these with WINOLEAPI (import annotations) that
-// cannot match our export definitions. Disable the mismatch warnings.
-#pragma warning(push)
-#pragma warning(disable: 28252 28253)
-
-STDAPI DllGetClassObject(_In_ REFCLSID rclsid, _In_ REFIID riid, _Outptr_ LPVOID* ppv)
+_Check_return_ STDAPI DllGetClassObject(_In_ REFCLSID rclsid, _In_ REFIID riid, _Outptr_ LPVOID* ppv)
 {
     if (ppv == nullptr)
         return E_POINTER;
@@ -35,6 +30,4 @@ STDAPI DllGetClassObject(_In_ REFCLSID rclsid, _In_ REFIID riid, _Outptr_ LPVOID
     return hr;
 }
 
-STDAPI DllCanUnloadNow() { return S_FALSE; }
-
-#pragma warning(pop)
+_Check_return_ STDAPI DllCanUnloadNow() { return S_FALSE; }
