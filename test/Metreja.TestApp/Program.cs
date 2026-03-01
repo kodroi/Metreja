@@ -124,7 +124,7 @@ public static class Program
 
     private static int LoopBody(int i)
     {
-        return i * 2 + 1;
+        return (i * 2) + 1;
     }
 
     private static void RunDeepRecursion(int depth)
