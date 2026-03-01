@@ -31,4 +31,5 @@ STDAPI DllGetClassObject(_In_ REFCLSID rclsid, _In_ REFIID riid, _Outptr_ LPVOID
     return hr;
 }
 
+#pragma warning(suppress: 28252 28253)
 STDAPI DllCanUnloadNow() { return S_FALSE; }
