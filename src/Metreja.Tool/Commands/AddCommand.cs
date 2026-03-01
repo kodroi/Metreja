@@ -125,13 +125,16 @@ public static class AddCommand
         var baseClass = classes.Length == 1 ? classes[0] : "*";
         var baseMethod = methods.Length == 1 ? methods[0] : "*";
 
-        rules = multiOption.values.Select(value => new FilterRule
-        {
-            Assembly = multiOption.label == "assembly" ? value : baseAssembly,
-            Namespace = multiOption.label == "namespace" ? value : baseNamespace,
-            Class = multiOption.label == "class" ? value : baseClass,
-            Method = multiOption.label == "method" ? value : baseMethod
-        }).ToList();
+        rules =
+        [
+            .. multiOption.values.Select(value => new FilterRule
+            {
+                Assembly = multiOption.label == "assembly" ? value : baseAssembly,
+                Namespace = multiOption.label == "namespace" ? value : baseNamespace,
+                Class = multiOption.label == "class" ? value : baseClass,
+                Method = multiOption.label == "method" ? value : baseMethod
+            })
+        ];
         return true;
     }
 }

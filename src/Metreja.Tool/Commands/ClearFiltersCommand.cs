@@ -27,7 +27,7 @@ public static class ClearFiltersCommand
             var session = parseResult.GetValue(sessionOption)!;
             var type = parseResult.GetValue(typeOption);
 
-            if (type is not null && type is not ("include" or "exclude"))
+            if (type is not (null or "include" or "exclude"))
             {
                 Console.Error.WriteLine("Error: --type must be 'include' or 'exclude'");
                 Environment.ExitCode = 1;

@@ -46,8 +46,7 @@ public static class DiffAnalyzer
                 using var doc = JsonDocument.Parse(line);
                 var root = doc.RootElement;
 
-                if (!root.TryGetProperty("event", out var eventProp) ||
-                    eventProp.GetString() != "leave")
+                if (!root.TryGetProperty("event", out var eventProp) || eventProp.GetString() != "leave")
                     continue;
 
                 var asm = root.TryGetProperty("asm", out var a) ? a.GetString() ?? "" : "";

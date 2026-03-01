@@ -16,12 +16,12 @@ public static class HotspotsAnalyzer
             .Where(kv => kv.Value.SelfTotal >= minNs || kv.Value.InclusiveTotal >= minNs)
             .ToList();
 
-        var sorted = sortBy switch
+        List<KeyValuePair<string, MethodStats>> sorted = sortBy switch
         {
-            "inclusive" => filtered.OrderByDescending(kv => kv.Value.InclusiveTotal).ToList(),
-            "calls" => filtered.OrderByDescending(kv => kv.Value.Count).ToList(),
-            "allocs" => filtered.OrderByDescending(kv => kv.Value.AllocCount).ToList(),
-            _ => filtered.OrderByDescending(kv => kv.Value.SelfTotal).ToList()
+            "inclusive" => [.. filtered.OrderByDescending(kv => kv.Value.InclusiveTotal)],
+            "calls" => [.. filtered.OrderByDescending(kv => kv.Value.Count)],
+            "allocs" => [.. filtered.OrderByDescending(kv => kv.Value.AllocCount)],
+            _ => [.. filtered.OrderByDescending(kv => kv.Value.SelfTotal)]
         };
 
         var shown = sorted.Take(top).ToList();

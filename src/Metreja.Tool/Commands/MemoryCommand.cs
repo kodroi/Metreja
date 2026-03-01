@@ -9,7 +9,7 @@ public static class MemoryCommand
     {
         var fileArg = new Argument<string>("file") { Description = "NDJSON trace file path" };
         var topOption = new Option<int>("--top") { Description = "Number of allocation types to show", DefaultValueFactory = _ => 20 };
-        var filterOption = new Option<string[]>("--filter") { Description = "Include only class names matching pattern(s)", DefaultValueFactory = _ => Array.Empty<string>() };
+        var filterOption = new Option<string[]>("--filter") { Description = "Include only class names matching pattern(s)", DefaultValueFactory = _ => [] };
 
         var command = new Command("memory", "Show GC summary and allocation hotspots by class");
         command.Arguments.Add(fileArg);
