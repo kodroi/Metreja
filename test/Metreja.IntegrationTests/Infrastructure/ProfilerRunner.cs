@@ -45,12 +45,12 @@ public sealed class ProfilerRunner : IAsyncDisposable
                 {
                     Includes =
                     [
-                        new FilterRule { Assembly = "Metreja.TestApp" }
+                        new FilterRule { Level = "assembly", Pattern = "Metreja.TestApp" }
                     ],
                     Excludes =
                     [
-                        new FilterRule { Assembly = "System.*" },
-                        new FilterRule { Assembly = "Microsoft.*" }
+                        new FilterRule { Level = "assembly", Pattern = "System.*" },
+                        new FilterRule { Level = "assembly", Pattern = "Microsoft.*" }
                     ]
                 },
                 Output = config.Output with

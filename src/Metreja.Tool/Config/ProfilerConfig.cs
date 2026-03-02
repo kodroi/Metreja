@@ -46,17 +46,20 @@ public record InstrumentationConfig
 
 public record FilterRule
 {
-    [JsonPropertyName("assembly")]
-    public string Assembly { get; init; } = "*";
+    [JsonPropertyName("level")]
+    public string Level { get; init; } = "assembly";
 
-    [JsonPropertyName("namespace")]
-    public string Namespace { get; init; } = "*";
+    [JsonPropertyName("pattern")]
+    public string Pattern { get; init; } = "*";
+}
 
-    [JsonPropertyName("class")]
-    public string Class { get; init; } = "*";
-
-    [JsonPropertyName("method")]
-    public string Method { get; init; } = "*";
+public static class DefaultFilters
+{
+    public static List<FilterRule> Excludes =>
+    [
+        new FilterRule { Level = "assembly", Pattern = "System.*" },
+        new FilterRule { Level = "assembly", Pattern = "Microsoft.*" }
+    ];
 }
 
 public record OutputConfig

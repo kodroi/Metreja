@@ -28,23 +28,23 @@ public static class AddCommand
     {
         var assemblyOption = new Option<string[]>("--assembly")
         {
-            Description = "Assembly name pattern (default: *)",
-            Arity = ArgumentArity.ZeroOrMore
+            Description = "Assembly name pattern(s)",
+            Arity = ArgumentArity.OneOrMore
         };
         var namespaceOption = new Option<string[]>("--namespace")
         {
-            Description = "Namespace pattern (default: *)",
-            Arity = ArgumentArity.ZeroOrMore
+            Description = "Namespace pattern(s)",
+            Arity = ArgumentArity.OneOrMore
         };
         var classOption = new Option<string[]>("--class")
         {
-            Description = "Class name pattern (default: *)",
-            Arity = ArgumentArity.ZeroOrMore
+            Description = "Class name pattern(s)",
+            Arity = ArgumentArity.OneOrMore
         };
         var methodOption = new Option<string[]>("--method")
         {
-            Description = "Method name pattern (default: *)",
-            Arity = ArgumentArity.ZeroOrMore
+            Description = "Method name pattern(s)",
+            Arity = ArgumentArity.OneOrMore
         };
         var command = new Command(name, description);
         command.Options.Add(sessionOption);
@@ -56,18 +56,33 @@ public static class AddCommand
         command.SetAction(async (parseResult, _) =>
         {
             var session = parseResult.GetValue(sessionOption)!;
-            var assemblies = parseResult.GetValue(assemblyOption) ?? [];
-            var namespaces = parseResult.GetValue(namespaceOption) ?? [];
-            var classes = parseResult.GetValue(classOption) ?? [];
-            var methods = parseResult.GetValue(methodOption) ?? [];
-            if (!TryBuildRules(assemblies, namespaces, classes, methods, out var rules))
+
+            var provided = new (string[] values, string level)[]
             {
-                Console.Error.WriteLine(
-                    "Error: Only one filter option can have multiple values per command. " +
-                    "Run the command multiple times for complex combinations.");
+                (parseResult.GetValue(assemblyOption) ?? [], "assembly"),
+                (parseResult.GetValue(namespaceOption) ?? [], "namespace"),
+                (parseResult.GetValue(classOption) ?? [], "class"),
+                (parseResult.GetValue(methodOption) ?? [], "method")
+            };
+
+            var active = provided.Where(o => o.values.Length > 0).ToArray();
+
+            if (active.Length == 0)
+            {
+                Console.Error.WriteLine("Error: Specify one of --assembly, --namespace, --class, or --method.");
                 Environment.ExitCode = 1;
                 return;
             }
+
+            if (active.Length > 1)
+            {
+                Console.Error.WriteLine("Error: Only one level option (--assembly, --namespace, --class, --method) can be used per command.");
+                Environment.ExitCode = 1;
+                return;
+            }
+
+            var (values, level) = active[0];
+            var rules = values.Select(v => new FilterRule { Level = level, Pattern = v }).ToList();
 
             var manager = new ConfigManager();
             var config = await manager.LoadConfigAsync(session);
@@ -84,57 +99,5 @@ public static class AddCommand
         });
 
         return command;
-    }
-
-    private static bool TryBuildRules(
-        string[] assemblies, string[] namespaces, string[] classes, string[] methods,
-        out List<FilterRule> rules)
-    {
-        rules = [];
-        var multiValueOptions = new (string[] values, string label)[]
-        {
-            (assemblies, "assembly"),
-            (namespaces, "namespace"),
-            (classes, "class"),
-            (methods, "method")
-        };
-
-        var multiCount = multiValueOptions.Count(o => o.values.Length > 1);
-        if (multiCount > 1)
-            return false;
-
-        var multiOption = multiValueOptions.FirstOrDefault(o => o.values.Length > 1);
-
-        if (multiOption.values is null || multiOption.values.Length == 0)
-        {
-            rules =
-            [
-                new FilterRule
-                {
-                    Assembly = assemblies.Length == 1 ? assemblies[0] : "*",
-                    Namespace = namespaces.Length == 1 ? namespaces[0] : "*",
-                    Class = classes.Length == 1 ? classes[0] : "*",
-                    Method = methods.Length == 1 ? methods[0] : "*"
-                }
-            ];
-            return true;
-        }
-
-        var baseAssembly = assemblies.Length == 1 ? assemblies[0] : "*";
-        var baseNamespace = namespaces.Length == 1 ? namespaces[0] : "*";
-        var baseClass = classes.Length == 1 ? classes[0] : "*";
-        var baseMethod = methods.Length == 1 ? methods[0] : "*";
-
-        rules =
-        [
-            .. multiOption.values.Select(value => new FilterRule
-            {
-                Assembly = multiOption.label == "assembly" ? value : baseAssembly,
-                Namespace = multiOption.label == "namespace" ? value : baseNamespace,
-                Class = multiOption.label == "class" ? value : baseClass,
-                Method = multiOption.label == "method" ? value : baseMethod
-            })
-        ];
-        return true;
     }
 }
