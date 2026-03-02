@@ -103,6 +103,7 @@
     <ClInclude Include="Guids.h" />
     <ClInclude Include="ClassFactory.h" />
     <ClInclude Include="Profiler.h" />
+    <ClInclude Include="ProfilerContext.h" />
     <ClInclude Include="ConfigReader.h" />
     <ClInclude Include="MethodCache.h" />
     <ClInclude Include="NdjsonWriter.h" />

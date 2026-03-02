@@ -16,7 +16,7 @@ public class HotspotsAnalysisTests
         var tracePath = await WriteTraceToTempFileAsync();
 
         var output = await CaptureConsoleOutputAsync(async () =>
-            await HotspotsAnalyzer.AnalyzeAsync(tracePath, top: 20, minMs: 0, sortBy: "self", filters: []));
+            await HotspotsAnalyzer.AnalyzeAsync(tracePath, top: 50, minMs: 0, sortBy: "self", filters: []));
 
         Assert.Contains("Self Total", output);
         Assert.Contains("Incl Total", output);

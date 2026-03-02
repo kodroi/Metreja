@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+#include <shared_mutex>
 #include <string>
 #include <unordered_map>
 #include "include/profiling.h"
@@ -23,10 +25,16 @@ class MethodCache
 {
 public:
     MethodCache(ICorProfilerInfo3* profilerInfo, const ProfilerConfig& config);
+    ~MethodCache() = default;
+    MethodCache(const MethodCache&) = delete;
+    MethodCache& operator=(const MethodCache&) = delete;
+    MethodCache(MethodCache&&) = delete;
+    MethodCache& operator=(MethodCache&&) = delete;
 
     void ResolveAndCache(FunctionID functionId);
     const MethodInfo* Lookup(FunctionID functionId) const;
     bool ShouldHook(FunctionID functionId);
+    std::string ResolveClassName(ClassID classId) const;
     static std::string WideToUtf8(const WCHAR* wide, int len = -1);
 
 private:
@@ -36,6 +44,7 @@ private:
     std::string ExtractOriginalMethodName(const std::string& className) const;
 
     ICorProfilerInfo3* m_profilerInfo;
-    ProfilerConfig m_config;
-    std::unordered_map<FunctionID, MethodInfo> m_cache;
+    const ProfilerConfig& m_config;
+    std::unordered_map<FunctionID, std::unique_ptr<MethodInfo>> m_cache;
+    mutable std::shared_mutex m_cacheMutex;
 };

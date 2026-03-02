@@ -27,6 +27,7 @@ public record EnterEvent : TraceEvent
 public record LeaveEvent : EnterEvent
 {
     public required long DeltaNs { get; init; }
+    public bool Tailcall { get; init; }
 }
 
 public record ExceptionEvent : TraceEvent

@@ -5,22 +5,20 @@
 
 // Forward declarations
 class MetrejaProfiler;
-class ConfigReader;
-class MethodCache;
-class CallStackManager;
-class NdjsonWriter;
+struct ProfilerContext;
 
-// Global pointers (needed because ELT callbacks lack 'this')
-extern MetrejaProfiler* g_profiler;
-extern MethodCache* g_methodCache;
-extern CallStackManager* g_callStackManager;
-extern NdjsonWriter* g_ndjsonWriter;
+// Global context pointer (needed because ELT callbacks lack 'this')
+extern ProfilerContext* g_ctx;
 
 class MetrejaProfiler final : public ICorProfilerCallback3
 {
 public:
     MetrejaProfiler();
     ~MetrejaProfiler();
+    MetrejaProfiler(const MetrejaProfiler&) = delete;
+    MetrejaProfiler& operator=(const MetrejaProfiler&) = delete;
+    MetrejaProfiler(MetrejaProfiler&&) = delete;
+    MetrejaProfiler& operator=(MetrejaProfiler&&) = delete;
 
     // IUnknown
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppvObject) override;

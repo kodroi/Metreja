@@ -1,6 +1,7 @@
 #include "CallStack.h"
 
-long long CallStackManager::s_frequency = 0;
+std::atomic<long long> CallStackManager::s_frequency{0};
+std::once_flag CallStackManager::s_frequencyOnce;
 
 CallStackManager::CallStackManager()
     : m_tlsIndex(TlsAlloc())
@@ -58,19 +59,21 @@ long long CallStackManager::GetTimestampNs()
     long long ticks = counter.QuadPart;
 
     // Overflow-safe conversion: ns = (ticks / freq) * 1e9 + ((ticks % freq) * 1e9) / freq
-    long long seconds = ticks / s_frequency;
-    long long remainder = ticks % s_frequency;
-    return seconds * 1000000000LL + (remainder * 1000000000LL) / s_frequency;
+    long long freq = s_frequency.load(std::memory_order_relaxed);
+    long long seconds = ticks / freq;
+    long long remainder = ticks % freq;
+    return seconds * 1000000000LL + (remainder * 1000000000LL) / freq;
 }
 
 void CallStackManager::InitFrequency()
 {
-    if (s_frequency == 0)
-    {
-        LARGE_INTEGER freq;
-        QueryPerformanceFrequency(&freq);
-        s_frequency = freq.QuadPart;
-    }
+    std::call_once(s_frequencyOnce,
+                   []()
+                   {
+                       LARGE_INTEGER freq;
+                       QueryPerformanceFrequency(&freq);
+                       s_frequency.store(freq.QuadPart, std::memory_order_relaxed);
+                   });
 }
 
 ThreadCallStack* CallStackManager::GetOrCreateStack()

@@ -34,6 +34,9 @@ public record InstrumentationConfig
     [JsonPropertyName("trackMemory")]
     public bool TrackMemory { get; init; } = false;
 
+    [JsonPropertyName("disableInlining")]
+    public bool DisableInlining { get; init; } = true;
+
     [JsonPropertyName("includes")]
     public List<FilterRule> Includes { get; init; } = [];
 

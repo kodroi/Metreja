@@ -55,7 +55,8 @@ public static class TraceParser
                     Cls = root.GetProperty("cls").GetString()!,
                     M = root.GetProperty("m").GetString()!,
                     Async = root.GetProperty("async").GetBoolean(),
-                    DeltaNs = root.GetProperty("deltaNs").GetInt64()
+                    DeltaNs = root.GetProperty("deltaNs").GetInt64(),
+                    Tailcall = root.TryGetProperty("tailcall", out var tc) && tc.GetBoolean()
                 },
                 "exception" => new ExceptionEvent
                 {

@@ -1,26 +1,42 @@
 # Metreja
 
-A .NET profiling tool designed for AI coding assistants — Claude Code, Codex, and Cursor can automatically profile your app, identify bottlenecks, and optimize code.
+**A .NET profiler built for AI coding agents.** Tell your agent "find why this is slow" or "where am I wasting memory?" and get an answer backed by real profiling data — no detours, no GUIs, no context switching.
 
-## What It Does
+Every operation is a CLI command. Every output is machine-readable. The full measure-analyze-fix loop runs without human intervention.
 
-AI coding tools can run Metreja automatically to profile your .NET application, analyze the results, and write optimized code — all in one loop. Point your agent at a slow endpoint, and it will measure what's slow and fix it without you switching context.
+```
+You: "This endpoint takes 3 seconds, find out why"
 
-Windows only. The profiler ships alongside the tool.
+Agent: Setting up profiling session...
+       Running with profiler attached...
+       Analyzing trace (42,381 events captured)...
 
-## Claude Code Integration
+       Top hotspots (by self time):
+       ┌──────────────────────────────────┬───────┬────────────┬───────────┐
+       │ Method                           │ Calls │ Self (ms)  │ Incl (ms) │
+       ├──────────────────────────────────┼───────┼────────────┼───────────┤
+       │ OrderService.ValidateInventory   │    47 │    1,842.3 │   2,104.1 │
+       │ DbContext.SaveChangesInternal    │    12 │      891.7 │     891.7 │
+       │ PricingEngine.CalculateDiscount  │   312 │      203.4 │     247.8 │
+       └──────────────────────────────────┴───────┴────────────┴───────────┘
 
-For Claude Code users: install the [metreja-profiler](https://github.com/kodroi/metreja-profiler) plugin to give Claude automatic access to profiling commands — no manual setup needed.
+       ValidateInventory is your bottleneck — 1.8s of self time across
+       47 calls. It queries inventory per-item instead of batching.
+       Here's the fix...
+```
 
-## How It Works
+## Why Metreja
 
-- **Fully CLI-driven** — configuration and analysis are all commands. Sessions, filters, hotspots, call trees, diffs — no GUI or config files to hand-edit. Works in any terminal or agent loop.
-- **Session-based** — your agent creates a session, configures what to trace, then runs your app. Everything is scoped to a session, so multiple profiling runs stay isolated and reproducible.
-- **File-based output** — configs and traces are plain text files that both humans and AI agents can read, diff, and process with standard tools.
+- **Profiling without the detour** — no separate tool, no manual setup. Your agent profiles as part of fixing the problem.
+- **Finds the real bottleneck** — self-time analysis pinpoints the method that's actually slow, not the one that calls it.
+- **Catches wastefulness** — excessive allocations, GC thrashing, memory pressure. See which types allocate the most and which methods trigger gen2 collections.
+- **Proves the fix worked** — diff two traces. See the numbers. No guessing whether your change helped.
+- **Traces only your code** — filter by assembly, namespace, or class. Framework noise stays out, overhead stays low.
+- **Reproducible** — session configs are isolated files. Re-run the same investigation anytime.
 
 ## Installation
 
-**Prerequisites:** .NET 8 SDK or later, Windows
+**Prerequisites:** .NET 8 SDK or later, Windows 10/11 (x64)
 
 ```bash
 dotnet tool install -g Metreja.Tool
@@ -28,86 +44,96 @@ dotnet tool install -g Metreja.Tool
 
 After installation, the `metreja` command is available globally.
 
-## Workflow
+## Claude Code Plugin
 
-Your agent profiles a .NET application in five steps: create a session, pick what to trace, set up the environment, run the app, and analyze the results.
+Install the [metreja-profiler](https://github.com/kodroi/metreja-profiler) plugin and Claude handles everything automatically — session setup, profiling, analysis, and fix suggestions. Just ask a question.
 
-### 1. Initialize a Session
-
-A session is a named configuration that tells the profiler what to measure and where to save results. Each session gets a random 6-hex-char ID.
-
-```bash
-metreja init --scenario "baseline"
-# Output: Session created: a1b2c3
+```
+/plugin marketplace add kodroi/metreja-profiler-marketplace
+/plugin install metreja-profiler@metreja-profiler-marketplace
 ```
 
-The session config is stored at `.metreja/sessions/a1b2c3.json`.
+## Quick Start
 
-### 2. Add Filter Rules
-
-By default, nothing is traced. You add include rules to specify which parts of your code to trace — by assembly, namespace, class, or method. This keeps overhead low — you trace only your code, not the entire .NET framework.
+Five commands from zero to actionable hotspot data:
 
 ```bash
-metreja add include -s a1b2c3 --assembly MyApp --namespace "MyApp.Services"
+# 1. Create a session
+SESSION=$(metreja init --scenario "baseline")
+
+# 2. Tell it what to trace (your code, not the framework)
+metreja add include -s $SESSION --assembly MyApp
+metreja add exclude -s $SESSION --assembly "System.*"
+metreja add exclude -s $SESSION --assembly "Microsoft.*"
+
+# 3. Generate the profiler environment and run your app
+metreja generate-env -s $SESSION --format batch > env.bat
+cmd //c "env.bat && dotnet run --project src/MyApp -c Release"
+
+# 4. Find the bottleneck
+metreja hotspots .metreja/output/*.ndjson --top 10
+
+# 5. Drill into the slowest method
+metreja calltree .metreja/output/*.ndjson --method "ValidateInventory"
 ```
 
-You can also add exclude rules to skip specific classes or methods within your includes (e.g., generated code).
+## What You Can Measure
 
-### 3. Generate the Environment Script
-
-Your app needs a few environment variables so the profiler can attach. This command generates a script that sets them.
+**Performance hotspots** — Find the slowest methods ranked by self time, inclusive time, call count, or allocation count.
 
 ```bash
-metreja generate-env -s a1b2c3
+metreja hotspots trace.ndjson --top 10 --sort self
+metreja hotspots trace.ndjson --filter "MyApp.Services" --min-ms 1
 ```
 
-### 4. Run Your Application
-
-Run the generated script to set the environment variables, then launch your .NET app as usual. The profiler attaches automatically and writes timing data to the output file.
-
-### 5. Analyze the Output
-
-Once your app has run, use the analysis commands to explore the results:
+**Call trees** — See exactly what a slow method does internally, with timing at every level.
 
 ```bash
-# Find the slowest methods
-metreja hotspots .metreja/output/e4f5a6b7_12345.ndjson
+metreja calltree trace.ndjson --method "ProcessOrder"
+metreja calltree trace.ndjson --method "ProcessOrder" --occurrence 2  # 2nd slowest call
+```
 
-# Inspect the call tree of a specific method
-metreja calltree .metreja/output/e4f5a6b7_12345.ndjson --method DoWork
+**Caller analysis** — Find out who calls a method and how much time each caller contributes.
 
-# See who calls a method
-metreja callers .metreja/output/e4f5a6b7_12345.ndjson --method SaveChanges
+```bash
+metreja callers trace.ndjson --method "SaveChanges" --top 10
+```
 
-# View memory and allocation summary
-metreja memory .metreja/output/e4f5a6b7_12345.ndjson
+**Memory and GC pressure** — GC counts by generation, pause times, and per-type allocation hotspots.
 
-# Compare two runs
+```bash
+metreja memory trace.ndjson --top 20
+metreja memory trace.ndjson --filter "System.String"
+```
+
+**Before/after comparison** — Diff two traces to verify a fix actually improved performance.
+
+```bash
 metreja analyze-diff baseline.ndjson optimized.ndjson
 ```
 
+---
+
 ## CLI Reference
 
-### Session Management Commands
+### Session Management
 
-### `init`
+#### `init`
 
-Initialize a new profiling session. Creates a config file at `.metreja/sessions/{sessionId}.json` with a random 6-hex-char session ID.
+Create a new profiling session. Returns a random 6-hex-char session ID.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `--scenario` | string | — | Optional scenario name for this profiling session |
+| `--scenario` | string | — | Optional scenario name |
 
 ```bash
 metreja init
 metreja init --scenario "before-refactor"
 ```
 
-### `add include` / `add exclude`
+#### `add include` / `add exclude`
 
-Add filter rules that control which methods get traced.
-
-Supports multi-value expansion on a single dimension — e.g. `--assembly A --assembly B` creates two separate rules.
+Add filter rules controlling which methods get traced. Supports wildcards (`*`).
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -123,9 +149,9 @@ metreja add include -s a1b2c3 --assembly MyApp --namespace "MyApp.Core" --namesp
 metreja add exclude -s a1b2c3 --class "*Generated*"
 ```
 
-### `remove include` / `remove exclude`
+#### `remove include` / `remove exclude`
 
-Remove a specific filter rule by exact match.
+Remove a filter rule by exact match.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -139,116 +165,58 @@ Remove a specific filter rule by exact match.
 metreja remove include -s a1b2c3 --assembly MyApp --namespace "MyApp.Core"
 ```
 
-### `clear-filters`
+#### `clear-filters`
 
 Clear all filter rules from a session.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `-s`, `--session` | string | — | **Required.** Session ID |
-| `--type` | string | — | Filter type to clear: `include` or `exclude` (omit to clear both) |
+| `--type` | string | — | `include`, `exclude`, or omit for both |
 
 ```bash
 metreja clear-filters -s a1b2c3
 metreja clear-filters -s a1b2c3 --type include
 ```
 
-### `set`
+#### `set`
 
-Set session configuration values via subcommands.
+Configure session settings via subcommands.
 
-#### `set metadata`
+| Subcommand | Arguments | Description |
+|------------|-----------|-------------|
+| `set metadata` | `-s ID "scenario-name"` | Update scenario name |
+| `set output` | `-s ID "path/pattern.ndjson"` | Set output path (supports `{sessionId}`, `{pid}` tokens) |
+| `set max-events` | `-s ID 50000` | Cap event count (0 = unlimited) |
+| `set compute-deltas` | `-s ID true` | Enable delta timing for performance analysis |
+| `set track-memory` | `-s ID true` | Enable GC and allocation tracking |
 
-| Option / Argument | Type | Description |
-|-------------------|------|-------------|
-| `-s`, `--session` | string | **Required.** Session ID |
-| `scenario` | string | Scenario name |
+#### `validate`
 
-```bash
-metreja set metadata -s a1b2c3 "after-refactor"
-```
-
-#### `set output`
-
-| Option / Argument | Type | Description |
-|-------------------|------|-------------|
-| `-s`, `--session` | string | **Required.** Session ID |
-| `path` | string | **Required.** Output file path pattern |
-
-```bash
-metreja set output -s a1b2c3 ".metreja/output/{sessionId}_{pid}.ndjson"
-```
-
-#### `set max-events`
-
-| Option / Argument | Type | Description |
-|-------------------|------|-------------|
-| `-s`, `--session` | string | **Required.** Session ID |
-| `value` | int | **Required.** Maximum events (0 = unlimited) |
-
-```bash
-metreja set max-events -s a1b2c3 100000
-```
-
-#### `set compute-deltas`
-
-| Option / Argument | Type | Description |
-|-------------------|------|-------------|
-| `-s`, `--session` | string | **Required.** Session ID |
-| `value` | bool | **Required.** Enable delta timing |
-
-```bash
-metreja set compute-deltas -s a1b2c3 true
-```
-
-#### `set track-memory`
-
-| Option / Argument | Type | Description |
-|-------------------|------|-------------|
-| `-s`, `--session` | string | **Required.** Session ID |
-| `value` | bool | **Required.** Enable GC and allocation tracking |
-
-```bash
-metreja set track-memory -s a1b2c3 true
-```
-
-### `validate`
-
-Validate session configuration. Checks for missing output path and verifies the output directory can be created. Exits with code 1 on errors.
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `-s`, `--session` | string | — | **Required.** Session ID |
+Check session configuration for errors. Exits with code 1 on failure.
 
 ```bash
 metreja validate -s a1b2c3
 ```
 
-### `generate-env`
+#### `generate-env`
 
-Generate a script that sets the environment variables needed to attach the profiler.
+Generate a script that sets the environment variables to attach the profiler.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `-s`, `--session` | string | — | **Required.** Session ID |
-| `--format` | string | `batch` | Output format: `batch` or `powershell` |
-| `--force` | bool | `false` | Generate script even if profiler DLL is not found |
+| `--format` | string | `batch` | `batch` or `powershell` |
+| `--force` | bool | `false` | Generate even if profiler DLL is not found |
 
 ```bash
 metreja generate-env -s a1b2c3
 metreja generate-env -s a1b2c3 --format powershell
 ```
 
-### `clear`
+#### `clear`
 
-Delete profiling session(s).
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `-s`, `--session` | string | — | Session ID to delete |
-| `--all` | bool | `false` | Delete all sessions |
-
-One of `--session` or `--all` is required.
+Delete profiling sessions.
 
 ```bash
 metreja clear -s a1b2c3
@@ -257,107 +225,72 @@ metreja clear --all
 
 ### Analysis Commands
 
-All analysis commands read the trace files produced by the profiler.
-
 #### `hotspots`
 
-Show per-method timing hotspots with self time and memory allocation counts. Self time is time spent in the method itself, excluding methods it calls. When `track-memory` is enabled, the `Allocs` column shows allocations attributed to each method. Supports filtering by method, class, or namespace name.
+Per-method timing ranked by self time, inclusive time, call count, or allocations.
 
-| Option / Argument | Type | Default | Description |
-|-------------------|------|---------|-------------|
-| `file` | string | — | **Required.** NDJSON trace file path |
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `file` | string | — | **Required.** NDJSON trace file |
 | `--top` | int | `20` | Number of methods to show |
-| `--min-ms` | double | `0.0` | Minimum time threshold in milliseconds |
-| `--sort` | string | `self` | Sort by: `self`, `inclusive`, `calls`, or `allocs` |
-| `--filter` | string[] | — | Include only methods matching pattern(s) |
-
-```bash
-metreja hotspots trace.ndjson
-metreja hotspots trace.ndjson --top 50 --sort inclusive
-metreja hotspots trace.ndjson --filter "MyService" --min-ms 10
-```
+| `--min-ms` | double | `0.0` | Minimum time threshold (ms) |
+| `--sort` | string | `self` | `self`, `inclusive`, `calls`, or `allocs` |
+| `--filter` | string[] | — | Filter by method/class/namespace pattern |
 
 #### `calltree`
 
-Show the call tree for a specific method call. Finds all calls matching the pattern, ranked by duration (slowest first). Displays the complete subtree with indentation, timing, `[async]` tags, and exception info.
+Call tree for a specific method invocation, slowest first.
 
-| Option / Argument | Type | Default | Description |
-|-------------------|------|---------|-------------|
-| `file` | string | — | **Required.** NDJSON trace file path |
-| `--method` | string | — | **Required.** Method name or pattern to match |
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `file` | string | — | **Required.** NDJSON trace file |
+| `--method` | string | — | **Required.** Method name or pattern |
 | `--tid` | long | — | Filter by thread ID |
-| `--occurrence` | int | `1` | Which occurrence to show (1 = slowest) |
-
-```bash
-metreja calltree trace.ndjson --method DoWork
-metreja calltree trace.ndjson --method "ProcessOrder" --occurrence 2
-metreja calltree trace.ndjson --method DoWork --tid 12345
-```
+| `--occurrence` | int | `1` | Which invocation (1 = slowest) |
 
 #### `callers`
 
-Show which methods call a specific method. Aggregates caller info including call count, total time, and max time per caller.
+Who calls a method, with call count and timing per caller.
 
-| Option / Argument | Type | Default | Description |
-|-------------------|------|---------|-------------|
-| `file` | string | — | **Required.** NDJSON trace file path |
-| `--method` | string | — | **Required.** Method name or pattern to match |
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `file` | string | — | **Required.** NDJSON trace file |
+| `--method` | string | — | **Required.** Method name or pattern |
 | `--top` | int | `20` | Number of callers to show |
-
-```bash
-metreja callers trace.ndjson --method SaveChanges
-metreja callers trace.ndjson --method "Execute" --top 10
-```
 
 #### `memory`
 
-Memory summary: garbage collection stats and top allocating types. Displays generation counts, pause durations, and allocation counts by type.
+GC summary (generation counts, pause times) and per-type allocation hotspots.
 
-| Option / Argument | Type | Default | Description |
-|-------------------|------|---------|-------------|
-| `file` | string | — | **Required.** NDJSON trace file path |
-| `--top` | int | `20` | Number of allocation types to show |
-| `--filter` | string[] | — | Include only class names matching pattern(s) |
-
-```bash
-metreja memory trace.ndjson
-metreja memory trace.ndjson --top 50 --filter "System.String"
-```
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `file` | string | — | **Required.** NDJSON trace file |
+| `--top` | int | `20` | Number of allocation types |
+| `--filter` | string[] | — | Filter by class name pattern |
 
 #### `analyze-diff`
 
-Compare two trace files side by side. Shows a table of per-method timing (base, compare, delta) for every method appearing in either file.
+Compare two traces. Shows per-method timing delta (base vs. compare).
 
 | Argument | Type | Description |
 |----------|------|-------------|
-| `base` | string | **Required.** Base NDJSON file path |
-| `compare` | string | **Required.** Comparison NDJSON file path |
+| `base` | string | **Required.** Base NDJSON file |
+| `compare` | string | **Required.** Comparison NDJSON file |
 
-```bash
-metreja analyze-diff baseline.ndjson optimized.ndjson
-```
+### Session Config Format
 
-### Config File Format
-
-Session configs are stored at `.metreja/sessions/{sessionId}.json`:
+Stored at `.metreja/sessions/{sessionId}.json`:
 
 ```json
 {
   "sessionId": "a1b2c3",
-  "metadata": {
-    "scenario": "baseline"
-  },
+  "metadata": { "scenario": "baseline" },
   "instrumentation": {
     "maxEvents": 0,
     "computeDeltas": true,
     "trackMemory": false,
     "includes": [
-      {
-        "assembly": "MyApp",
-        "namespace": "*",
-        "class": "*",
-        "method": "*"
-      }
+      { "assembly": "MyApp", "namespace": "*", "class": "*", "method": "*" }
     ],
     "excludes": []
   },
@@ -367,21 +300,15 @@ Session configs are stored at `.metreja/sessions/{sessionId}.json`:
 }
 ```
 
-### Configuration Field Reference
-
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `maxEvents` | int | `0` | Maximum number of events per session. `0` means unlimited. |
-| `computeDeltas` | bool | `true` | When enabled, `leave` events include delta timing — the time spent inside the method. |
-| `trackMemory` | bool | `false` | Enables GC event tracking and per-method allocation counting. |
+| `maxEvents` | int | `0` | Event cap per session (0 = unlimited) |
+| `computeDeltas` | bool | `true` | Include delta timing on `leave` events |
+| `trackMemory` | bool | `false` | Enable GC and allocation tracking |
 
 ### Output Path Tokens
 
-The output path supports two placeholders replaced automatically when the trace file is created:
-
 | Token | Replaced With |
 |-------|---------------|
-| `{sessionId}` | The `sessionId` value from the session config |
-| `{pid}` | The process ID of the profiled application |
-
-Default output path: `.metreja/output/{sessionId}_{pid}.ndjson`
+| `{sessionId}` | Session ID from config |
+| `{pid}` | Process ID of the profiled app |

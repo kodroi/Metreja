@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Windows.h>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -17,9 +17,10 @@ struct ProfilerConfig
     std::string sessionId;
     std::string scenario;
     std::string outputPath = ".metreja/output/{sessionId}_{pid}.ndjson";
-    int maxEvents = 0;
+    int64_t maxEvents = 0;
     bool computeDeltas = true;
     bool trackMemory = false;
+    bool disableInlining = true;
     std::vector<FilterRule> includes;
     std::vector<FilterRule> excludes;
 };
@@ -32,5 +33,4 @@ public:
 
 private:
     static std::string GetEnvVar(const char* name);
-    static std::string ExpandPlaceholders(const std::string& path, const std::string& sessionId, DWORD pid);
 };

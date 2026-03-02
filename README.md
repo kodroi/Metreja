@@ -54,7 +54,8 @@ After installation, the `metreja` command is available globally.
 Install the [metreja-profiler](https://github.com/kodroi/metreja-profiler) plugin for Claude Code and just ask a question:
 
 ```
-/plugin install kodroi/metreja-profiler
+/plugin marketplace add kodroi/metreja-profiler-marketplace
+/plugin install metreja-profiler@metreja-profiler-marketplace
 ```
 
 ```
@@ -62,13 +63,6 @@ You: "This endpoint takes 3 seconds, find out why"
 
 Agent: Setting up profiling session...
        ...
-```
-
-Or install from the marketplace:
-
-```
-/plugin marketplace add kodroi/metreja-profiler-marketplace
-/plugin install metreja-profiler@metreja-profiler-marketplace
 ```
 
 ### Manual CLI Usage

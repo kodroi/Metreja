@@ -1,6 +1,12 @@
 #include "MethodCache.h"
 
-#include <regex>
+static size_t FindLastPathSeparator(const std::string& path)
+{
+    size_t pos = path.rfind('\\');
+    if (pos == std::string::npos)
+        pos = path.rfind('/');
+    return pos;
+}
 
 MethodCache::MethodCache(ICorProfilerInfo3* profilerInfo, const ProfilerConfig& config)
     : m_profilerInfo(profilerInfo)
@@ -10,11 +16,16 @@ MethodCache::MethodCache(ICorProfilerInfo3* profilerInfo, const ProfilerConfig& 
 
 void MethodCache::ResolveAndCache(FunctionID functionId)
 {
-    if (m_cache.count(functionId) > 0)
-        return;
+    // Fast path: check if already cached under shared lock
+    {
+        std::shared_lock lock(m_cacheMutex);
+        if (m_cache.count(functionId) > 0)
+            return;
+    }
 
-    MethodInfo info{};
-    info.methodId = functionId;
+    // Resolve outside lock (metadata API calls are thread-safe)
+    auto info = std::make_unique<MethodInfo>();
+    info->methodId = functionId;
 
     // Step 1: GetFunctionInfo2 -> ClassID, ModuleID, mdMethodDef
     ClassID classId = 0;
@@ -28,22 +39,24 @@ void MethodCache::ResolveAndCache(FunctionID functionId)
         hr = m_profilerInfo->GetFunctionInfo(functionId, &classId, &moduleId, &token);
         if (FAILED(hr))
         {
-            info.isIncluded = false;
-            m_cache[functionId] = info;
+            info->isIncluded = false;
+            std::unique_lock lock(m_cacheMutex);
+            m_cache.try_emplace(functionId, std::move(info));
             return;
         }
     }
 
-    info.methodToken = static_cast<mdMethodDef>(token);
-    info.moduleId = moduleId;
+    info->methodToken = static_cast<mdMethodDef>(token);
+    info->moduleId = moduleId;
 
     // Step 2: GetModuleMetaData -> IMetaDataImport
     IUnknown* pUnk = nullptr;
     hr = m_profilerInfo->GetModuleMetaData(moduleId, ofRead, IID_IMetaDataImport, &pUnk);
     if (FAILED(hr) || pUnk == nullptr)
     {
-        info.isIncluded = false;
-        m_cache[functionId] = info;
+        info->isIncluded = false;
+        std::unique_lock lock(m_cacheMutex);
+        m_cache.try_emplace(functionId, std::move(info));
         return;
     }
 
@@ -52,8 +65,9 @@ void MethodCache::ResolveAndCache(FunctionID functionId)
     pUnk->Release();
     if (FAILED(hr) || metaImport == nullptr)
     {
-        info.isIncluded = false;
-        m_cache[functionId] = info;
+        info->isIncluded = false;
+        std::unique_lock lock(m_cacheMutex);
+        m_cache.try_emplace(functionId, std::move(info));
         return;
     }
 
@@ -61,11 +75,11 @@ void MethodCache::ResolveAndCache(FunctionID functionId)
     WCHAR methodName[512];
     ULONG methodNameLen = 0;
     mdTypeDef typeDef = 0;
-    hr = metaImport->GetMethodProps(info.methodToken, &typeDef, methodName, 512, &methodNameLen, nullptr, nullptr,
+    hr = metaImport->GetMethodProps(info->methodToken, &typeDef, methodName, 512, &methodNameLen, nullptr, nullptr,
                                     nullptr, nullptr, nullptr);
     if (SUCCEEDED(hr))
     {
-        info.methodName = WideToUtf8(methodName, static_cast<int>(methodNameLen - 1));
+        info->methodName = WideToUtf8(methodName, static_cast<int>(methodNameLen - 1));
     }
 
     // Step 4: GetTypeDefProps -> class name (includes namespace)
@@ -80,13 +94,13 @@ void MethodCache::ResolveAndCache(FunctionID functionId)
         size_t lastDot = fullTypeName.rfind('.');
         if (lastDot != std::string::npos)
         {
-            info.namespaceName = fullTypeName.substr(0, lastDot);
-            info.className = fullTypeName.substr(lastDot + 1);
+            info->namespaceName = fullTypeName.substr(0, lastDot);
+            info->className = fullTypeName.substr(lastDot + 1);
         }
         else
         {
-            info.namespaceName = "";
-            info.className = fullTypeName;
+            info->namespaceName = "";
+            info->className = fullTypeName;
         }
     }
 
@@ -101,33 +115,34 @@ void MethodCache::ResolveAndCache(FunctionID functionId)
     {
         // Module name is the file path; extract just the file name without extension
         std::string fullPath = WideToUtf8(moduleName, static_cast<int>(moduleNameLen - 1));
-        size_t lastSlash = fullPath.rfind('\\');
-        if (lastSlash == std::string::npos)
-            lastSlash = fullPath.rfind('/');
+        size_t lastSlash = FindLastPathSeparator(fullPath);
         std::string fileName = (lastSlash != std::string::npos) ? fullPath.substr(lastSlash + 1) : fullPath;
         size_t dotPos = fileName.rfind('.');
-        info.assemblyName = (dotPos != std::string::npos) ? fileName.substr(0, dotPos) : fileName;
+        info->assemblyName = (dotPos != std::string::npos) ? fileName.substr(0, dotPos) : fileName;
     }
 
     // Step 6: Detect async state machine
-    info.isAsyncStateMachine = IsAsyncStateMachine(info.className, info.methodName);
-    if (info.isAsyncStateMachine)
+    info->isAsyncStateMachine = IsAsyncStateMachine(info->className, info->methodName);
+    if (info->isAsyncStateMachine)
     {
-        info.originalMethodName = ExtractOriginalMethodName(info.className);
+        info->originalMethodName = ExtractOriginalMethodName(info->className);
     }
 
     // Step 7: Evaluate include/exclude filters
-    info.isIncluded = EvaluateFilters(info.assemblyName, info.namespaceName, info.className, info.methodName);
+    info->isIncluded = EvaluateFilters(info->assemblyName, info->namespaceName, info->className, info->methodName);
 
-    m_cache[functionId] = info;
+    // Insert under exclusive lock (double-check: another thread may have inserted)
+    std::unique_lock lock(m_cacheMutex);
+    m_cache.try_emplace(functionId, std::move(info));
 }
 
 const MethodInfo* MethodCache::Lookup(FunctionID functionId) const
 {
+    std::shared_lock lock(m_cacheMutex);
     auto it = m_cache.find(functionId);
     if (it == m_cache.end())
         return nullptr;
-    return &it->second;
+    return it->second.get();
 }
 
 bool MethodCache::ShouldHook(FunctionID functionId)
@@ -135,6 +150,36 @@ bool MethodCache::ShouldHook(FunctionID functionId)
     ResolveAndCache(functionId);
     const auto* info = Lookup(functionId);
     return info != nullptr && info->isIncluded;
+}
+
+std::string MethodCache::ResolveClassName(ClassID classId) const
+{
+    ModuleID moduleId = 0;
+    mdTypeDef typeDef = 0;
+    HRESULT hr = m_profilerInfo->GetClassIDInfo(classId, &moduleId, &typeDef);
+    if (FAILED(hr))
+        return "Unknown";
+
+    IUnknown* pUnk = nullptr;
+    hr = m_profilerInfo->GetModuleMetaData(moduleId, ofRead, IID_IMetaDataImport, &pUnk);
+    if (FAILED(hr) || pUnk == nullptr)
+        return "Unknown";
+
+    IMetaDataImport* metaImport = nullptr;
+    hr = pUnk->QueryInterface(IID_IMetaDataImport, reinterpret_cast<void**>(&metaImport));
+    pUnk->Release();
+    if (FAILED(hr) || metaImport == nullptr)
+        return "Unknown";
+
+    WCHAR typeName[512];
+    ULONG typeNameLen = 0;
+    hr = metaImport->GetTypeDefProps(typeDef, typeName, 512, &typeNameLen, nullptr, nullptr);
+    metaImport->Release();
+
+    if (SUCCEEDED(hr) && typeNameLen > 0)
+        return WideToUtf8(typeName, static_cast<int>(typeNameLen - 1));
+
+    return "Unknown";
 }
 
 bool MethodCache::EvaluateFilters(const std::string& assembly, const std::string& ns, const std::string& cls,

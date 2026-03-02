@@ -1,5 +1,12 @@
 ﻿[Thread-1]         enter Program.RunExceptionPaths (Metreja.TestApp/Metreja.TestApp) depth=4
 [Thread-1]           enter Program.ThrowingMethod (Metreja.TestApp/Metreja.TestApp) depth=5
-[Thread-1]             enter Program.NestedExceptionMethod (Metreja.TestApp/Metreja.TestApp) depth=6
-[Thread-1]               enter Program.WrapperMethod (Metreja.TestApp/Metreja.TestApp) depth=7
-[Thread-1]               leave Program.RunExceptionPaths (Metreja.TestApp/Metreja.TestApp) depth=7
+[Thread-1] exception System.InvalidOperationException in Program.ThrowingMethod (Metreja.TestApp/Metreja.TestApp)
+[Thread-1]           leave Program.ThrowingMethod (Metreja.TestApp/Metreja.TestApp) depth=5
+[Thread-1]         leave Program.RunExceptionPaths (Metreja.TestApp/Metreja.TestApp) depth=4
+[Thread-1]         enter Program.NestedExceptionMethod (Metreja.TestApp/Metreja.TestApp) depth=4
+[Thread-1]           enter Program.WrapperMethod (Metreja.TestApp/Metreja.TestApp) depth=5
+[Thread-1] exception System.ArgumentException in Program.WrapperMethod (Metreja.TestApp/Metreja.TestApp)
+[Thread-1]           leave Program.WrapperMethod (Metreja.TestApp/Metreja.TestApp) depth=5
+[Thread-1]         leave Program.NestedExceptionMethod (Metreja.TestApp/Metreja.TestApp) depth=4
+[Thread-1]       leave Program.RunExceptionPaths (Metreja.TestApp/Metreja.TestApp) depth=3
+[Thread-1]     leave Program.RunExceptionPaths (Metreja.TestApp/Metreja.TestApp) depth=2

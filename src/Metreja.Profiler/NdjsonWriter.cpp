@@ -3,26 +3,59 @@
 #include <cstdio>
 #include <cstring>
 
-NdjsonWriter::NdjsonWriter(const std::string& outputPath, int maxEvents)
+static size_t FindLastPathSeparator(const std::string& path)
+{
+    size_t pos = path.rfind('\\');
+    if (pos == std::string::npos)
+        pos = path.rfind('/');
+    return pos;
+}
+
+static void CreateDirectoriesRecursive(const std::string& path)
+{
+    if (path.empty())
+        return;
+
+    // Try creating the directory; if it succeeds or already exists, we're done
+    if (CreateDirectoryA(path.c_str(), nullptr) || GetLastError() == ERROR_ALREADY_EXISTS)
+        return;
+
+    // Otherwise, create parent first
+    size_t sep = FindLastPathSeparator(path);
+    if (sep != std::string::npos && sep > 0)
+    {
+        CreateDirectoriesRecursive(path.substr(0, sep));
+        CreateDirectoryA(path.c_str(), nullptr);
+    }
+}
+
+NdjsonWriter::NdjsonWriter(const std::string& outputPath, int64_t maxEvents, const std::string& sessionId, DWORD pid)
     : m_bufferPos(0)
     , m_maxEvents(maxEvents)
     , m_eventCount(0)
     , m_fileHandle(INVALID_HANDLE_VALUE)
+    , m_sessionId(sessionId)
+    , m_pid(pid)
 {
     m_buffer[0] = '\0';
 
     // Create parent directories if needed
-    size_t lastSlash = outputPath.rfind('\\');
-    if (lastSlash == std::string::npos)
-        lastSlash = outputPath.rfind('/');
+    size_t lastSlash = FindLastPathSeparator(outputPath);
     if (lastSlash != std::string::npos)
     {
         std::string dir = outputPath.substr(0, lastSlash);
-        CreateDirectoryA(dir.c_str(), nullptr);
+        CreateDirectoriesRecursive(dir);
     }
 
     m_fileHandle = CreateFileA(outputPath.c_str(), GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS,
                                FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (m_fileHandle == INVALID_HANDLE_VALUE)
+    {
+        char msg[512];
+        snprintf(msg, sizeof(msg), "Metreja: Failed to create output file '%s' (error %lu)\n", outputPath.c_str(),
+                 GetLastError());
+        OutputDebugStringA(msg);
+    }
 }
 
 NdjsonWriter::~NdjsonWriter()
@@ -35,33 +68,34 @@ NdjsonWriter::~NdjsonWriter()
     }
 }
 
-bool NdjsonWriter::CheckEventLimit() const { return m_maxEvents > 0 && m_eventCount >= m_maxEvents; }
+bool NdjsonWriter::CheckEventLimit() const
+{
+    return m_maxEvents > 0 && m_eventCount.load(std::memory_order_relaxed) >= m_maxEvents;
+}
 
 void NdjsonWriter::WriteLockedEvent(const char* line, size_t len)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     AppendToBuffer(line, len);
-    m_eventCount++;
+    m_eventCount.fetch_add(1, std::memory_order_relaxed);
 }
 
-void NdjsonWriter::WriteSessionMetadata(const std::string& sessionId, const std::string& scenario, DWORD pid,
-                                        long long tsNs)
+void NdjsonWriter::WriteSessionMetadata(const std::string& scenario, long long tsNs)
 {
     char line[2048];
     int len = snprintf(line, sizeof(line),
                        R"({"event":"session_metadata","tsNs":%lld,"pid":%lu,"sessionId":"%s","scenario":"%s"})"
                        "\n",
-                       tsNs, pid, sessionId.c_str(), scenario.c_str());
+                       tsNs, m_pid, m_sessionId.c_str(), scenario.c_str());
 
-    if (len > 0)
+    if (len > 0 && static_cast<size_t>(len) < sizeof(line))
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         AppendToBuffer(line, static_cast<size_t>(len));
     }
 }
 
-void NdjsonWriter::WriteEnter(long long tsNs, DWORD pid, const std::string& sessionId, DWORD tid, int depth,
-                              const MethodInfo& info)
+void NdjsonWriter::WriteEnter(long long tsNs, DWORD tid, int depth, const MethodInfo& info)
 {
     if (CheckEventLimit())
         return;
@@ -72,34 +106,46 @@ void NdjsonWriter::WriteEnter(long long tsNs, DWORD pid, const std::string& sess
         line, sizeof(line),
         R"({"event":"enter","tsNs":%lld,"pid":%lu,"sessionId":"%s","tid":%lu,"depth":%d,"asm":"%s","ns":"%s","cls":"%s","m":"%s","async":%s})"
         "\n",
-        tsNs, pid, sessionId.c_str(), tid, depth, info.assemblyName.c_str(), info.namespaceName.c_str(),
+        tsNs, m_pid, m_sessionId.c_str(), tid, depth, info.assemblyName.c_str(), info.namespaceName.c_str(),
         info.className.c_str(), methodName, info.isAsyncStateMachine ? "true" : "false");
 
-    if (len > 0)
+    if (len > 0 && static_cast<size_t>(len) < sizeof(line))
         WriteLockedEvent(line, static_cast<size_t>(len));
 }
 
-void NdjsonWriter::WriteLeave(long long tsNs, DWORD pid, const std::string& sessionId, DWORD tid, int depth,
-                              const MethodInfo& info, long long deltaNs)
+void NdjsonWriter::WriteLeave(long long tsNs, DWORD tid, int depth, const MethodInfo& info, long long deltaNs,
+                              bool tailcall)
 {
     if (CheckEventLimit())
         return;
 
     char line[2048];
     const char* methodName = info.isAsyncStateMachine ? info.originalMethodName.c_str() : info.methodName.c_str();
-    int len = snprintf(
-        line, sizeof(line),
-        R"({"event":"leave","tsNs":%lld,"pid":%lu,"sessionId":"%s","tid":%lu,"depth":%d,"asm":"%s","ns":"%s","cls":"%s","m":"%s","async":%s,"deltaNs":%lld})"
-        "\n",
-        tsNs, pid, sessionId.c_str(), tid, depth, info.assemblyName.c_str(), info.namespaceName.c_str(),
-        info.className.c_str(), methodName, info.isAsyncStateMachine ? "true" : "false", deltaNs);
+    int len;
+    if (tailcall)
+    {
+        len = snprintf(
+            line, sizeof(line),
+            R"({"event":"leave","tsNs":%lld,"pid":%lu,"sessionId":"%s","tid":%lu,"depth":%d,"asm":"%s","ns":"%s","cls":"%s","m":"%s","async":%s,"deltaNs":%lld,"tailcall":true})"
+            "\n",
+            tsNs, m_pid, m_sessionId.c_str(), tid, depth, info.assemblyName.c_str(), info.namespaceName.c_str(),
+            info.className.c_str(), methodName, info.isAsyncStateMachine ? "true" : "false", deltaNs);
+    }
+    else
+    {
+        len = snprintf(
+            line, sizeof(line),
+            R"({"event":"leave","tsNs":%lld,"pid":%lu,"sessionId":"%s","tid":%lu,"depth":%d,"asm":"%s","ns":"%s","cls":"%s","m":"%s","async":%s,"deltaNs":%lld})"
+            "\n",
+            tsNs, m_pid, m_sessionId.c_str(), tid, depth, info.assemblyName.c_str(), info.namespaceName.c_str(),
+            info.className.c_str(), methodName, info.isAsyncStateMachine ? "true" : "false", deltaNs);
+    }
 
-    if (len > 0)
+    if (len > 0 && static_cast<size_t>(len) < sizeof(line))
         WriteLockedEvent(line, static_cast<size_t>(len));
 }
 
-void NdjsonWriter::WriteException(long long tsNs, DWORD pid, const std::string& sessionId, DWORD tid,
-                                  const MethodInfo& info, const std::string& exType)
+void NdjsonWriter::WriteException(long long tsNs, DWORD tid, const MethodInfo& info, const std::string& exType)
 {
     if (CheckEventLimit())
         return;
@@ -109,25 +155,24 @@ void NdjsonWriter::WriteException(long long tsNs, DWORD pid, const std::string& 
         line, sizeof(line),
         R"({"event":"exception","tsNs":%lld,"pid":%lu,"sessionId":"%s","tid":%lu,"asm":"%s","ns":"%s","cls":"%s","m":"%s","exType":"%s"})"
         "\n",
-        tsNs, pid, sessionId.c_str(), tid, info.assemblyName.c_str(), info.namespaceName.c_str(),
+        tsNs, m_pid, m_sessionId.c_str(), tid, info.assemblyName.c_str(), info.namespaceName.c_str(),
         info.className.c_str(), info.methodName.c_str(), exType.c_str());
 
-    if (len > 0)
+    if (len > 0 && static_cast<size_t>(len) < sizeof(line))
         WriteLockedEvent(line, static_cast<size_t>(len));
 }
 
-void NdjsonWriter::WriteGcStarted(long long tsNs, DWORD pid, const std::string& sessionId, bool gen0, bool gen1,
-                                  bool gen2, const char* reason)
+void NdjsonWriter::WriteGcStarted(long long tsNs, bool gen0, bool gen1, bool gen2, const char* reason)
 {
     char line[2048];
     int len = snprintf(
         line, sizeof(line),
         R"({"event":"gc_start","tsNs":%lld,"pid":%lu,"sessionId":"%s","gen0":%s,"gen1":%s,"gen2":%s,"reason":"%s"})"
         "\n",
-        tsNs, pid, sessionId.c_str(), gen0 ? "true" : "false", gen1 ? "true" : "false", gen2 ? "true" : "false",
+        tsNs, m_pid, m_sessionId.c_str(), gen0 ? "true" : "false", gen1 ? "true" : "false", gen2 ? "true" : "false",
         reason);
 
-    if (len > 0)
+    if (len > 0 && static_cast<size_t>(len) < sizeof(line))
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         AppendToBuffer(line, static_cast<size_t>(len));
@@ -135,15 +180,15 @@ void NdjsonWriter::WriteGcStarted(long long tsNs, DWORD pid, const std::string& 
     }
 }
 
-void NdjsonWriter::WriteGcFinished(long long tsNs, DWORD pid, const std::string& sessionId, long long durationNs)
+void NdjsonWriter::WriteGcFinished(long long tsNs, long long durationNs)
 {
     char line[2048];
     int len = snprintf(line, sizeof(line),
                        R"({"event":"gc_end","tsNs":%lld,"pid":%lu,"sessionId":"%s","durationNs":%lld})"
                        "\n",
-                       tsNs, pid, sessionId.c_str(), durationNs);
+                       tsNs, m_pid, m_sessionId.c_str(), durationNs);
 
-    if (len > 0)
+    if (len > 0 && static_cast<size_t>(len) < sizeof(line))
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         AppendToBuffer(line, static_cast<size_t>(len));
@@ -151,8 +196,7 @@ void NdjsonWriter::WriteGcFinished(long long tsNs, DWORD pid, const std::string&
     }
 }
 
-void NdjsonWriter::WriteAllocByClass(long long tsNs, DWORD pid, const std::string& sessionId, DWORD tid,
-                                     const std::string& className, ULONG count)
+void NdjsonWriter::WriteAllocByClass(long long tsNs, DWORD tid, const std::string& className, ULONG count)
 {
     if (CheckEventLimit())
         return;
@@ -162,9 +206,9 @@ void NdjsonWriter::WriteAllocByClass(long long tsNs, DWORD pid, const std::strin
         line, sizeof(line),
         R"({"event":"alloc_by_class","tsNs":%lld,"pid":%lu,"sessionId":"%s","tid":%lu,"className":"%s","count":%lu})"
         "\n",
-        tsNs, pid, sessionId.c_str(), tid, className.c_str(), count);
+        tsNs, m_pid, m_sessionId.c_str(), tid, className.c_str(), count);
 
-    if (len > 0)
+    if (len > 0 && static_cast<size_t>(len) < sizeof(line))
         WriteLockedEvent(line, static_cast<size_t>(len));
 }
 

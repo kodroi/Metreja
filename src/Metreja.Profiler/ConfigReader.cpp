@@ -7,6 +7,30 @@
 
 using json = nlohmann::json;
 
+static std::string ExpandPlaceholders(const std::string& path, const std::string& sessionId, DWORD pid)
+{
+    std::string result = path;
+
+    // Replace {sessionId}
+    size_t pos = result.find("{sessionId}");
+    while (pos != std::string::npos)
+    {
+        result.replace(pos, 11, sessionId);
+        pos = result.find("{sessionId}", pos + sessionId.length());
+    }
+
+    // Replace {pid}
+    std::string pidStr = std::to_string(pid);
+    pos = result.find("{pid}");
+    while (pos != std::string::npos)
+    {
+        result.replace(pos, 5, pidStr);
+        pos = result.find("{pid}", pos + pidStr.length());
+    }
+
+    return result;
+}
+
 ProfilerConfig ConfigReader::Load()
 {
     ProfilerConfig config;
@@ -48,11 +72,13 @@ ProfilerConfig ConfigReader::Load()
     {
         auto& inst = root["instrumentation"];
         if (inst.contains("maxEvents"))
-            config.maxEvents = inst["maxEvents"].get<int>();
+            config.maxEvents = inst["maxEvents"].get<int64_t>();
         if (inst.contains("computeDeltas"))
             config.computeDeltas = inst["computeDeltas"].get<bool>();
         if (inst.contains("trackMemory"))
             config.trackMemory = inst["trackMemory"].get<bool>();
+        if (inst.contains("disableInlining"))
+            config.disableInlining = inst["disableInlining"].get<bool>();
 
         auto parseRules = [](const json& arr, std::vector<FilterRule>& rules)
         {
@@ -108,30 +134,6 @@ std::string ConfigReader::GetEnvVar(const char* name)
     if (len == 0 || len >= sizeof(buffer))
         return {};
     return std::string(buffer, len);
-}
-
-std::string ConfigReader::ExpandPlaceholders(const std::string& path, const std::string& sessionId, DWORD pid)
-{
-    std::string result = path;
-
-    // Replace {sessionId}
-    size_t pos = result.find("{sessionId}");
-    while (pos != std::string::npos)
-    {
-        result.replace(pos, 11, sessionId);
-        pos = result.find("{sessionId}", pos + sessionId.length());
-    }
-
-    // Replace {pid}
-    std::string pidStr = std::to_string(pid);
-    pos = result.find("{pid}");
-    while (pos != std::string::npos)
-    {
-        result.replace(pos, 5, pidStr);
-        pos = result.find("{pid}", pos + pidStr.length());
-    }
-
-    return result;
 }
 
 bool ConfigReader::SimpleGlobMatch(const std::string& pattern, const std::string& value)
