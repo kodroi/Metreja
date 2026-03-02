@@ -51,6 +51,28 @@ After installation, the `metreja` command is available globally.
 
 ## Quick Start
 
+Install the [metreja-profiler](https://github.com/kodroi/metreja-profiler) plugin for Claude Code and just ask a question:
+
+```
+/plugin install kodroi/metreja-profiler
+```
+
+```
+You: "This endpoint takes 3 seconds, find out why"
+
+Agent: Setting up profiling session...
+       ...
+```
+
+Or install from the marketplace:
+
+```
+/plugin marketplace add kodroi/metreja-profiler-marketplace
+/plugin install metreja-profiler@metreja-profiler-marketplace
+```
+
+### Manual CLI Usage
+
 Five commands from zero to actionable hotspot data:
 
 ```bash
@@ -85,21 +107,6 @@ metreja calltree .metreja/output/*.ndjson --method "ValidateInventory"
 
 For the full CLI reference with all options, see [src/Metreja.Tool/README.md](src/Metreja.Tool/README.md).
 
-## Claude Code Plugin
-
-Install the [metreja-profiler](https://github.com/kodroi/metreja-profiler) plugin and Claude handles everything automatically — session setup, profiling, analysis, and fix suggestions. Just ask a question.
-
-```
-/plugin marketplace add kodroi/metreja-profiler-marketplace
-/plugin install metreja-profiler@metreja-profiler-marketplace
-```
-
-Or install directly:
-
-```
-/plugin install kodroi/metreja-profiler
-```
-
 ## Building from Source
 
 **Prerequisites:**
@@ -108,10 +115,7 @@ Or install directly:
 - Visual Studio 2022 Build Tools with "Desktop development with C++" workload
 
 ```bash
-# Full build: CLI + native profiler DLL + install as global tool
-build.bat
-
-# Or build components individually
+# Build components
 dotnet build src/Metreja.Tool/Metreja.Tool.csproj -c Release
 msbuild src/Metreja.Profiler/Metreja.Profiler.vcxproj /p:Configuration=Release /p:Platform=x64
 

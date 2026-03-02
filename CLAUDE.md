@@ -9,10 +9,7 @@ Metreja is a .NET Call-Path Profiler: a native C++ DLL implementing ICorProfiler
 ## Build Commands
 
 ```bash
-# Full build (CLI + native DLL + install as global tool)
-build.bat
-
-# Individual projects
+# Build projects
 dotnet build src/Metreja.Tool/Metreja.Tool.csproj -c Release
 msbuild src/Metreja.Profiler/Metreja.Profiler.vcxproj /p:Configuration=Release /p:Platform=x64 "/p:SolutionDir=%CD%\\"
 
