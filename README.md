@@ -2,7 +2,10 @@
 
 **A .NET profiler built for AI coding agents.** Tell your agent "find why this is slow" or "where am I wasting memory?" and get an answer backed by real profiling data — no detours, no GUIs, no context switching.
 
+[![Build](https://github.com/kodroi/Metreja/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/kodroi/Metreja/actions/workflows/build-and-test.yml)
 [![NuGet](https://img.shields.io/nuget/v/Metreja.Tool)](https://www.nuget.org/packages/Metreja.Tool)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/Metreja.Tool)](https://www.nuget.org/packages/Metreja.Tool)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 Every operation is a CLI command. Every output is machine-readable. The full measure-analyze-fix loop runs without human intervention.
 
