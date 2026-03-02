@@ -10,6 +10,7 @@ rootCommand.Subcommands.Add(ClearFiltersCommand.Create());
 rootCommand.Subcommands.Add(SetCommand.Create());
 rootCommand.Subcommands.Add(ValidateCommand.Create());
 rootCommand.Subcommands.Add(GenerateEnvCommand.Create());
+rootCommand.Subcommands.Add(RunCommand.Create());
 rootCommand.Subcommands.Add(ClearCommand.Create());
 rootCommand.Subcommands.Add(AnalyzeDiffCommand.Create());
 rootCommand.Subcommands.Add(HotspotsCommand.Create());
