@@ -26,14 +26,10 @@ public static class RemoveCommand
 
     private static Command CreateFilterRemoveCommand(string name, string description, Option<string> sessionOption)
     {
-        var assemblyOption = new Option<string>("--assembly") { Description = "Assembly name pattern (default: *)" };
-        assemblyOption.DefaultValueFactory = _ => "*";
-        var namespaceOption = new Option<string>("--namespace") { Description = "Namespace pattern (default: *)" };
-        namespaceOption.DefaultValueFactory = _ => "*";
-        var classOption = new Option<string>("--class") { Description = "Class name pattern (default: *)" };
-        classOption.DefaultValueFactory = _ => "*";
-        var methodOption = new Option<string>("--method") { Description = "Method name pattern (default: *)" };
-        methodOption.DefaultValueFactory = _ => "*";
+        var assemblyOption = new Option<string>("--assembly") { Description = "Assembly name pattern" };
+        var namespaceOption = new Option<string>("--namespace") { Description = "Namespace pattern" };
+        var classOption = new Option<string>("--class") { Description = "Class name pattern" };
+        var methodOption = new Option<string>("--method") { Description = "Method name pattern" };
         var command = new Command(name, description);
         command.Options.Add(sessionOption);
         command.Options.Add(assemblyOption);
@@ -44,13 +40,33 @@ public static class RemoveCommand
         command.SetAction(async (parseResult, _) =>
         {
             var session = parseResult.GetValue(sessionOption)!;
-            var rule = new FilterRule
+
+            var provided = new (string? value, string level)[]
             {
-                Assembly = parseResult.GetValue(assemblyOption)!,
-                Namespace = parseResult.GetValue(namespaceOption)!,
-                Class = parseResult.GetValue(classOption)!,
-                Method = parseResult.GetValue(methodOption)!
+                (parseResult.GetValue(assemblyOption), "assembly"),
+                (parseResult.GetValue(namespaceOption), "namespace"),
+                (parseResult.GetValue(classOption), "class"),
+                (parseResult.GetValue(methodOption), "method")
             };
+
+            var active = provided.Where(o => o.value is not null).ToArray();
+
+            if (active.Length == 0)
+            {
+                Console.Error.WriteLine("Error: Specify one of --assembly, --namespace, --class, or --method.");
+                Environment.ExitCode = 1;
+                return;
+            }
+
+            if (active.Length > 1)
+            {
+                Console.Error.WriteLine("Error: Only one level option (--assembly, --namespace, --class, --method) can be used per command.");
+                Environment.ExitCode = 1;
+                return;
+            }
+
+            var (pattern, level) = active[0];
+            var rule = new FilterRule { Level = level, Pattern = pattern! };
 
             var manager = new ConfigManager();
             var config = await manager.LoadConfigAsync(session);

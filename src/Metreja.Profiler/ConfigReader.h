@@ -6,10 +6,8 @@
 
 struct FilterRule
 {
-    std::string assembly = "*";
-    std::string nameSpace = "*";
-    std::string cls = "*";
-    std::string method = "*";
+    std::string level = "assembly"; // "assembly", "namespace", "class", "method"
+    std::string pattern = "*";
 };
 
 struct ProfilerConfig

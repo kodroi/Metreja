@@ -38,6 +38,8 @@ public:
     static std::string WideToUtf8(const WCHAR* wide, int len = -1);
 
 private:
+    bool MatchesRule(const FilterRule& rule, const std::string& assembly, const std::string& ns,
+                     const std::string& cls, const std::string& method) const;
     bool EvaluateFilters(const std::string& assembly, const std::string& ns, const std::string& cls,
                          const std::string& method) const;
     bool IsAsyncStateMachine(const std::string& className, const std::string& methodName) const;

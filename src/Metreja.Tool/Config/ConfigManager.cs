@@ -30,6 +30,10 @@ public class ConfigManager
             Metadata = new MetadataConfig
             {
                 Scenario = scenario ?? ""
+            },
+            Instrumentation = new InstrumentationConfig
+            {
+                Excludes = DefaultFilters.Excludes
             }
         };
 

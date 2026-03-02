@@ -85,14 +85,10 @@ ProfilerConfig ConfigReader::Load()
             for (const auto& item : arr)
             {
                 FilterRule rule;
-                if (item.contains("assembly"))
-                    rule.assembly = item["assembly"].get<std::string>();
-                if (item.contains("namespace"))
-                    rule.nameSpace = item["namespace"].get<std::string>();
-                if (item.contains("class"))
-                    rule.cls = item["class"].get<std::string>();
-                if (item.contains("method"))
-                    rule.method = item["method"].get<std::string>();
+                if (item.contains("level"))
+                    rule.level = item["level"].get<std::string>();
+                if (item.contains("pattern"))
+                    rule.pattern = item["pattern"].get<std::string>();
                 rules.push_back(rule);
             }
         };

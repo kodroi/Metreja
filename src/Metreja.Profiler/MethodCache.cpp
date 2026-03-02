@@ -182,6 +182,20 @@ std::string MethodCache::ResolveClassName(ClassID classId) const
     return "Unknown";
 }
 
+bool MethodCache::MatchesRule(const FilterRule& rule, const std::string& assembly, const std::string& ns,
+                              const std::string& cls, const std::string& method) const
+{
+    if (rule.level == "assembly")
+        return ConfigReader::SimpleGlobMatch(rule.pattern, assembly);
+    if (rule.level == "namespace")
+        return ConfigReader::SimpleGlobMatch(rule.pattern, ns);
+    if (rule.level == "class")
+        return ConfigReader::SimpleGlobMatch(rule.pattern, cls);
+    if (rule.level == "method")
+        return ConfigReader::SimpleGlobMatch(rule.pattern, method);
+    return false;
+}
+
 bool MethodCache::EvaluateFilters(const std::string& assembly, const std::string& ns, const std::string& cls,
                                   const std::string& method) const
 {
@@ -191,9 +205,7 @@ bool MethodCache::EvaluateFilters(const std::string& assembly, const std::string
     // Check includes
     for (const auto& rule : m_config.includes)
     {
-        if (ConfigReader::SimpleGlobMatch(rule.assembly, assembly) &&
-            ConfigReader::SimpleGlobMatch(rule.nameSpace, ns) && ConfigReader::SimpleGlobMatch(rule.cls, cls) &&
-            ConfigReader::SimpleGlobMatch(rule.method, method))
+        if (MatchesRule(rule, assembly, ns, cls, method))
         {
             included = true;
             break;
@@ -206,9 +218,7 @@ bool MethodCache::EvaluateFilters(const std::string& assembly, const std::string
     // Check excludes
     for (const auto& rule : m_config.excludes)
     {
-        if (ConfigReader::SimpleGlobMatch(rule.assembly, assembly) &&
-            ConfigReader::SimpleGlobMatch(rule.nameSpace, ns) && ConfigReader::SimpleGlobMatch(rule.cls, cls) &&
-            ConfigReader::SimpleGlobMatch(rule.method, method))
+        if (MatchesRule(rule, assembly, ns, cls, method))
         {
             return false;
         }
