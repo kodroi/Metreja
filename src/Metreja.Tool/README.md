@@ -189,7 +189,6 @@ Configure session settings via subcommands.
 | `set output` | `-s ID "path/pattern.ndjson"` | Set output path (supports `{sessionId}`, `{pid}` tokens) |
 | `set max-events` | `-s ID 50000` | Cap event count (0 = unlimited) |
 | `set compute-deltas` | `-s ID true` | Enable delta timing for performance analysis |
-| `set track-memory` | `-s ID true` | Enable GC and allocation tracking |
 
 #### `validate`
 
@@ -288,7 +287,6 @@ Stored at `.metreja/sessions/{sessionId}.json`:
   "instrumentation": {
     "maxEvents": 0,
     "computeDeltas": true,
-    "trackMemory": false,
     "includes": [
       { "assembly": "MyApp", "namespace": "*", "class": "*", "method": "*" }
     ],
@@ -304,7 +302,6 @@ Stored at `.metreja/sessions/{sessionId}.json`:
 |-------|------|---------|-------------|
 | `maxEvents` | int | `0` | Event cap per session (0 = unlimited) |
 | `computeDeltas` | bool | `true` | Include delta timing on `leave` events |
-| `trackMemory` | bool | `false` | Enable GC and allocation tracking |
 
 ### Output Path Tokens
 

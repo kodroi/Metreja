@@ -46,10 +46,8 @@ struct ProfilerConfig
     std::string outputPath = ".metreja/output/{sessionId}_{pid}.ndjson";
     int64_t maxEvents = 0;
     bool computeDeltas = true;
-    bool trackMemory = false;
     bool disableInlining = true;
     EventType enabledEvents = EventType::None;
-    bool eventsFieldPresent = false;
     std::vector<FilterRule> includes;
     std::vector<FilterRule> excludes;
 };

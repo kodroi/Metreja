@@ -75,8 +75,6 @@ ProfilerConfig ConfigReader::Load()
             config.maxEvents = inst["maxEvents"].get<int64_t>();
         if (inst.contains("computeDeltas"))
             config.computeDeltas = inst["computeDeltas"].get<bool>();
-        if (inst.contains("trackMemory"))
-            config.trackMemory = inst["trackMemory"].get<bool>();
         if (inst.contains("disableInlining"))
             config.disableInlining = inst["disableInlining"].get<bool>();
 
@@ -95,7 +93,6 @@ ProfilerConfig ConfigReader::Load()
 
         if (inst.contains("events") && inst["events"].is_array())
         {
-            config.eventsFieldPresent = true;
             EventType mask = EventType::None;
             for (const auto& item : inst["events"])
             {
@@ -148,14 +145,6 @@ ProfilerConfig ConfigReader::Load()
     // Expand placeholders in output path
     DWORD pid = GetCurrentProcessId();
     config.outputPath = ExpandPlaceholders(config.outputPath, config.sessionId, pid);
-
-    // Resolve event mask for backwards compatibility
-    if (!config.eventsFieldPresent)
-    {
-        config.enabledEvents = EventType::Enter | EventType::Leave | EventType::Exception;
-        if (config.trackMemory)
-            config.enabledEvents |= EventType::GcStart | EventType::GcEnd | EventType::AllocByClass;
-    }
 
     return config;
 }

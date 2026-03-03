@@ -52,8 +52,7 @@ public sealed class ProfilerRunner : IAsyncDisposable
                     new FilterRule { Level = "assembly", Pattern = "Microsoft.*" }
                 ]
             };
-            if (events is not null)
-                instrumentation = instrumentation with { Events = events };
+            instrumentation = instrumentation with { Events = events ?? ["enter", "leave", "exception"] };
 
             config = config with
             {

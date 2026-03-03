@@ -31,9 +31,6 @@ public record InstrumentationConfig
     [JsonPropertyName("computeDeltas")]
     public bool ComputeDeltas { get; init; } = true;
 
-    [JsonPropertyName("trackMemory")]
-    public bool TrackMemory { get; init; } = false;
-
     [JsonPropertyName("disableInlining")]
     public bool DisableInlining { get; init; } = true;
 

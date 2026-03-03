@@ -128,20 +128,4 @@ public class MethodStatsTests
         }
     }
 
-    [Fact]
-    public async Task NoEventsField_BackwardsCompatible()
-    {
-        // When no events field is set, default behavior should be enter+leave+exception
-        var root = GetSolutionRoot();
-        var (outputPath, runner) = await ProfilerRunner.RunAsync(root);
-        await using (runner)
-        {
-            var events = await TraceParser.ParseAsync(outputPath);
-
-            Assert.Contains(events, e => e is EnterEvent);
-            Assert.Contains(events, e => e is LeaveEvent);
-            Assert.Contains(events, e => e is ExceptionEvent);
-            Assert.DoesNotContain(events, e => e is MethodStatsEvent);
-        }
-    }
 }

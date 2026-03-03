@@ -19,7 +19,6 @@ public static class SetCommand
         command.Subcommands.Add(CreateOutputCommand(sessionOption));
         command.Subcommands.Add(CreateMaxEventsCommand(sessionOption));
         command.Subcommands.Add(CreateComputeDeltasCommand(sessionOption));
-        command.Subcommands.Add(CreateTrackMemoryCommand(sessionOption));
         command.Subcommands.Add(CreateEventsCommand(sessionOption));
 
         return command;
@@ -107,27 +106,6 @@ public static class SetCommand
             await SetConfigPropertyAsync(session,
                 config => config with { Instrumentation = config.Instrumentation with { ComputeDeltas = value } },
                 $"compute-deltas to: {value}");
-        });
-
-        return command;
-    }
-
-    private static Command CreateTrackMemoryCommand(Option<string> sessionOption)
-    {
-        var valueArg = new Argument<bool>("value") { Description = "Enable GC and allocation tracking" };
-
-        var command = new Command("track-memory", "Enable or disable GC and allocation tracking");
-        command.Options.Add(sessionOption);
-        command.Arguments.Add(valueArg);
-
-        command.SetAction(async (parseResult, _) =>
-        {
-            var session = parseResult.GetValue(sessionOption)!;
-            var value = parseResult.GetValue(valueArg);
-
-            await SetConfigPropertyAsync(session,
-                config => config with { Instrumentation = config.Instrumentation with { TrackMemory = value } },
-                $"track-memory to: {value}");
         });
 
         return command;
