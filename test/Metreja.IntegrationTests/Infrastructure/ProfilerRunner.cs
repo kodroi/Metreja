@@ -19,6 +19,7 @@ public sealed class ProfilerRunner : IAsyncDisposable
     public static async Task<(string OutputPath, ProfilerRunner Runner)> RunAsync(
         string solutionRoot,
         string? scenario = null,
+        List<string>? events = null,
         int timeoutMs = 30_000)
     {
         var profilerDll = ProfilerPrerequisites.GetProfilerDllPath(solutionRoot);
@@ -39,20 +40,24 @@ public sealed class ProfilerRunner : IAsyncDisposable
             var config = await configManager.LoadConfigAsync(sessionId);
 
             // Update config with our test settings
+            var instrumentation = config.Instrumentation with
+            {
+                Includes =
+                [
+                    new FilterRule { Level = "assembly", Pattern = "Metreja.TestApp" }
+                ],
+                Excludes =
+                [
+                    new FilterRule { Level = "assembly", Pattern = "System.*" },
+                    new FilterRule { Level = "assembly", Pattern = "Microsoft.*" }
+                ]
+            };
+            if (events is not null)
+                instrumentation = instrumentation with { Events = events };
+
             config = config with
             {
-                Instrumentation = config.Instrumentation with
-                {
-                    Includes =
-                    [
-                        new FilterRule { Level = "assembly", Pattern = "Metreja.TestApp" }
-                    ],
-                    Excludes =
-                    [
-                        new FilterRule { Level = "assembly", Pattern = "System.*" },
-                        new FilterRule { Level = "assembly", Pattern = "Microsoft.*" }
-                    ]
-                },
+                Instrumentation = instrumentation,
                 Output = config.Output with
                 {
                     Path = outputPath

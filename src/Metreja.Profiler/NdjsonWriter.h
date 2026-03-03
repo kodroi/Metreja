@@ -7,6 +7,9 @@
 #include <mutex>
 #include "MethodCache.h"
 
+struct MethodStatsAccum;
+struct ExceptionStatsAccum;
+
 class NdjsonWriter
 {
 public:
@@ -25,6 +28,8 @@ public:
     void WriteGcStarted(long long tsNs, bool gen0, bool gen1, bool gen2, const char* reason);
     void WriteGcFinished(long long tsNs, long long durationNs);
     void WriteAllocByClass(long long tsNs, DWORD tid, const std::string& className, ULONG count);
+    void WriteMethodStats(const MethodInfo& info, const MethodStatsAccum& accum);
+    void WriteExceptionStats(const std::string& exType, const ExceptionStatsAccum& accum);
     void Flush();
 
 private:

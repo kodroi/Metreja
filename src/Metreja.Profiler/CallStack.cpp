@@ -31,11 +31,21 @@ CallEntry CallStackManager::Pop()
 {
     auto* stack = GetOrCreateStack();
     if (stack == nullptr || stack->stack.empty())
-        return {0, 0};
+        return {0, 0, 0};
 
     CallEntry entry = stack->stack.back();
     stack->stack.pop_back();
     return entry;
+}
+
+void CallStackManager::CreditParent(long long inclusiveNs)
+{
+    if (m_tlsIndex == TLS_OUT_OF_INDEXES)
+        return;
+
+    auto* stack = static_cast<ThreadCallStack*>(TlsGetValue(m_tlsIndex));
+    if (stack != nullptr && !stack->stack.empty() && inclusiveNs > 0)
+        stack->stack.back().childrenTimeNs += inclusiveNs;
 }
 
 int CallStackManager::GetDepth() const

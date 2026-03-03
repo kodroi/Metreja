@@ -93,6 +93,35 @@ ProfilerConfig ConfigReader::Load()
             }
         };
 
+        if (inst.contains("events") && inst["events"].is_array())
+        {
+            config.eventsFieldPresent = true;
+            EventType mask = EventType::None;
+            for (const auto& item : inst["events"])
+            {
+                if (!item.is_string())
+                    continue;
+                std::string name = item.get<std::string>();
+                if (name == "enter")
+                    mask |= EventType::Enter;
+                else if (name == "leave")
+                    mask |= EventType::Leave;
+                else if (name == "exception")
+                    mask |= EventType::Exception;
+                else if (name == "gc_start")
+                    mask |= EventType::GcStart;
+                else if (name == "gc_end")
+                    mask |= EventType::GcEnd;
+                else if (name == "alloc_by_class")
+                    mask |= EventType::AllocByClass;
+                else if (name == "method_stats")
+                    mask |= EventType::MethodStats;
+                else if (name == "exception_stats")
+                    mask |= EventType::ExceptionStats;
+            }
+            config.enabledEvents = mask;
+        }
+
         if (inst.contains("includes"))
             parseRules(inst["includes"], config.includes);
         if (inst.contains("excludes"))
@@ -119,6 +148,14 @@ ProfilerConfig ConfigReader::Load()
     // Expand placeholders in output path
     DWORD pid = GetCurrentProcessId();
     config.outputPath = ExpandPlaceholders(config.outputPath, config.sessionId, pid);
+
+    // Resolve event mask for backwards compatibility
+    if (!config.eventsFieldPresent)
+    {
+        config.enabledEvents = EventType::Enter | EventType::Leave | EventType::Exception;
+        if (config.trackMemory)
+            config.enabledEvents |= EventType::GcStart | EventType::GcEnd | EventType::AllocByClass;
+    }
 
     return config;
 }

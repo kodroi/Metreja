@@ -20,6 +20,7 @@ public static class SetCommand
         command.Subcommands.Add(CreateMaxEventsCommand(sessionOption));
         command.Subcommands.Add(CreateComputeDeltasCommand(sessionOption));
         command.Subcommands.Add(CreateTrackMemoryCommand(sessionOption));
+        command.Subcommands.Add(CreateEventsCommand(sessionOption));
 
         return command;
     }
@@ -127,6 +128,46 @@ public static class SetCommand
             await SetConfigPropertyAsync(session,
                 config => config with { Instrumentation = config.Instrumentation with { TrackMemory = value } },
                 $"track-memory to: {value}");
+        });
+
+        return command;
+    }
+
+    private static readonly HashSet<string> ValidEventTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "enter", "leave", "exception", "gc_start", "gc_end", "alloc_by_class", "method_stats", "exception_stats"
+    };
+
+    private static Command CreateEventsCommand(Option<string> sessionOption)
+    {
+        var eventsArg = new Argument<string[]>("events")
+        {
+            Description = "Event types to enable (e.g. enter leave method_stats)",
+            Arity = ArgumentArity.OneOrMore
+        };
+
+        var command = new Command("events", "Set enabled event types");
+        command.Options.Add(sessionOption);
+        command.Arguments.Add(eventsArg);
+
+        command.SetAction(async (parseResult, _) =>
+        {
+            var session = parseResult.GetValue(sessionOption)!;
+            var events = parseResult.GetValue(eventsArg)!;
+
+            var invalid = events.Where(e => !ValidEventTypes.Contains(e)).ToList();
+            if (invalid.Count > 0)
+            {
+                Console.Error.WriteLine($"Unknown event type(s): {string.Join(", ", invalid)}");
+                Console.Error.WriteLine($"Valid types: {string.Join(", ", ValidEventTypes.Order())}");
+                return;
+            }
+
+            var eventList = events.Select(e => e.ToLowerInvariant()).ToList();
+
+            await SetConfigPropertyAsync(session,
+                config => config with { Instrumentation = config.Instrumentation with { Events = eventList } },
+                $"events to: [{string.Join(", ", eventList)}]");
         });
 
         return command;

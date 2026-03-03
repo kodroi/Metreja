@@ -8,6 +8,7 @@
 class MethodCache;
 class CallStackManager;
 class NdjsonWriter;
+class StatsAggregator;
 
 struct ProfilerContext
 {
@@ -17,4 +18,5 @@ struct ProfilerContext
     std::unique_ptr<MethodCache> methodCache;
     std::unique_ptr<CallStackManager> callStackManager;
     std::unique_ptr<NdjsonWriter> ndjsonWriter;
+    std::unique_ptr<StatsAggregator> statsAggregator;
 };
