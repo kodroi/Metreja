@@ -16,6 +16,8 @@
     <PackageTags>profiler;dotnet;performance;tracing;instrumentation;diagnostics;elt3;ndjson</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/kodroi/Metreja</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/kodroi/Metreja</RepositoryUrl>
     <ProfilerDllPath>$(MSBuildThisFileDirectory)..\..\bin\Release\Metreja.Profiler.dll</ProfilerDllPath>
   </PropertyGroup>
 
