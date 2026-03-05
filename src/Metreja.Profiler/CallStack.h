@@ -9,6 +9,7 @@ struct CallEntry
 {
     UINT_PTR functionId;
     long long enterTsNs;
+    long long childrenTimeNs = 0;
 };
 
 struct ThreadCallStack
@@ -30,6 +31,7 @@ public:
 
     void Push(UINT_PTR functionId, long long timestamp);
     CallEntry Pop();
+    void CreditParent(long long inclusiveNs);
     int GetDepth() const;
     ThreadCallStack* GetThreadStack();
 

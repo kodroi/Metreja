@@ -39,3 +39,28 @@ public record ExceptionEvent : TraceEvent
     public required string M { get; init; }
     public required string ExType { get; init; }
 }
+
+public record GcEvent : TraceEvent;
+
+public record MethodStatsEvent : TraceEvent
+{
+    public required string Asm { get; init; }
+    public required string Ns { get; init; }
+    public required string Cls { get; init; }
+    public required string M { get; init; }
+    public required long CallCount { get; init; }
+    public required long TotalSelfNs { get; init; }
+    public required long MaxSelfNs { get; init; }
+    public required long TotalInclusiveNs { get; init; }
+    public required long MaxInclusiveNs { get; init; }
+}
+
+public record ExceptionStatsEvent : TraceEvent
+{
+    public required string ExType { get; init; }
+    public required string Asm { get; init; }
+    public required string Ns { get; init; }
+    public required string Cls { get; init; }
+    public required string M { get; init; }
+    public required long Count { get; init; }
+}

@@ -4,6 +4,7 @@
 #include "MethodCache.h"
 #include "CallStack.h"
 #include "NdjsonWriter.h"
+#include "StatsAggregator.h"
 
 // Global context pointer
 ProfilerContext* g_ctx = nullptr;
@@ -74,32 +75,58 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Initialize(IUnknown* pICorProfilerInf
     long long tsNs = CallStackManager::GetTimestampNs();
     ctx->ndjsonWriter->WriteSessionMetadata(ctx->config.scenario, tsNs);
 
+    // Allocate StatsAggregator if stats events are enabled
+    EventType events = ctx->config.enabledEvents;
+    if (HasEvent(events, EventType::MethodStats) || HasEvent(events, EventType::ExceptionStats))
+        ctx->statsAggregator = std::make_unique<StatsAggregator>();
+
     // Publish atomically — callbacks can now proceed
     g_ctx = ctx.release();
 
-    // Set event mask: ENTERLEAVE + EXCEPTIONS + JIT_COMPILATION + FRAME_INFO
-    // COR_PRF_ENABLE_FRAME_INFO is required for SetEnterLeaveFunctionHooks3WithInfo
-    DWORD eventMask = COR_PRF_MONITOR_ENTERLEAVE | COR_PRF_MONITOR_EXCEPTIONS | COR_PRF_MONITOR_JIT_COMPILATION |
-                      COR_PRF_ENABLE_FRAME_INFO;
+    // Build event mask dynamically based on enabled event types
+    DWORD eventMask = COR_PRF_MONITOR_JIT_COMPILATION;
+
+    // ELT hooks needed for enter/leave/method_stats (stats needs timing from stubs)
+    if (HasEvent(events, EventType::Enter) || HasEvent(events, EventType::Leave) ||
+        HasEvent(events, EventType::MethodStats))
+    {
+        eventMask |= COR_PRF_MONITOR_ENTERLEAVE | COR_PRF_ENABLE_FRAME_INFO;
+    }
+
+    // Exception monitoring needed for exception/exception_stats
+    if (HasEvent(events, EventType::Exception) || HasEvent(events, EventType::ExceptionStats))
+        eventMask |= COR_PRF_MONITOR_EXCEPTIONS;
+
+    // GC monitoring
+    if (HasEvent(events, EventType::GcStart) || HasEvent(events, EventType::GcEnd) ||
+        HasEvent(events, EventType::AllocByClass))
+    {
+        eventMask |= COR_PRF_MONITOR_GC;
+    }
+
     if (g_ctx->config.disableInlining)
         eventMask |= COR_PRF_DISABLE_INLINING;
-    if (g_ctx->config.trackMemory)
-        eventMask |= COR_PRF_MONITOR_GC;
     hr = m_profilerInfo->SetEventMask(eventMask);
     if (FAILED(hr))
         return hr;
 
-    // Set ELT3 hooks via assembly naked stubs
-    hr = m_profilerInfo->SetEnterLeaveFunctionHooks3WithInfo(
-        reinterpret_cast<FunctionEnter3WithInfo*>(EnterNaked), reinterpret_cast<FunctionLeave3WithInfo*>(LeaveNaked),
-        reinterpret_cast<FunctionTailcall3WithInfo*>(TailcallNaked));
-    if (FAILED(hr))
-        return hr;
+    // Set ELT3 hooks only when enter/leave/method_stats events are needed
+    bool needElt = HasEvent(events, EventType::Enter) || HasEvent(events, EventType::Leave) ||
+                   HasEvent(events, EventType::MethodStats);
+    if (needElt)
+    {
+        hr = m_profilerInfo->SetEnterLeaveFunctionHooks3WithInfo(
+            reinterpret_cast<FunctionEnter3WithInfo*>(EnterNaked),
+            reinterpret_cast<FunctionLeave3WithInfo*>(LeaveNaked),
+            reinterpret_cast<FunctionTailcall3WithInfo*>(TailcallNaked));
+        if (FAILED(hr))
+            return hr;
 
-    // Set FunctionIDMapper2 to filter excluded functions at JIT time
-    hr = m_profilerInfo->SetFunctionIDMapper2(reinterpret_cast<FunctionIDMapper2*>(FunctionMapper), nullptr);
-    if (FAILED(hr))
-        return hr;
+        // FunctionIDMapper2 filters excluded functions at JIT time (only useful with ELT hooks)
+        hr = m_profilerInfo->SetFunctionIDMapper2(reinterpret_cast<FunctionIDMapper2*>(FunctionMapper), nullptr);
+        if (FAILED(hr))
+            return hr;
+    }
 
     return S_OK;
 }
@@ -110,9 +137,11 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Shutdown()
     ProfilerContext* ctx = g_ctx;
     g_ctx = nullptr;
 
-    // Flush and clean up subsystems
+    // Flush stats aggregator before flushing writer
     if (ctx != nullptr)
     {
+        if (ctx->statsAggregator && ctx->ndjsonWriter && ctx->methodCache)
+            ctx->statsAggregator->Flush(*ctx->ndjsonWriter, *ctx->methodCache);
         if (ctx->ndjsonWriter)
             ctx->ndjsonWriter->Flush();
         delete ctx;
@@ -143,6 +172,11 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionThrown(ObjectID thrownObject
     if (ctx == nullptr || m_profilerInfo == nullptr)
         return S_OK;
 
+    bool wantException = HasEvent(ctx->config.enabledEvents, EventType::Exception);
+    bool wantExceptionStats = HasEvent(ctx->config.enabledEvents, EventType::ExceptionStats);
+    if (!wantException && !wantExceptionStats)
+        return S_OK;
+
     // Get exception class type name
     ClassID classId = 0;
     HRESULT hr = m_profilerInfo->GetClassFromObject(thrownObjectId, &classId);
@@ -165,7 +199,11 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionThrown(ObjectID thrownObject
             exInfo = *topInfo;
     }
 
-    ctx->ndjsonWriter->WriteException(tsNs, tid, exInfo, exTypeName);
+    if (wantException)
+        ctx->ndjsonWriter->WriteException(tsNs, tid, exInfo, exTypeName);
+
+    if (wantExceptionStats && ctx->statsAggregator)
+        ctx->statsAggregator->RecordException(exInfo, exTypeName);
 
     return S_OK;
 }
@@ -272,7 +310,7 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ObjectsAllocatedByClass(ULONG cClassC
                                                                    ULONG cObjects[])
 {
     auto* ctx = g_ctx;
-    if (ctx == nullptr || !ctx->config.trackMemory)
+    if (ctx == nullptr || !HasEvent(ctx->config.enabledEvents, EventType::AllocByClass))
         return S_OK;
 
     long long tsNs = CallStackManager::GetTimestampNs();
@@ -317,10 +355,21 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionUnwindFunctionEnter(Function
 
     CallEntry entry = ctx->callStackManager->Pop();
     long long tsNs = CallStackManager::GetTimestampNs();
-    long long deltaNs = (ctx->config.computeDeltas && entry.enterTsNs > 0) ? (tsNs - entry.enterTsNs) : 0;
+    long long inclusiveNs = (entry.enterTsNs > 0) ? (tsNs - entry.enterTsNs) : 0;
+    long long selfNs = inclusiveNs - entry.childrenTimeNs;
+    if (selfNs < 0)
+        selfNs = 0;
+    ctx->callStackManager->CreditParent(inclusiveNs);
     int depth = ctx->callStackManager->GetDepth();
 
-    ctx->ndjsonWriter->WriteLeave(tsNs, GetCurrentThreadId(), depth, *info, deltaNs);
+    if (ctx->statsAggregator && HasEvent(ctx->config.enabledEvents, EventType::MethodStats))
+        ctx->statsAggregator->RecordMethod(static_cast<FunctionID>(entry.functionId), inclusiveNs, selfNs);
+
+    if (HasEvent(ctx->config.enabledEvents, EventType::Leave))
+    {
+        long long deltaNs = ctx->config.computeDeltas ? inclusiveNs : 0;
+        ctx->ndjsonWriter->WriteLeave(tsNs, GetCurrentThreadId(), depth, *info, deltaNs);
+    }
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionUnwindFunctionLeave() { return S_OK; }
@@ -353,7 +402,7 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::GarbageCollectionStarted(int cGenerat
                                                                     COR_PRF_GC_REASON reason)
 {
     auto* ctx = g_ctx;
-    if (ctx == nullptr || !ctx->config.trackMemory)
+    if (ctx == nullptr || !HasEvent(ctx->config.enabledEvents, EventType::GcStart))
         return S_OK;
 
     long long startNs = CallStackManager::GetTimestampNs();
@@ -383,7 +432,7 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::SurvivingReferences(ULONG cSurvivingO
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::GarbageCollectionFinished()
 {
     auto* ctx = g_ctx;
-    if (ctx == nullptr || !ctx->config.trackMemory)
+    if (ctx == nullptr || !HasEvent(ctx->config.enabledEvents, EventType::GcEnd))
         return S_OK;
 
     long long nowNs = CallStackManager::GetTimestampNs();
@@ -448,7 +497,9 @@ extern "C" void STDMETHODCALLTYPE EnterStub(FunctionIDOrClientID functionIDOrCli
 
     int depth = ctx->callStackManager->GetDepth();
     ctx->callStackManager->Push(funcId, tsNs);
-    ctx->ndjsonWriter->WriteEnter(tsNs, tid, depth, *info);
+
+    if (HasEvent(ctx->config.enabledEvents, EventType::Enter))
+        ctx->ndjsonWriter->WriteEnter(tsNs, tid, depth, *info);
 }
 
 extern "C" void STDMETHODCALLTYPE LeaveStub(FunctionIDOrClientID functionIDOrClientID, COR_PRF_ELT_INFO eltInfo)
@@ -462,10 +513,21 @@ extern "C" void STDMETHODCALLTYPE LeaveStub(FunctionIDOrClientID functionIDOrCli
         return;
 
     CallEntry entry = ctx->callStackManager->Pop();
-    long long deltaNs = (ctx->config.computeDeltas && entry.enterTsNs > 0) ? (tsNs - entry.enterTsNs) : 0;
+    long long inclusiveNs = (entry.enterTsNs > 0) ? (tsNs - entry.enterTsNs) : 0;
+    long long selfNs = inclusiveNs - entry.childrenTimeNs;
+    if (selfNs < 0)
+        selfNs = 0;
+    ctx->callStackManager->CreditParent(inclusiveNs);
     int depth = ctx->callStackManager->GetDepth();
 
-    ctx->ndjsonWriter->WriteLeave(tsNs, tid, depth, *info, deltaNs);
+    if (ctx->statsAggregator && HasEvent(ctx->config.enabledEvents, EventType::MethodStats))
+        ctx->statsAggregator->RecordMethod(funcId, inclusiveNs, selfNs);
+
+    if (HasEvent(ctx->config.enabledEvents, EventType::Leave))
+    {
+        long long deltaNs = ctx->config.computeDeltas ? inclusiveNs : 0;
+        ctx->ndjsonWriter->WriteLeave(tsNs, tid, depth, *info, deltaNs);
+    }
 }
 
 extern "C" void STDMETHODCALLTYPE TailcallStub(FunctionIDOrClientID functionIDOrClientID, COR_PRF_ELT_INFO eltInfo)
@@ -479,10 +541,21 @@ extern "C" void STDMETHODCALLTYPE TailcallStub(FunctionIDOrClientID functionIDOr
         return;
 
     CallEntry entry = ctx->callStackManager->Pop();
-    long long deltaNs = (ctx->config.computeDeltas && entry.enterTsNs > 0) ? (tsNs - entry.enterTsNs) : 0;
+    long long inclusiveNs = (entry.enterTsNs > 0) ? (tsNs - entry.enterTsNs) : 0;
+    long long selfNs = inclusiveNs - entry.childrenTimeNs;
+    if (selfNs < 0)
+        selfNs = 0;
+    ctx->callStackManager->CreditParent(inclusiveNs);
     int depth = ctx->callStackManager->GetDepth();
 
-    ctx->ndjsonWriter->WriteLeave(tsNs, tid, depth, *info, deltaNs, true);
+    if (ctx->statsAggregator && HasEvent(ctx->config.enabledEvents, EventType::MethodStats))
+        ctx->statsAggregator->RecordMethod(funcId, inclusiveNs, selfNs);
+
+    if (HasEvent(ctx->config.enabledEvents, EventType::Leave))
+    {
+        long long deltaNs = ctx->config.computeDeltas ? inclusiveNs : 0;
+        ctx->ndjsonWriter->WriteLeave(tsNs, tid, depth, *info, deltaNs, true);
+    }
 }
 
 // FunctionIDMapper2 callback - filter excluded functions at JIT time

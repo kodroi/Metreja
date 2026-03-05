@@ -75,8 +75,6 @@ ProfilerConfig ConfigReader::Load()
             config.maxEvents = inst["maxEvents"].get<int64_t>();
         if (inst.contains("computeDeltas"))
             config.computeDeltas = inst["computeDeltas"].get<bool>();
-        if (inst.contains("trackMemory"))
-            config.trackMemory = inst["trackMemory"].get<bool>();
         if (inst.contains("disableInlining"))
             config.disableInlining = inst["disableInlining"].get<bool>();
 
@@ -92,6 +90,34 @@ ProfilerConfig ConfigReader::Load()
                 rules.push_back(rule);
             }
         };
+
+        if (inst.contains("events") && inst["events"].is_array())
+        {
+            EventType mask = EventType::None;
+            for (const auto& item : inst["events"])
+            {
+                if (!item.is_string())
+                    continue;
+                std::string name = item.get<std::string>();
+                if (name == "enter")
+                    mask |= EventType::Enter;
+                else if (name == "leave")
+                    mask |= EventType::Leave;
+                else if (name == "exception")
+                    mask |= EventType::Exception;
+                else if (name == "gc_start")
+                    mask |= EventType::GcStart;
+                else if (name == "gc_end")
+                    mask |= EventType::GcEnd;
+                else if (name == "alloc_by_class")
+                    mask |= EventType::AllocByClass;
+                else if (name == "method_stats")
+                    mask |= EventType::MethodStats;
+                else if (name == "exception_stats")
+                    mask |= EventType::ExceptionStats;
+            }
+            config.enabledEvents = mask;
+        }
 
         if (inst.contains("includes"))
             parseRules(inst["includes"], config.includes);

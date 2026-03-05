@@ -71,6 +71,42 @@ public static class TraceParser
                     M = root.GetProperty("m").GetString()!,
                     ExType = root.GetProperty("exType").GetString()!
                 },
+                "method_stats" => new MethodStatsEvent
+                {
+                    Event = eventType,
+                    TsNs = root.GetProperty("tsNs").GetInt64(),
+                    Pid = root.GetProperty("pid").GetInt32(),
+                    SessionId = root.GetProperty("sessionId").GetString()!,
+                    Asm = root.GetProperty("asm").GetString()!,
+                    Ns = root.GetProperty("ns").GetString()!,
+                    Cls = root.GetProperty("cls").GetString()!,
+                    M = root.GetProperty("m").GetString()!,
+                    CallCount = root.GetProperty("callCount").GetInt64(),
+                    TotalSelfNs = root.GetProperty("totalSelfNs").GetInt64(),
+                    MaxSelfNs = root.GetProperty("maxSelfNs").GetInt64(),
+                    TotalInclusiveNs = root.GetProperty("totalInclusiveNs").GetInt64(),
+                    MaxInclusiveNs = root.GetProperty("maxInclusiveNs").GetInt64()
+                },
+                "exception_stats" => new ExceptionStatsEvent
+                {
+                    Event = eventType,
+                    TsNs = root.GetProperty("tsNs").GetInt64(),
+                    Pid = root.GetProperty("pid").GetInt32(),
+                    SessionId = root.GetProperty("sessionId").GetString()!,
+                    ExType = root.GetProperty("exType").GetString()!,
+                    Asm = root.GetProperty("asm").GetString()!,
+                    Ns = root.GetProperty("ns").GetString()!,
+                    Cls = root.GetProperty("cls").GetString()!,
+                    M = root.GetProperty("m").GetString()!,
+                    Count = root.GetProperty("count").GetInt64()
+                },
+                "gc_start" or "gc_end" or "alloc_by_class" => new GcEvent
+                {
+                    Event = eventType,
+                    TsNs = root.GetProperty("tsNs").GetInt64(),
+                    Pid = root.GetProperty("pid").GetInt32(),
+                    SessionId = root.GetProperty("sessionId").GetString()!
+                },
                 _ => throw new InvalidOperationException($"Unknown event type: {eventType}")
             };
 

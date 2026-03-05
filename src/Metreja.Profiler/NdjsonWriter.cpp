@@ -1,4 +1,5 @@
 #include "NdjsonWriter.h"
+#include "StatsAggregator.h"
 
 #include <cstdio>
 #include <cstring>
@@ -210,6 +211,44 @@ void NdjsonWriter::WriteAllocByClass(long long tsNs, DWORD tid, const std::strin
 
     if (len > 0 && static_cast<size_t>(len) < sizeof(line))
         WriteLockedEvent(line, static_cast<size_t>(len));
+}
+
+void NdjsonWriter::WriteMethodStats(const MethodInfo& info, const MethodStatsAccum& accum)
+{
+    char line[2048];
+    const char* methodName = info.isAsyncStateMachine ? info.originalMethodName.c_str() : info.methodName.c_str();
+    int len = snprintf(
+        line, sizeof(line),
+        R"({"event":"method_stats","tsNs":0,"pid":%lu,"sessionId":"%s","asm":"%s","ns":"%s","cls":"%s","m":"%s","callCount":%lld,"totalSelfNs":%lld,"maxSelfNs":%lld,"totalInclusiveNs":%lld,"maxInclusiveNs":%lld})"
+        "\n",
+        m_pid, m_sessionId.c_str(), info.assemblyName.c_str(), info.namespaceName.c_str(), info.className.c_str(),
+        methodName, accum.callCount, accum.totalSelfNs, accum.maxSelfNs, accum.totalInclusiveNs,
+        accum.maxInclusiveNs);
+
+    if (len > 0 && static_cast<size_t>(len) < sizeof(line))
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        AppendToBuffer(line, static_cast<size_t>(len));
+        // Stats events bypass maxEvents limit (like session_metadata)
+    }
+}
+
+void NdjsonWriter::WriteExceptionStats(const std::string& exType, const ExceptionStatsAccum& accum)
+{
+    char line[2048];
+    int len = snprintf(
+        line, sizeof(line),
+        R"({"event":"exception_stats","tsNs":0,"pid":%lu,"sessionId":"%s","exType":"%s","asm":"%s","ns":"%s","cls":"%s","m":"%s","count":%lld})"
+        "\n",
+        m_pid, m_sessionId.c_str(), exType.c_str(), accum.assemblyName.c_str(), accum.namespaceName.c_str(),
+        accum.className.c_str(), accum.methodName.c_str(), accum.count);
+
+    if (len > 0 && static_cast<size_t>(len) < sizeof(line))
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        AppendToBuffer(line, static_cast<size_t>(len));
+        // Stats events bypass maxEvents limit (like session_metadata)
+    }
 }
 
 void NdjsonWriter::Flush()

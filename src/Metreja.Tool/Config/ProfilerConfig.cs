@@ -31,11 +31,12 @@ public record InstrumentationConfig
     [JsonPropertyName("computeDeltas")]
     public bool ComputeDeltas { get; init; } = true;
 
-    [JsonPropertyName("trackMemory")]
-    public bool TrackMemory { get; init; } = false;
-
     [JsonPropertyName("disableInlining")]
     public bool DisableInlining { get; init; } = true;
+
+    [JsonPropertyName("events")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Events { get; init; }
 
     [JsonPropertyName("includes")]
     public List<FilterRule> Includes { get; init; } = [];
