@@ -40,9 +40,10 @@ void StatsAggregator::RecordException(const MethodInfo& callerInfo, const std::s
         return;
 
     // Key: exType + ":" + fully qualified method name (resolved for async)
-    const std::string& methodName = callerInfo.isAsyncStateMachine
-        ? callerInfo.originalMethodName
-        : callerInfo.methodName;
+    const std::string& methodName =
+        callerInfo.isAsyncStateMachine && !callerInfo.originalMethodName.empty()
+            ? callerInfo.originalMethodName
+            : callerInfo.methodName;
     std::string key = exType + ":" + callerInfo.assemblyName + "." + callerInfo.namespaceName + "." +
                       callerInfo.className + "." + methodName;
 

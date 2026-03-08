@@ -88,7 +88,8 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Initialize(IUnknown* pICorProfilerInf
 
     // ELT hooks needed whenever we require call-stack context
     bool needElt = HasEvent(events, EventType::Enter) || HasEvent(events, EventType::Leave) ||
-                   HasEvent(events, EventType::MethodStats) || HasEvent(events, EventType::ExceptionStats);
+                   HasEvent(events, EventType::MethodStats) || HasEvent(events, EventType::ExceptionStats) ||
+                   HasEvent(events, EventType::Exception);
     if (needElt)
     {
         eventMask |= COR_PRF_MONITOR_ENTERLEAVE | COR_PRF_ENABLE_FRAME_INFO;
