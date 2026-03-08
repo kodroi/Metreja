@@ -108,6 +108,23 @@ public static class HotspotsAnalyzer
                         }
                     }
                 }
+                else if (eventType == "method_stats")
+                {
+                    if (!hasFilters || MatchesAnyFilter(filters, ns, cls, m, key))
+                    {
+                        if (!stats.TryGetValue(key, out var ms))
+                        {
+                            ms = new MethodStats();
+                            stats[key] = ms;
+                        }
+
+                        ms.Count += (int)(root.TryGetProperty("callCount", out var cc) ? cc.GetInt64() : 0);
+                        ms.SelfTotal += root.TryGetProperty("totalSelfNs", out var sn) ? sn.GetInt64() : 0;
+                        ms.SelfMax = Math.Max(ms.SelfMax, root.TryGetProperty("maxSelfNs", out var smx) ? smx.GetInt64() : 0);
+                        ms.InclusiveTotal += root.TryGetProperty("totalInclusiveNs", out var inc) ? inc.GetInt64() : 0;
+                        ms.InclusiveMax = Math.Max(ms.InclusiveMax, root.TryGetProperty("maxInclusiveNs", out var imx) ? imx.GetInt64() : 0);
+                    }
+                }
                 else if (eventType == "alloc_by_class")
                 {
                     var allocCount = root.TryGetProperty("count", out var c) ? c.GetInt64() : 0;
