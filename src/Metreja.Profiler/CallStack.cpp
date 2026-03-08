@@ -45,7 +45,7 @@ void CallStackManager::CreditParent(long long inclusiveNs)
 
     auto* stack = static_cast<ThreadCallStack*>(TlsGetValue(m_tlsIndex));
     if (stack != nullptr && !stack->stack.empty() && inclusiveNs > 0)
-        stack->stack.back().childrenTimeNs += inclusiveNs;
+        stack->stack.back().m_childrenTimeNs += inclusiveNs;
 }
 
 int CallStackManager::GetDepth() const

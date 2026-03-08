@@ -31,17 +31,18 @@ public static class ClearCommand
             {
                 manager.DeleteAllSessions();
                 Console.WriteLine("All sessions deleted.");
+                return 0;
             }
-            else if (!string.IsNullOrEmpty(session))
+
+            if (!string.IsNullOrEmpty(session))
             {
                 manager.DeleteSession(session);
                 Console.WriteLine($"Session {session} deleted.");
+                return 0;
             }
-            else
-            {
-                Console.Error.WriteLine("Error: specify --session <id> or --all");
-                Environment.ExitCode = 1;
-            }
+
+            Console.Error.WriteLine("Error: specify --session <id> or --all");
+            return 1;
         });
 
         return command;

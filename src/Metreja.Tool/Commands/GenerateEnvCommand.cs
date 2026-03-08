@@ -15,7 +15,7 @@ public static class GenerateEnvCommand
 
         var formatOption = new Option<string>("--format")
         {
-            Description = "Output format: batch or powershell"
+            Description = "Output format: batch, powershell, or shell"
         };
         formatOption.DefaultValueFactory = _ => "batch";
 
@@ -47,8 +47,7 @@ public static class GenerateEnvCommand
                 if (!force)
                 {
                     Console.Error.WriteLine("Use --force to generate the script anyway.");
-                    Environment.ExitCode = 1;
-                    return;
+                    return 1;
                 }
             }
 
@@ -59,13 +58,22 @@ public static class GenerateEnvCommand
                 Console.WriteLine($"$env:CORECLR_PROFILER_PATH = \"{absoluteDllPath}\"");
                 Console.WriteLine($"$env:METREJA_CONFIG = \"{configPath}\"");
             }
+            else if (format.Equals("shell", StringComparison.OrdinalIgnoreCase))
+            {
+                Console.WriteLine($"export CORECLR_ENABLE_PROFILING=\"1\"");
+                Console.WriteLine($"export CORECLR_PROFILER=\"{MetrejaConstants.ProfilerClsid}\"");
+                Console.WriteLine($"export CORECLR_PROFILER_PATH=\"{absoluteDllPath}\"");
+                Console.WriteLine($"export METREJA_CONFIG=\"{configPath}\"");
+            }
             else
             {
-                Console.WriteLine($"set CORECLR_ENABLE_PROFILING=1");
-                Console.WriteLine($"set CORECLR_PROFILER={MetrejaConstants.ProfilerClsid}");
-                Console.WriteLine($"set CORECLR_PROFILER_PATH={absoluteDllPath}");
-                Console.WriteLine($"set METREJA_CONFIG={configPath}");
+                Console.WriteLine($"set \"CORECLR_ENABLE_PROFILING=1\"");
+                Console.WriteLine($"set \"CORECLR_PROFILER={MetrejaConstants.ProfilerClsid}\"");
+                Console.WriteLine($"set \"CORECLR_PROFILER_PATH={absoluteDllPath}\"");
+                Console.WriteLine($"set \"METREJA_CONFIG={configPath}\"");
             }
+
+            return 0;
         });
 
         return command;

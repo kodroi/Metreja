@@ -48,8 +48,7 @@ public static class RunCommand
             if (string.IsNullOrEmpty(profilerPath) || !File.Exists(profilerPath))
             {
                 Console.Error.WriteLine("Error: Profiler DLL not found. Ensure Metreja.Profiler.dll is adjacent to the CLI assembly.");
-                Environment.ExitCode = 1;
-                return;
+                return 1;
             }
             var absoluteDllPath = Path.GetFullPath(profilerPath);
 
@@ -59,8 +58,7 @@ public static class RunCommand
             if (!File.Exists(configPath))
             {
                 Console.Error.WriteLine($"Error: Session '{session}' not found at {configPath}");
-                Environment.ExitCode = 1;
-                return;
+                return 1;
             }
             var absoluteConfigPath = Path.GetFullPath(configPath);
 
@@ -69,8 +67,7 @@ public static class RunCommand
             if (!File.Exists(absoluteExePath))
             {
                 Console.Error.WriteLine($"Error: Executable not found at {absoluteExePath}");
-                Environment.ExitCode = 1;
-                return;
+                return 1;
             }
 
             // 4. Create ProcessStartInfo with profiler env vars
@@ -90,20 +87,17 @@ public static class RunCommand
             if (process == null)
             {
                 Console.Error.WriteLine("Error: Failed to start process.");
-                Environment.ExitCode = 1;
-                return;
+                return 1;
             }
 
             if (detach)
             {
                 Console.WriteLine($"Launched with PID {process.Id}");
-                Environment.ExitCode = 0;
+                return 0;
             }
-            else
-            {
-                await process.WaitForExitAsync(cancellationToken);
-                Environment.ExitCode = process.ExitCode;
-            }
+
+            await process.WaitForExitAsync(cancellationToken);
+            return process.ExitCode;
         });
 
         return command;

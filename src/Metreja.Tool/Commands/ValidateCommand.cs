@@ -29,8 +29,7 @@ public static class ValidateCommand
             catch (FileNotFoundException ex)
             {
                 Console.Error.WriteLine($"Error: {ex.Message}");
-                Environment.ExitCode = 1;
-                return;
+                return 1;
             }
 
             var errors = new List<string>();
@@ -71,16 +70,15 @@ public static class ValidateCommand
             if (errors.Count == 0)
             {
                 Console.WriteLine($"Validation passed. {warnings.Count} warning(s).");
+                return 0;
             }
-            else
+
+            Console.Error.WriteLine($"Validation failed with {errors.Count} error(s):");
+            foreach (var error in errors)
             {
-                Console.Error.WriteLine($"Validation failed with {errors.Count} error(s):");
-                foreach (var error in errors)
-                {
-                    Console.Error.WriteLine($"  - {error}");
-                }
-                Environment.ExitCode = 1;
+                Console.Error.WriteLine($"  - {error}");
             }
+            return 1;
         });
 
         return command;

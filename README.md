@@ -79,8 +79,8 @@ metreja add exclude -s $SESSION --assembly "System.*"
 metreja add exclude -s $SESSION --assembly "Microsoft.*"
 
 # 3. Generate the profiler environment and run your app
-metreja generate-env -s $SESSION --format batch > env.bat
-cmd //c "env.bat && dotnet run --project src/MyApp -c Release"
+metreja generate-env -s $SESSION --format shell > env.sh
+source env.sh && dotnet run --project src/MyApp -c Release
 
 # 4. Find the bottleneck
 metreja hotspots .metreja/output/*.ndjson --top 10
