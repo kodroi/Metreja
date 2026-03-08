@@ -138,8 +138,7 @@ public static class SetCommand
             {
                 Console.Error.WriteLine($"Unknown event type(s): {string.Join(", ", invalid)}");
                 Console.Error.WriteLine($"Valid types: {string.Join(", ", ValidEventTypes.Order())}");
-                Environment.ExitCode = 1;
-                return;
+                return 1;
             }
 
             var eventList = events.Select(e => e.ToLowerInvariant()).Distinct(StringComparer.Ordinal).ToList();
@@ -147,6 +146,8 @@ public static class SetCommand
             await SetConfigPropertyAsync(session,
                 config => config with { Instrumentation = config.Instrumentation with { Events = eventList } },
                 $"events to: [{string.Join(", ", eventList)}]");
+
+            return 0;
         });
 
         return command;

@@ -54,15 +54,13 @@ public static class RemoveCommand
             if (active.Length == 0)
             {
                 Console.Error.WriteLine("Error: Specify one of --assembly, --namespace, --class, or --method.");
-                Environment.ExitCode = 1;
-                return;
+                return 1;
             }
 
             if (active.Length > 1)
             {
                 Console.Error.WriteLine("Error: Only one level option (--assembly, --namespace, --class, --method) can be used per command.");
-                Environment.ExitCode = 1;
-                return;
+                return 1;
             }
 
             var (pattern, level) = active[0];
@@ -79,8 +77,7 @@ public static class RemoveCommand
             if (index < 0)
             {
                 Console.Error.WriteLine($"Error: No matching {name} rule found in session {session}");
-                Environment.ExitCode = 1;
-                return;
+                return 1;
             }
 
             var updatedList = list.Where((_, i) => i != index).ToList();
@@ -93,6 +90,7 @@ public static class RemoveCommand
             await manager.SaveConfigAsync(session, updatedConfig);
 
             Console.WriteLine($"Removed {name} rule from session {session} ({updatedList.Count} {name} rules remaining)");
+            return 0;
         });
 
         return command;

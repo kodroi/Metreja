@@ -30,8 +30,7 @@ public static class ClearFiltersCommand
             if (type is not (null or "include" or "exclude"))
             {
                 Console.Error.WriteLine("Error: --type must be 'include' or 'exclude'");
-                Environment.ExitCode = 1;
-                return;
+                return 1;
             }
 
             var manager = new ConfigManager();
@@ -57,6 +56,7 @@ public static class ClearFiltersCommand
             };
 
             Console.WriteLine($"Cleared {cleared} filters from session {session}");
+            return 0;
         });
 
         return command;

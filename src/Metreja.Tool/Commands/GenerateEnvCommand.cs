@@ -47,8 +47,7 @@ public static class GenerateEnvCommand
                 if (!force)
                 {
                     Console.Error.WriteLine("Use --force to generate the script anyway.");
-                    Environment.ExitCode = 1;
-                    return;
+                    return 1;
                 }
             }
 
@@ -73,6 +72,8 @@ public static class GenerateEnvCommand
                 Console.WriteLine($"set \"CORECLR_PROFILER_PATH={absoluteDllPath}\"");
                 Console.WriteLine($"set \"METREJA_CONFIG={configPath}\"");
             }
+
+            return 0;
         });
 
         return command;

@@ -70,15 +70,13 @@ public static class AddCommand
             if (active.Length == 0)
             {
                 Console.Error.WriteLine("Error: Specify one of --assembly, --namespace, --class, or --method.");
-                Environment.ExitCode = 1;
-                return;
+                return 1;
             }
 
             if (active.Length > 1)
             {
                 Console.Error.WriteLine("Error: Only one level option (--assembly, --namespace, --class, --method) can be used per command.");
-                Environment.ExitCode = 1;
-                return;
+                return 1;
             }
 
             var (values, level) = active[0];
@@ -96,6 +94,7 @@ public static class AddCommand
 
             var ruleWord = rules.Count == 1 ? "rule" : "rules";
             Console.WriteLine($"Added {rules.Count} {name} {ruleWord} to session {session}");
+            return 0;
         });
 
         return command;
