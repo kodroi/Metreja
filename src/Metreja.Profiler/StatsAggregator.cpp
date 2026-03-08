@@ -39,9 +39,12 @@ void StatsAggregator::RecordException(const MethodInfo& callerInfo, const std::s
     if (stats == nullptr)
         return;
 
-    // Key: exType + ":" + fully qualified method name
+    // Key: exType + ":" + fully qualified method name (resolved for async)
+    const std::string& methodName = callerInfo.isAsyncStateMachine
+        ? callerInfo.originalMethodName
+        : callerInfo.methodName;
     std::string key = exType + ":" + callerInfo.assemblyName + "." + callerInfo.namespaceName + "." +
-                      callerInfo.className + "." + callerInfo.methodName;
+                      callerInfo.className + "." + methodName;
 
     auto& accum = stats->exceptionStats[key];
     if (accum.count == 0)
@@ -49,7 +52,7 @@ void StatsAggregator::RecordException(const MethodInfo& callerInfo, const std::s
         accum.assemblyName = callerInfo.assemblyName;
         accum.namespaceName = callerInfo.namespaceName;
         accum.className = callerInfo.className;
-        accum.methodName = callerInfo.methodName;
+        accum.methodName = methodName;
     }
     accum.count++;
 }

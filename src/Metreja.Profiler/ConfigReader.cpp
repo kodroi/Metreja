@@ -115,6 +115,12 @@ ProfilerConfig ConfigReader::Load()
                     mask |= EventType::MethodStats;
                 else if (name == "exception_stats")
                     mask |= EventType::ExceptionStats;
+                else
+                {
+                    char msg[256];
+                    snprintf(msg, sizeof(msg), "[Metreja] Unknown event type in config: '%s'\n", name.c_str());
+                    OutputDebugStringA(msg);
+                }
             }
             config.enabledEvents = mask;
         }

@@ -86,9 +86,10 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Initialize(IUnknown* pICorProfilerInf
     // Build event mask dynamically based on enabled event types
     DWORD eventMask = COR_PRF_MONITOR_JIT_COMPILATION;
 
-    // ELT hooks needed for enter/leave/method_stats (stats needs timing from stubs)
-    if (HasEvent(events, EventType::Enter) || HasEvent(events, EventType::Leave) ||
-        HasEvent(events, EventType::MethodStats))
+    // ELT hooks needed whenever we require call-stack context
+    bool needElt = HasEvent(events, EventType::Enter) || HasEvent(events, EventType::Leave) ||
+                   HasEvent(events, EventType::MethodStats) || HasEvent(events, EventType::ExceptionStats);
+    if (needElt)
     {
         eventMask |= COR_PRF_MONITOR_ENTERLEAVE | COR_PRF_ENABLE_FRAME_INFO;
     }
@@ -110,9 +111,7 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Initialize(IUnknown* pICorProfilerInf
     if (FAILED(hr))
         return hr;
 
-    // Set ELT3 hooks only when enter/leave/method_stats events are needed
-    bool needElt = HasEvent(events, EventType::Enter) || HasEvent(events, EventType::Leave) ||
-                   HasEvent(events, EventType::MethodStats);
+    // Set ELT3 hooks when enter/leave/stats events are needed
     if (needElt)
     {
         hr = m_profilerInfo->SetEnterLeaveFunctionHooks3WithInfo(
@@ -356,7 +355,7 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionUnwindFunctionEnter(Function
     CallEntry entry = ctx->callStackManager->Pop();
     long long tsNs = CallStackManager::GetTimestampNs();
     long long inclusiveNs = (entry.enterTsNs > 0) ? (tsNs - entry.enterTsNs) : 0;
-    long long selfNs = inclusiveNs - entry.childrenTimeNs;
+    long long selfNs = inclusiveNs - entry.m_childrenTimeNs;
     if (selfNs < 0)
         selfNs = 0;
     ctx->callStackManager->CreditParent(inclusiveNs);
@@ -514,7 +513,7 @@ extern "C" void STDMETHODCALLTYPE LeaveStub(FunctionIDOrClientID functionIDOrCli
 
     CallEntry entry = ctx->callStackManager->Pop();
     long long inclusiveNs = (entry.enterTsNs > 0) ? (tsNs - entry.enterTsNs) : 0;
-    long long selfNs = inclusiveNs - entry.childrenTimeNs;
+    long long selfNs = inclusiveNs - entry.m_childrenTimeNs;
     if (selfNs < 0)
         selfNs = 0;
     ctx->callStackManager->CreditParent(inclusiveNs);
@@ -542,7 +541,7 @@ extern "C" void STDMETHODCALLTYPE TailcallStub(FunctionIDOrClientID functionIDOr
 
     CallEntry entry = ctx->callStackManager->Pop();
     long long inclusiveNs = (entry.enterTsNs > 0) ? (tsNs - entry.enterTsNs) : 0;
-    long long selfNs = inclusiveNs - entry.childrenTimeNs;
+    long long selfNs = inclusiveNs - entry.m_childrenTimeNs;
     if (selfNs < 0)
         selfNs = 0;
     ctx->callStackManager->CreditParent(inclusiveNs);
