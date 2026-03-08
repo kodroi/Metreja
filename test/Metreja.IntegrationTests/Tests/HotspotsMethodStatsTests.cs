@@ -29,7 +29,7 @@ public class HotspotsMethodStatsTests : IAsyncLifetime
             """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"MyNs","cls":"MyClass","m":"Helper","callCount":50,"totalSelfNs":2000000,"maxSelfNs":100000,"totalInclusiveNs":3000000,"maxInclusiveNs":150000}"""
         ]);
 
-        var output = await CaptureOutputAsync(() =>
+        var output = await TestHelpers.CaptureConsoleOutputAsync(() =>
             HotspotsAnalyzer.AnalyzeAsync(_tempFile, top: 10, minMs: 0, sortBy: "self", filters: []));
 
         Assert.Contains("DoWork", output);
@@ -47,7 +47,7 @@ public class HotspotsMethodStatsTests : IAsyncLifetime
             """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"HighSelf","callCount":10,"totalSelfNs":5000000,"maxSelfNs":500000,"totalInclusiveNs":6000000,"maxInclusiveNs":600000}"""
         ]);
 
-        var output = await CaptureOutputAsync(() =>
+        var output = await TestHelpers.CaptureConsoleOutputAsync(() =>
             HotspotsAnalyzer.AnalyzeAsync(_tempFile, top: 10, minMs: 0, sortBy: "self", filters: []));
 
         var lines = output.Split('\n');
@@ -66,7 +66,7 @@ public class HotspotsMethodStatsTests : IAsyncLifetime
             """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"LowIncl","callCount":10,"totalSelfNs":5000000,"maxSelfNs":500000,"totalInclusiveNs":2000000,"maxInclusiveNs":200000}"""
         ]);
 
-        var output = await CaptureOutputAsync(() =>
+        var output = await TestHelpers.CaptureConsoleOutputAsync(() =>
             HotspotsAnalyzer.AnalyzeAsync(_tempFile, top: 10, minMs: 0, sortBy: "inclusive", filters: []));
 
         var lines = output.Split('\n');
@@ -85,7 +85,7 @@ public class HotspotsMethodStatsTests : IAsyncLifetime
             """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"ManyCalls","callCount":500,"totalSelfNs":1000000,"maxSelfNs":100000,"totalInclusiveNs":2000000,"maxInclusiveNs":200000}"""
         ]);
 
-        var output = await CaptureOutputAsync(() =>
+        var output = await TestHelpers.CaptureConsoleOutputAsync(() =>
             HotspotsAnalyzer.AnalyzeAsync(_tempFile, top: 10, minMs: 0, sortBy: "calls", filters: []));
 
         var lines = output.Split('\n');
@@ -104,7 +104,7 @@ public class HotspotsMethodStatsTests : IAsyncLifetime
             """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"MyNs","cls":"ServiceB","m":"Process","callCount":20,"totalSelfNs":3000000,"maxSelfNs":300000,"totalInclusiveNs":4000000,"maxInclusiveNs":400000}"""
         ]);
 
-        var output = await CaptureOutputAsync(() =>
+        var output = await TestHelpers.CaptureConsoleOutputAsync(() =>
             HotspotsAnalyzer.AnalyzeAsync(_tempFile, top: 10, minMs: 0, sortBy: "self", filters: ["ServiceA"]));
 
         Assert.Contains("DoWork", output);
@@ -120,7 +120,7 @@ public class HotspotsMethodStatsTests : IAsyncLifetime
             """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"SlowMethod","callCount":10,"totalSelfNs":50000000,"maxSelfNs":5000000,"totalInclusiveNs":80000000,"maxInclusiveNs":8000000}"""
         ]);
 
-        var output = await CaptureOutputAsync(() =>
+        var output = await TestHelpers.CaptureConsoleOutputAsync(() =>
             HotspotsAnalyzer.AnalyzeAsync(_tempFile, top: 10, minMs: 1, sortBy: "self", filters: []));
 
         Assert.Contains("SlowMethod", output);
@@ -137,7 +137,7 @@ public class HotspotsMethodStatsTests : IAsyncLifetime
             """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"MethodB","callCount":50,"totalSelfNs":5000000,"maxSelfNs":500000,"totalInclusiveNs":8000000,"maxInclusiveNs":800000}"""
         ]);
 
-        var output = await CaptureOutputAsync(() =>
+        var output = await TestHelpers.CaptureConsoleOutputAsync(() =>
             HotspotsAnalyzer.AnalyzeAsync(_tempFile, top: 10, minMs: 0, sortBy: "self", filters: []));
 
         Assert.Contains("MethodA", output);
@@ -154,25 +154,9 @@ public class HotspotsMethodStatsTests : IAsyncLifetime
             """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"M3","callCount":1,"totalSelfNs":3000000,"maxSelfNs":3000000,"totalInclusiveNs":3000000,"maxInclusiveNs":3000000}"""
         ]);
 
-        var output = await CaptureOutputAsync(() =>
+        var output = await TestHelpers.CaptureConsoleOutputAsync(() =>
             HotspotsAnalyzer.AnalyzeAsync(_tempFile, top: 10, minMs: 0, sortBy: "self", filters: []));
 
         Assert.Contains("3 methods", output);
-    }
-
-    private static async Task<string> CaptureOutputAsync(Func<Task> action)
-    {
-        var originalOut = Console.Out;
-        var sw = new StringWriter();
-        Console.SetOut(sw);
-        try
-        {
-            await action();
-            return sw.ToString();
-        }
-        finally
-        {
-            Console.SetOut(originalOut);
-        }
     }
 }

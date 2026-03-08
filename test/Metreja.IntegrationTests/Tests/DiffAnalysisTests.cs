@@ -34,7 +34,7 @@ public class DiffAnalysisTests : IAsyncLifetime
             """{"event":"leave","tsNs":1000,"pid":1,"sessionId":"s1","tid":1,"depth":0,"asm":"App","ns":"MyNs","cls":"Svc","m":"Run","async":false,"deltaNs":5000000}"""
         ]);
 
-        var output = await CaptureOutputAsync(() =>
+        var output = await TestHelpers.CaptureConsoleOutputAsync(() =>
             DiffAnalyzer.AnalyzeAsync(_baseFile, _compareFile));
 
         Assert.Contains("Run", output);
@@ -54,7 +54,7 @@ public class DiffAnalysisTests : IAsyncLifetime
             """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"MyNs","cls":"Svc","m":"DoWork","callCount":100,"totalSelfNs":3000000,"maxSelfNs":100000,"totalInclusiveNs":5000000,"maxInclusiveNs":200000}"""
         ]);
 
-        var output = await CaptureOutputAsync(() =>
+        var output = await TestHelpers.CaptureConsoleOutputAsync(() =>
             DiffAnalyzer.AnalyzeAsync(_baseFile, _compareFile));
 
         Assert.Contains("DoWork", output);
@@ -75,7 +75,7 @@ public class DiffAnalysisTests : IAsyncLifetime
             """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"NewMethod","callCount":5,"totalSelfNs":2000000,"maxSelfNs":400000,"totalInclusiveNs":3000000,"maxInclusiveNs":600000}"""
         ]);
 
-        var output = await CaptureOutputAsync(() =>
+        var output = await TestHelpers.CaptureConsoleOutputAsync(() =>
             DiffAnalyzer.AnalyzeAsync(_baseFile, _compareFile));
 
         Assert.Contains("NewMethod", output);
@@ -94,7 +94,7 @@ public class DiffAnalysisTests : IAsyncLifetime
             """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"OtherMethod","callCount":1,"totalSelfNs":100000,"maxSelfNs":100000,"totalInclusiveNs":100000,"maxInclusiveNs":100000}"""
         ]);
 
-        var output = await CaptureOutputAsync(() =>
+        var output = await TestHelpers.CaptureConsoleOutputAsync(() =>
             DiffAnalyzer.AnalyzeAsync(_baseFile, _compareFile));
 
         Assert.Contains("RemovedMethod", output);
@@ -114,37 +114,37 @@ public class DiffAnalysisTests : IAsyncLifetime
             """{"event":"leave","tsNs":1000,"pid":1,"sessionId":"s1","tid":1,"depth":0,"asm":"App","ns":"N","cls":"C","m":"Repeat","async":false,"deltaNs":1000000}"""
         ]);
 
-        var output = await CaptureOutputAsync(() =>
+        var output = await TestHelpers.CaptureConsoleOutputAsync(() =>
             DiffAnalyzer.AnalyzeAsync(_baseFile, _compareFile));
 
         Assert.Contains("Repeat", output);
         // Base = 3ms + 2ms = 5ms, Compare = 1ms
-        Assert.Contains("ms", output);
-        Assert.Contains("Methods in base: 1", output);
+        Assert.Contains(AnalyzerHelpers.FormatNs(5_000_000), output);
+        Assert.Contains(AnalyzerHelpers.FormatNs(1_000_000), output);
     }
 
     [Fact]
-    public async Task MethodStats_UsesSelfTimeForComparison()
+    public async Task MethodStats_UsesInclusiveTimeForComparison()
     {
+        // Self-time is 7ms/3ms, inclusive is 50ms/40ms — verify inclusive is used
         await File.WriteAllLinesAsync(_baseFile,
         [
-            """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"Target","callCount":10,"totalSelfNs":10000000,"maxSelfNs":1000000,"totalInclusiveNs":50000000,"maxInclusiveNs":5000000}"""
+            """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"Target","callCount":10,"totalSelfNs":7000000,"maxSelfNs":700000,"totalInclusiveNs":50000000,"maxInclusiveNs":5000000}"""
         ]);
         await File.WriteAllLinesAsync(_compareFile,
         [
-            """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"Target","callCount":10,"totalSelfNs":8000000,"maxSelfNs":800000,"totalInclusiveNs":40000000,"maxInclusiveNs":4000000}"""
+            """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"Target","callCount":10,"totalSelfNs":3000000,"maxSelfNs":300000,"totalInclusiveNs":40000000,"maxInclusiveNs":4000000}"""
         ]);
 
-        var output = await CaptureOutputAsync(() =>
+        var output = await TestHelpers.CaptureConsoleOutputAsync(() =>
             DiffAnalyzer.AnalyzeAsync(_baseFile, _compareFile));
 
-        // Base should show 10ms (totalSelfNs=10_000_000), not 50ms (totalInclusiveNs)
-        var baseFmt = FormatNs(10_000_000);
-        var compareFmt = FormatNs(8_000_000);
-        Assert.Contains(baseFmt, output);
-        Assert.Contains(compareFmt, output);
-        // Should NOT contain 50ms (inclusive would be FormatNs(50_000_000))
-        Assert.DoesNotContain(FormatNs(50_000_000), output);
+        // Should use totalInclusiveNs (50ms/40ms), consistent with leave's deltaNs (also inclusive)
+        Assert.Contains(AnalyzerHelpers.FormatNs(50_000_000), output);
+        Assert.Contains(AnalyzerHelpers.FormatNs(40_000_000), output);
+        // Should NOT show self-time values (7ms/3ms)
+        Assert.DoesNotContain(AnalyzerHelpers.FormatNs(7_000_000), output);
+        Assert.DoesNotContain(AnalyzerHelpers.FormatNs(3_000_000), output);
     }
 
     [Fact]
@@ -153,7 +153,7 @@ public class DiffAnalysisTests : IAsyncLifetime
         await File.WriteAllTextAsync(_baseFile, "");
         await File.WriteAllTextAsync(_compareFile, "");
 
-        var output = await CaptureOutputAsync(() =>
+        var output = await TestHelpers.CaptureConsoleOutputAsync(() =>
             DiffAnalyzer.AnalyzeAsync(_baseFile, _compareFile));
 
         Assert.Contains("Methods in base: 0", output);
@@ -174,7 +174,7 @@ public class DiffAnalysisTests : IAsyncLifetime
             """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"BigChange","callCount":10,"totalSelfNs":10000000,"maxSelfNs":1000000,"totalInclusiveNs":10000000,"maxInclusiveNs":1000000}"""
         ]);
 
-        var output = await CaptureOutputAsync(() =>
+        var output = await TestHelpers.CaptureConsoleOutputAsync(() =>
             DiffAnalyzer.AnalyzeAsync(_baseFile, _compareFile));
 
         var lines = output.Split('\n');
@@ -198,36 +198,33 @@ public class DiffAnalysisTests : IAsyncLifetime
             """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"SlowMethod","callCount":1,"totalSelfNs":1000000000,"maxSelfNs":1000000000,"totalInclusiveNs":1000000000,"maxInclusiveNs":1000000000}"""
         ]);
 
-        var output = await CaptureOutputAsync(() =>
+        var output = await TestHelpers.CaptureConsoleOutputAsync(() =>
             DiffAnalyzer.AnalyzeAsync(_baseFile, _compareFile));
 
         // Should use FormatNs units (ns, us, ms, s) — not raw nanosecond numbers
         Assert.Contains("500ns", output);
-        Assert.Contains(FormatNs(2_000_000_000), output);
-        Assert.Contains(FormatNs(1_000_000_000), output);
+        Assert.Contains(AnalyzerHelpers.FormatNs(2_000_000_000), output);
+        Assert.Contains(AnalyzerHelpers.FormatNs(1_000_000_000), output);
     }
 
-    private static string FormatNs(long ns) => ns switch
+    [Fact]
+    public async Task MethodStats_KeyFormat_ConsistentWithHotspots()
     {
-        < 1_000 => $"{ns}ns",
-        < 1_000_000 => $"{ns / 1_000.0:F2}us",
-        < 1_000_000_000 => $"{ns / 1_000_000.0:F2}ms",
-        _ => $"{ns / 1_000_000_000.0:F2}s"
-    };
+        // Both analyzers should produce the same key format for the same method
+        await File.WriteAllLinesAsync(_baseFile,
+        [
+            """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"MyNs","cls":"MyClass","m":"DoWork","callCount":10,"totalSelfNs":5000000,"maxSelfNs":500000,"totalInclusiveNs":8000000,"maxInclusiveNs":800000}"""
+        ]);
+        await File.WriteAllLinesAsync(_compareFile,
+        [
+            """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"MyNs","cls":"MyClass","m":"DoWork","callCount":10,"totalSelfNs":3000000,"maxSelfNs":300000,"totalInclusiveNs":4000000,"maxInclusiveNs":400000}"""
+        ]);
 
-    private static async Task<string> CaptureOutputAsync(Func<Task> action)
-    {
-        var originalOut = Console.Out;
-        var sw = new StringWriter();
-        Console.SetOut(sw);
-        try
-        {
-            await action();
-            return sw.ToString();
-        }
-        finally
-        {
-            Console.SetOut(originalOut);
-        }
+        var diffOutput = await TestHelpers.CaptureConsoleOutputAsync(() =>
+            DiffAnalyzer.AnalyzeAsync(_baseFile, _compareFile));
+
+        // Key should be "MyNs.MyClass.DoWork" (no asm prefix), matching HotspotsAnalyzer
+        Assert.Contains("MyNs.MyClass.DoWork", diffOutput);
+        Assert.DoesNotContain("App.MyNs.MyClass.DoWork", diffOutput);
     }
 }

@@ -56,31 +56,19 @@ public static class DiffAnalyzer
 
                 var eventType = eventProp.GetString();
 
-                if (eventType == "leave")
+                long? timing = eventType switch
                 {
-                    var asm = root.TryGetProperty("asm", out var a) ? a.GetString() ?? "" : "";
-                    var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
-                    var deltaNs = root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0;
+                    "leave" => root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0,
+                    "method_stats" => root.TryGetProperty("totalInclusiveNs", out var inc) ? inc.GetInt64() : 0,
+                    _ => null
+                };
 
-                    var key = $"{asm}.{ns}.{cls}.{m}";
-
-                    if (timings.TryGetValue(key, out var existing))
-                        timings[key] = existing + deltaNs;
-                    else
-                        timings[key] = deltaNs;
-                }
-                else if (eventType == "method_stats")
+                if (timing is not null)
                 {
-                    var asm = root.TryGetProperty("asm", out var a) ? a.GetString() ?? "" : "";
                     var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
-                    var totalSelfNs = root.TryGetProperty("totalSelfNs", out var sn) ? sn.GetInt64() : 0;
+                    var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
 
-                    var key = $"{asm}.{ns}.{cls}.{m}";
-
-                    if (timings.TryGetValue(key, out var existing))
-                        timings[key] = existing + totalSelfNs;
-                    else
-                        timings[key] = totalSelfNs;
+                    timings[key] = timings.GetValueOrDefault(key, 0) + timing.Value;
                 }
             }
             catch (JsonException)
