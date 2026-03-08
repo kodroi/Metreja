@@ -64,25 +64,29 @@ public static class HotspotsAnalyzer
                     continue;
 
                 var eventType = eventProp.GetString();
-                var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
-                var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
-                var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
-
-                if (!threadStacks.TryGetValue(tid, out var stack))
-                {
-                    stack = new Stack<StackFrame>();
-                    threadStacks[tid] = stack;
-                }
 
                 if (eventType == "enter")
                 {
+                    var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
+                    var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
+                    var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
+
+                    if (!threadStacks.TryGetValue(tid, out var stack))
+                    {
+                        stack = new Stack<StackFrame>();
+                        threadStacks[tid] = stack;
+                    }
+
                     stack.Push(new StackFrame { Key = key });
                 }
                 else if (eventType == "leave")
                 {
+                    var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
+                    var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
+                    var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
                     var deltaNs = root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0;
 
-                    if (stack.Count > 0)
+                    if (threadStacks.TryGetValue(tid, out var stack) && stack.Count > 0)
                     {
                         var frame = stack.Pop();
                         var selfNs = deltaNs - frame.ChildrenNs;
@@ -108,10 +112,32 @@ public static class HotspotsAnalyzer
                         }
                     }
                 }
+                else if (eventType == "method_stats")
+                {
+                    var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
+                    var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
+
+                    if (!hasFilters || MatchesAnyFilter(filters, ns, cls, m, key))
+                    {
+                        if (!stats.TryGetValue(key, out var ms))
+                        {
+                            ms = new MethodStats();
+                            stats[key] = ms;
+                        }
+
+                        ms.Count += root.TryGetProperty("callCount", out var cc) ? cc.GetInt64() : 0;
+                        ms.SelfTotal += root.TryGetProperty("totalSelfNs", out var sn) ? sn.GetInt64() : 0;
+                        ms.SelfMax = Math.Max(ms.SelfMax, root.TryGetProperty("maxSelfNs", out var smx) ? smx.GetInt64() : 0);
+                        ms.InclusiveTotal += root.TryGetProperty("totalInclusiveNs", out var inc) ? inc.GetInt64() : 0;
+                        ms.InclusiveMax = Math.Max(ms.InclusiveMax, root.TryGetProperty("maxInclusiveNs", out var imx) ? imx.GetInt64() : 0);
+                    }
+                }
                 else if (eventType == "alloc_by_class")
                 {
+                    var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
                     var allocCount = root.TryGetProperty("count", out var c) ? c.GetInt64() : 0;
-                    if (allocCount > 0 && stack.Count > 0)
+
+                    if (allocCount > 0 && threadStacks.TryGetValue(tid, out var stack) && stack.Count > 0)
                     {
                         var topKey = stack.Peek().Key;
                         if (!stats.TryGetValue(topKey, out var ms))
@@ -157,7 +183,7 @@ public static class HotspotsAnalyzer
 
     private sealed class MethodStats
     {
-        public int Count { get; set; }
+        public long Count { get; set; }
         public long InclusiveTotal { get; set; }
         public long InclusiveMax { get; set; }
         public long SelfTotal { get; set; }
