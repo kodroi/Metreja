@@ -22,10 +22,10 @@ struct ThreadCallStack
     // The LAST deferred entry is the catcher (restored in ExceptionCatcherEnter).
     // Earlier deferred entries (inner recursive activations) are finalized when
     // a subsequent matching frame is encountered.
-    bool hasDeferredUnwind = false;
-    CallEntry deferredUnwindEntry = {0, 0, 0};
-    UINT_PTR deferredUnwindFunctionId = 0;
-    long long deferredUnwindTsNs = 0;
+    bool m_hasDeferredUnwind = false;
+    CallEntry m_deferredUnwindEntry = {0, 0, 0};
+    UINT_PTR m_deferredUnwindFunctionId = 0;
+    long long m_deferredUnwindTsNs = 0;
 
     ThreadCallStack() { stack.reserve(256); }
 };

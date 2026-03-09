@@ -51,6 +51,28 @@ jobs:
       - name: Build Metreja.Profiler (C++ DLL)
         run: msbuild src/Metreja.Profiler/Metreja.Profiler.vcxproj /p:Configuration=Release /p:Platform=x64 "/p:SolutionDir=${{ github.workspace }}/"
 
+      - name: Run clang-tidy on Profiler
+        shell: pwsh
+        run: |
+          # Discover MSVC and Windows SDK include paths
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsPath = & $vswhere -latest -property installationPath
+          $msvcPath = Get-ChildItem "$vsPath\VC\Tools\MSVC" | Sort-Object Name | Select-Object -Last 1
+          $sdkVersion = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots").KitsRoot10
+          $sdkVer = Get-ChildItem "${sdkVersion}Include" | Sort-Object Name | Select-Object -Last 1
+
+          $includes = @(
+            "-I", "src/Metreja.Profiler",
+            "-isystem", "$($msvcPath.FullName)\include",
+            "-isystem", "$($sdkVer.FullName)\um",
+            "-isystem", "$($sdkVer.FullName)\shared",
+            "-isystem", "$($sdkVer.FullName)\ucrt"
+          )
+
+          $cppFiles = Get-ChildItem src/Metreja.Profiler/*.cpp | ForEach-Object { $_.FullName }
+          & clang-tidy @cppFiles -- -std=c++17 -DWIN32 -D_WINDOWS -DNDEBUG @includes
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Build Metreja.TestApp
         run: dotnet build test/Metreja.TestApp/Metreja.TestApp.csproj -c Release --no-restore
 
