@@ -63,6 +63,7 @@ jobs:
 
           $includes = @(
             "-I", "src/Metreja.Profiler",
+            "-I", "src/Metreja.Profiler/include",
             "-isystem", "$($msvcPath.FullName)\include",
             "-isystem", "$($sdkVer.FullName)\um",
             "-isystem", "$($sdkVer.FullName)\shared",
