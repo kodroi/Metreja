@@ -16,6 +16,7 @@ struct ThreadCallStack
 {
     std::vector<CallEntry> stack;
     UINT_PTR exceptionCatcherFunctionId = 0;
+    size_t exceptionCatcherDepth = 0;
     ThreadCallStack() { stack.reserve(256); }
 };
 

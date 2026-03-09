@@ -134,7 +134,7 @@ public class StructuralValidationTests
     public void Exceptions_ExactlyThreeRecorded()
     {
         var exceptions = _fixture.Events.OfType<ExceptionEvent>().ToList();
-        Assert.Equal(3, exceptions.Count);
+        Assert.Equal(4, exceptions.Count);
 
         var exTypes = exceptions.Select(e => e.ExType).OrderBy(t => t).ToList();
         Assert.Contains(exTypes, t => t.Contains("ArgumentException"));

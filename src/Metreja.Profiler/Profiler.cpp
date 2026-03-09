@@ -345,7 +345,10 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionSearchCatcherFound(FunctionI
 
     auto* threadStack = ctx->callStackManager->GetThreadStack();
     if (threadStack != nullptr)
+    {
         threadStack->exceptionCatcherFunctionId = functionId;
+        threadStack->exceptionCatcherDepth = threadStack->stack.size();
+    }
 
     return S_OK;
 }
@@ -364,11 +367,16 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionUnwindFunctionEnter(Function
         return S_OK;
     }
 
-    // Don't pop the catching method — it will exit via LeaveStub
+    // Don't pop the catching method — it will exit via LeaveStub.
+    // Compare both FunctionID and stack depth to handle recursive methods
+    // where multiple activations share the same FunctionID.
     auto* threadStack = ctx->callStackManager->GetThreadStack();
-    if (threadStack != nullptr && threadStack->exceptionCatcherFunctionId == static_cast<UINT_PTR>(functionId))
+    if (threadStack != nullptr &&
+        threadStack->exceptionCatcherFunctionId == static_cast<UINT_PTR>(functionId) &&
+        threadStack->stack.size() == threadStack->exceptionCatcherDepth)
     {
         threadStack->exceptionCatcherFunctionId = 0;
+        threadStack->exceptionCatcherDepth = 0;
         return S_OK;
     }
 
@@ -402,7 +410,10 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionCatcherEnter(FunctionID func
 
     auto* threadStack = ctx->callStackManager->GetThreadStack();
     if (threadStack != nullptr)
+    {
         threadStack->exceptionCatcherFunctionId = 0;
+        threadStack->exceptionCatcherDepth = 0;
+    }
 
     return S_OK;
 }
