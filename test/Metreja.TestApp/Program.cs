@@ -13,6 +13,7 @@ public static class Program
         RunSyncCallPaths();
         await RunAsyncCallPathsAsync();
         RunExceptionPaths();
+        RunSelfCatchExceptionPaths();
         RunTightLoop();
         RunDeepRecursion(20);
 
@@ -106,6 +107,40 @@ public static class Program
     private static void WrapperMethod()
     {
         throw new ArgumentException("Nested test exception");
+    }
+
+    /// <summary>
+    /// Tests exception caught in the same method that throws (self-catch).
+    /// This exercises the ExceptionUnwindFunctionEnter → LeaveStub path
+    /// that previously caused double-pop stack misalignment.
+    /// </summary>
+    private static void RunSelfCatchExceptionPaths()
+    {
+        Console.WriteLine();
+        Console.WriteLine("[Self-Catch Exception Paths]");
+        var result = SelfCatchParent();
+        Console.WriteLine($"  Result: {result}");
+    }
+
+    private static int SelfCatchParent()
+    {
+        return SelfCatchChild(10);
+    }
+
+    private static int SelfCatchChild(int value)
+    {
+        // Exception thrown and caught in the same method
+        try
+        {
+            if (value > 0)
+                throw new InvalidOperationException("self-catch test");
+        }
+        catch (InvalidOperationException)
+        {
+            // Caught in same method — exercises the catcher-skip path
+        }
+
+        return value + 1;
     }
 
     private static void RunTightLoop()

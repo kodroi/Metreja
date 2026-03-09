@@ -103,6 +103,49 @@ public class MethodStatsTests
         }
     }
 
+    /// <summary>
+    /// Regression test for exception-unwind double-pop bug.
+    /// When method_stats + exception_stats are both enabled, self-catch exceptions
+    /// (caught in the same method that throws) previously caused the call stack to
+    /// misalign, producing wildly incorrect inclusive times (parent = 0, child inflated).
+    /// </summary>
+    [Fact]
+    public async Task MethodStatsWithExceptionStats_SelfCatchDoesNotCorruptCallStack()
+    {
+        var root = GetSolutionRoot();
+        var (outputPath, runner) = await ProfilerRunner.RunAsync(
+            root, events: ["method_stats", "exception_stats"]);
+        await using (runner)
+        {
+            var events = await TraceParser.ParseAsync(outputPath);
+            var stats = events.OfType<MethodStatsEvent>().ToList();
+
+            // SelfCatchParent calls SelfCatchChild which throws and catches internally.
+            // Before the fix, SelfCatchParent would show 0 inclusive time because
+            // ExceptionUnwindFunctionEnter double-popped SelfCatchChild's stack entry.
+            var parent = stats.FirstOrDefault(s => s.M == "SelfCatchParent");
+            var child = stats.FirstOrDefault(s => s.M == "SelfCatchChild");
+
+            Assert.NotNull(parent);
+            Assert.NotNull(child);
+
+            // Parent must have non-zero inclusive time (was 0 before fix)
+            Assert.True(parent.TotalInclusiveNs > 0,
+                $"SelfCatchParent.TotalInclusiveNs should be > 0 but was {parent.TotalInclusiveNs}");
+
+            // Child's inclusive time must not exceed parent's (stack misalignment signature)
+            Assert.True(child.TotalInclusiveNs <= parent.TotalInclusiveNs,
+                $"SelfCatchChild.TotalInclusiveNs ({child.TotalInclusiveNs}) should not exceed " +
+                $"SelfCatchParent.TotalInclusiveNs ({parent.TotalInclusiveNs})");
+
+            // Self time <= inclusive time invariant must still hold
+            Assert.True(parent.TotalSelfNs <= parent.TotalInclusiveNs,
+                $"SelfCatchParent: totalSelfNs ({parent.TotalSelfNs}) > totalInclusiveNs ({parent.TotalInclusiveNs})");
+            Assert.True(child.TotalSelfNs <= child.TotalInclusiveNs,
+                $"SelfCatchChild: totalSelfNs ({child.TotalSelfNs}) > totalInclusiveNs ({child.TotalInclusiveNs})");
+        }
+    }
+
     [Fact]
     public async Task EnterLeaveExplicit_BehavesLikeDefault()
     {
