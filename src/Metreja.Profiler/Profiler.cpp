@@ -337,7 +337,18 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionSearchFunctionEnter(Function
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionSearchFunctionLeave() { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionSearchFilterEnter(FunctionID functionId) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionSearchFilterLeave() { return S_OK; }
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionSearchCatcherFound(FunctionID functionId) { return S_OK; }
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionSearchCatcherFound(FunctionID functionId)
+{
+    auto* ctx = g_ctx;
+    if (ctx == nullptr)
+        return S_OK;
+
+    auto* threadStack = ctx->callStackManager->GetThreadStack();
+    if (threadStack != nullptr)
+        threadStack->exceptionCatcherFunctionId = functionId;
+
+    return S_OK;
+}
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionOSHandlerEnter(UINT_PTR __unused) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionOSHandlerLeave(UINT_PTR __unused) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionUnwindFunctionEnter(FunctionID functionId)
@@ -350,6 +361,14 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionUnwindFunctionEnter(Function
     if (info == nullptr || !info->isIncluded)
     {
         // Don't pop for excluded methods — they were never pushed in EnterStub
+        return S_OK;
+    }
+
+    // Don't pop the catching method — it will exit via LeaveStub
+    auto* threadStack = ctx->callStackManager->GetThreadStack();
+    if (threadStack != nullptr && threadStack->exceptionCatcherFunctionId == static_cast<UINT_PTR>(functionId))
+    {
+        threadStack->exceptionCatcherFunctionId = 0;
         return S_OK;
     }
 
@@ -377,6 +396,14 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionUnwindFinallyEnter(FunctionI
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionUnwindFinallyLeave() { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionCatcherEnter(FunctionID functionId, ObjectID objectId)
 {
+    auto* ctx = g_ctx;
+    if (ctx == nullptr)
+        return S_OK;
+
+    auto* threadStack = ctx->callStackManager->GetThreadStack();
+    if (threadStack != nullptr)
+        threadStack->exceptionCatcherFunctionId = 0;
+
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionCatcherLeave() { return S_OK; }
