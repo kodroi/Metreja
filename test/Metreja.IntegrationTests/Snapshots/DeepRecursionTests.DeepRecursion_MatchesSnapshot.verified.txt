@@ -1,7 +1,4 @@
-﻿[Thread-1]   enter Program.RunDeepRecursion (Metreja.TestApp/Metreja.TestApp) depth=1
-[Thread-1]     enter Program.Recurse (Metreja.TestApp/Metreja.TestApp) depth=2
-[Thread-1]       enter Program.Recurse (Metreja.TestApp/Metreja.TestApp) depth=3
-[Thread-1]         enter Program.Recurse (Metreja.TestApp/Metreja.TestApp) depth=4
+[Thread-1]         enter Program.RunDeepRecursion (Metreja.TestApp/Metreja.TestApp) depth=4
 [Thread-1]           enter Program.Recurse (Metreja.TestApp/Metreja.TestApp) depth=5
 [Thread-1]             enter Program.Recurse (Metreja.TestApp/Metreja.TestApp) depth=6
 [Thread-1]               enter Program.Recurse (Metreja.TestApp/Metreja.TestApp) depth=7
@@ -20,6 +17,12 @@
 [Thread-1]                                         enter Program.Recurse (Metreja.TestApp/Metreja.TestApp) depth=20
 [Thread-1]                                           enter Program.Recurse (Metreja.TestApp/Metreja.TestApp) depth=21
 [Thread-1]                                             enter Program.Recurse (Metreja.TestApp/Metreja.TestApp) depth=22
+[Thread-1]                                               enter Program.Recurse (Metreja.TestApp/Metreja.TestApp) depth=23
+[Thread-1]                                                 enter Program.Recurse (Metreja.TestApp/Metreja.TestApp) depth=24
+[Thread-1]                                                   enter Program.Recurse (Metreja.TestApp/Metreja.TestApp) depth=25
+[Thread-1]                                                   leave Program.Recurse (Metreja.TestApp/Metreja.TestApp) depth=25
+[Thread-1]                                                 leave Program.Recurse (Metreja.TestApp/Metreja.TestApp) depth=24
+[Thread-1]                                               leave Program.Recurse (Metreja.TestApp/Metreja.TestApp) depth=23
 [Thread-1]                                             leave Program.Recurse (Metreja.TestApp/Metreja.TestApp) depth=22
 [Thread-1]                                           leave Program.Recurse (Metreja.TestApp/Metreja.TestApp) depth=21
 [Thread-1]                                         leave Program.Recurse (Metreja.TestApp/Metreja.TestApp) depth=20
@@ -38,7 +41,4 @@
 [Thread-1]               leave Program.Recurse (Metreja.TestApp/Metreja.TestApp) depth=7
 [Thread-1]             leave Program.Recurse (Metreja.TestApp/Metreja.TestApp) depth=6
 [Thread-1]           leave Program.Recurse (Metreja.TestApp/Metreja.TestApp) depth=5
-[Thread-1]         leave Program.Recurse (Metreja.TestApp/Metreja.TestApp) depth=4
-[Thread-1]       leave Program.Recurse (Metreja.TestApp/Metreja.TestApp) depth=3
-[Thread-1]     leave Program.Recurse (Metreja.TestApp/Metreja.TestApp) depth=2
-[Thread-1]   leave Program.RunDeepRecursion (Metreja.TestApp/Metreja.TestApp) depth=1
+[Thread-1]         leave Program.RunDeepRecursion (Metreja.TestApp/Metreja.TestApp) depth=4
