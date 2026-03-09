@@ -131,10 +131,10 @@ public class StructuralValidationTests
     }
 
     [Fact]
-    public void Exceptions_ExactlyTwoRecorded()
+    public void Exceptions_ExactlyFourRecorded()
     {
         var exceptions = _fixture.Events.OfType<ExceptionEvent>().ToList();
-        Assert.Equal(2, exceptions.Count);
+        Assert.Equal(4, exceptions.Count);
 
         var exTypes = exceptions.Select(e => e.ExType).OrderBy(t => t).ToList();
         Assert.Contains(exTypes, t => t.Contains("ArgumentException"));

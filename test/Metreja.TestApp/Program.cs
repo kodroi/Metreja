@@ -13,6 +13,8 @@ public static class Program
         RunSyncCallPaths();
         await RunAsyncCallPathsAsync();
         RunExceptionPaths();
+        RunSelfCatchExceptionPaths();
+        RunRecursiveCatchExceptionPaths();
         RunTightLoop();
         RunDeepRecursion(20);
 
@@ -108,6 +110,40 @@ public static class Program
         throw new ArgumentException("Nested test exception");
     }
 
+    /// <summary>
+    /// Tests exception caught in the same method that throws (self-catch).
+    /// This exercises the ExceptionUnwindFunctionEnter → LeaveStub path
+    /// that previously caused double-pop stack misalignment.
+    /// </summary>
+    private static void RunSelfCatchExceptionPaths()
+    {
+        Console.WriteLine();
+        Console.WriteLine("[Self-Catch Exception Paths]");
+        var result = SelfCatchParent();
+        Console.WriteLine($"  Result: {result}");
+    }
+
+    private static int SelfCatchParent()
+    {
+        return SelfCatchChild(10);
+    }
+
+    private static int SelfCatchChild(int value)
+    {
+        // Exception thrown and caught in the same method
+        try
+        {
+            if (value > 0)
+                throw new InvalidOperationException("self-catch test");
+        }
+        catch (InvalidOperationException)
+        {
+            // Caught in same method — exercises the catcher-skip path
+        }
+
+        return value + 1;
+    }
+
     private static void RunTightLoop()
     {
         Console.WriteLine();
@@ -139,5 +175,40 @@ public static class Program
     {
         if (n <= 0) return 1;
         return n + Recurse(n - 1);
+    }
+
+    /// <summary>
+    /// Tests recursive method where an outer activation catches an exception
+    /// thrown by an inner activation. This exercises the frame-depth guard:
+    /// ExceptionUnwindFunctionEnter must pop the inner activation (same FunctionID
+    /// as the catcher) and preserve only the catching activation.
+    /// </summary>
+    private static void RunRecursiveCatchExceptionPaths()
+    {
+        Console.WriteLine();
+        Console.WriteLine("[Recursive Catch Exception Paths]");
+        var result = RecursiveCatchOuter();
+        Console.WriteLine($"  Result: {result}");
+    }
+
+    private static int RecursiveCatchOuter()
+    {
+        return RecursiveCatch(3);
+    }
+
+    private static int RecursiveCatch(int depth)
+    {
+        if (depth <= 0)
+            throw new InvalidOperationException("recursive-catch bottom");
+
+        try
+        {
+            return RecursiveCatch(depth - 1);
+        }
+        catch (InvalidOperationException)
+        {
+            // Only depth=1 catches (depth=0 throws, unwinds through depth=0)
+            return depth;
+        }
     }
 }

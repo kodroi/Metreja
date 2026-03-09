@@ -16,6 +16,17 @@ struct ThreadCallStack
 {
     std::vector<CallEntry> stack;
     UINT_PTR exceptionCatcherFunctionId = 0;
+
+    // Deferred unwind entry: when ExceptionUnwindFunctionEnter sees a frame
+    // matching the catcher's FunctionID, we pop and defer rather than finalize.
+    // The LAST deferred entry is the catcher (restored in ExceptionCatcherEnter).
+    // Earlier deferred entries (inner recursive activations) are finalized when
+    // a subsequent matching frame is encountered.
+    bool m_hasDeferredUnwind = false;
+    CallEntry m_deferredUnwindEntry = {0, 0, 0};
+    UINT_PTR m_deferredUnwindFunctionId = 0;
+    long long m_deferredUnwindTsNs = 0;
+
     ThreadCallStack() { stack.reserve(256); }
 };
 
