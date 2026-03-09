@@ -131,7 +131,7 @@ public class StructuralValidationTests
     }
 
     [Fact]
-    public void Exceptions_ExactlyThreeRecorded()
+    public void Exceptions_ExactlyFourRecorded()
     {
         var exceptions = _fixture.Events.OfType<ExceptionEvent>().ToList();
         Assert.Equal(4, exceptions.Count);
