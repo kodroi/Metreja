@@ -337,6 +337,34 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionSearchFunctionEnter(Function
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionSearchFunctionLeave() { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionSearchFilterEnter(FunctionID functionId) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionSearchFilterLeave() { return S_OK; }
+
+// Finalize a deferred unwind entry that turned out NOT to be the catcher
+// (an inner recursive activation with the same FunctionID as the catcher).
+static void FinalizeDeferredUnwind(ProfilerContext* ctx, ThreadCallStack* ts)
+{
+    CallEntry& entry = ts->deferredUnwindEntry;
+    long long inclusiveNs = (entry.enterTsNs > 0) ? (ts->deferredUnwindTsNs - entry.enterTsNs) : 0;
+    long long selfNs = inclusiveNs - entry.m_childrenTimeNs;
+    if (selfNs < 0)
+        selfNs = 0;
+    ctx->callStackManager->CreditParent(inclusiveNs);
+    int depth = ctx->callStackManager->GetDepth();
+
+    if (ctx->statsAggregator && HasEvent(ctx->config.enabledEvents, EventType::MethodStats))
+        ctx->statsAggregator->RecordMethod(static_cast<FunctionID>(ts->deferredUnwindFunctionId), inclusiveNs, selfNs);
+
+    if (HasEvent(ctx->config.enabledEvents, EventType::Leave))
+    {
+        const MethodInfo* info = ctx->methodCache->Lookup(static_cast<FunctionID>(ts->deferredUnwindFunctionId));
+        if (info != nullptr)
+        {
+            long long deltaNs = ctx->config.computeDeltas ? inclusiveNs : 0;
+            ctx->ndjsonWriter->WriteLeave(ts->deferredUnwindTsNs, GetCurrentThreadId(), depth, *info, deltaNs);
+        }
+    }
+
+    ts->hasDeferredUnwind = false;
+}
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionSearchCatcherFound(FunctionID functionId)
 {
     auto* ctx = g_ctx;
@@ -346,8 +374,11 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionSearchCatcherFound(FunctionI
     auto* threadStack = ctx->callStackManager->GetThreadStack();
     if (threadStack != nullptr)
     {
+        // If there's a stale deferred entry from a previous exception, finalize it
+        if (threadStack->hasDeferredUnwind)
+            FinalizeDeferredUnwind(ctx, threadStack);
+
         threadStack->exceptionCatcherFunctionId = functionId;
-        threadStack->exceptionCatcherDepth = threadStack->stack.size();
     }
 
     return S_OK;
@@ -367,19 +398,34 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionUnwindFunctionEnter(Function
         return S_OK;
     }
 
-    // Don't pop the catching method — it will exit via LeaveStub.
-    // Compare both FunctionID and stack depth to handle recursive methods
-    // where multiple activations share the same FunctionID.
     auto* threadStack = ctx->callStackManager->GetThreadStack();
+
     if (threadStack != nullptr &&
-        threadStack->exceptionCatcherFunctionId == static_cast<UINT_PTR>(functionId) &&
-        threadStack->stack.size() == threadStack->exceptionCatcherDepth)
+        threadStack->exceptionCatcherFunctionId == static_cast<UINT_PTR>(functionId))
     {
-        threadStack->exceptionCatcherFunctionId = 0;
-        threadStack->exceptionCatcherDepth = 0;
+        // This frame's FunctionID matches the catcher. It might be the catcher
+        // itself, or an inner recursive activation of the same method.
+        // Defer the pop: if another matching frame comes later, finalize this one
+        // (it was an inner activation). The LAST deferred entry is the actual
+        // catcher, restored in ExceptionCatcherEnter.
+
+        if (threadStack->hasDeferredUnwind)
+        {
+            // Previous deferred entry was NOT the catcher — finalize it now
+            FinalizeDeferredUnwind(ctx, threadStack);
+        }
+
+        // Pop and defer this entry
+        CallEntry entry = ctx->callStackManager->Pop();
+        long long tsNs = CallStackManager::GetTimestampNs();
+        threadStack->deferredUnwindEntry = entry;
+        threadStack->deferredUnwindFunctionId = functionId;
+        threadStack->deferredUnwindTsNs = tsNs;
+        threadStack->hasDeferredUnwind = true;
         return S_OK;
     }
 
+    // Not the catcher's FunctionID — pop and process normally
     CallEntry entry = ctx->callStackManager->Pop();
     long long tsNs = CallStackManager::GetTimestampNs();
     long long inclusiveNs = (entry.enterTsNs > 0) ? (tsNs - entry.enterTsNs) : 0;
@@ -411,8 +457,14 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionCatcherEnter(FunctionID func
     auto* threadStack = ctx->callStackManager->GetThreadStack();
     if (threadStack != nullptr)
     {
+        if (threadStack->hasDeferredUnwind)
+        {
+            // The deferred entry IS the catcher — restore it to the stack.
+            // It will exit normally via LeaveStub when the method returns.
+            threadStack->stack.push_back(threadStack->deferredUnwindEntry);
+            threadStack->hasDeferredUnwind = false;
+        }
         threadStack->exceptionCatcherFunctionId = 0;
-        threadStack->exceptionCatcherDepth = 0;
     }
 
     return S_OK;
