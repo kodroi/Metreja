@@ -134,6 +134,16 @@ Metreja is a two-component system:
 
 **Data flow:** CLI creates session config → `generate-env` sets profiler env vars → profiled app loads DLL → DLL writes NDJSON → CLI analysis commands read NDJSON.
 
+## Reporting Issues
+
+Report bugs or feature requests directly from the CLI:
+
+```bash
+metreja report --title "Bug: crash on empty trace" --description "Running hotspots on an empty NDJSON file causes an unhandled exception."
+```
+
+Requires the [GitHub CLI (`gh`)](https://cli.github.com/) to be installed and authenticated. Issues are created on the [kodroi/Metreja](https://github.com/kodroi/Metreja) repository.
+
 ## License
 
 [MIT](LICENSE) — Copyright (c) 2026 Iiro Rahkonen

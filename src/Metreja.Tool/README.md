@@ -277,6 +277,25 @@ Compare two traces. Shows per-method timing delta (base vs. compare).
 | `base` | string | **Required.** Base NDJSON file |
 | `compare` | string | **Required.** Comparison NDJSON file |
 
+#### `report`
+
+Report an issue to the GitHub repository. Requires the [GitHub CLI (`gh`)](https://cli.github.com/) installed and authenticated.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `-t`, `--title` | string | — | **Required.** Issue title |
+| `-d`, `--description` | string | — | **Required.** Issue body/description |
+
+```bash
+metreja report --title "Bug: crash on empty trace" --description "Detailed description of the issue."
+```
+
+**Exit codes:**
+- `0` — Issue created successfully
+- `1` — Issue creation failed (prints GitHub error)
+- `2` — GitHub CLI not installed
+- `3` — GitHub CLI not authenticated
+
 ### Session Config Format
 
 Stored at `.metreja/sessions/{sessionId}.json`:
