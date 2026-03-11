@@ -17,6 +17,7 @@ rootCommand.Subcommands.Add(HotspotsCommand.Create());
 rootCommand.Subcommands.Add(CallTreeCommand.Create());
 rootCommand.Subcommands.Add(CallersCommand.Create());
 rootCommand.Subcommands.Add(MemoryCommand.Create());
+rootCommand.Subcommands.Add(ReportCommand.Create());
 
 var parseResult = rootCommand.Parse(args);
 var exitCode = await parseResult.InvokeAsync();
