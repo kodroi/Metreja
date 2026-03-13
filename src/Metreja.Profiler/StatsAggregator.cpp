@@ -3,6 +3,7 @@
 #include "NdjsonWriter.h"
 
 #include <algorithm>
+#include <process.h>
 
 StatsAggregator::StatsAggregator()
     : m_tlsIndex(TlsAlloc())
@@ -103,34 +104,40 @@ void StatsAggregator::CollectDeltaStats(std::unordered_map<FunctionID, MethodSta
     }
 }
 
-void StatsAggregator::Flush(NdjsonWriter& writer, MethodCache& cache)
+void StatsAggregator::WriteMergedStats(NdjsonWriter& writer, MethodCache& cache,
+                                        const std::unordered_map<FunctionID, MethodStatsAccum>& methods,
+                                        const std::unordered_map<std::string, ExceptionStatsAccum>& exceptions)
 {
-    // Collect remaining deltas (works for both final flush and periodic flush)
-    std::unordered_map<FunctionID, MethodStatsAccum> mergedMethods;
-    std::unordered_map<std::string, ExceptionStatsAccum> mergedExceptions;
-    CollectDeltaStats(mergedMethods, mergedExceptions);
-
-    // Write method_stats events
-    for (auto& [funcId, accum] : mergedMethods)
+    for (auto& [funcId, accum] : methods)
     {
         const MethodInfo* info = cache.Lookup(funcId);
         if (info != nullptr)
             writer.WriteMethodStats(*info, accum);
     }
 
-    // Write exception_stats events
-    for (auto& [key, accum] : mergedExceptions)
+    for (auto& [key, accum] : exceptions)
     {
-        // Extract exType from key (everything before first ':')
         size_t colonPos = key.find(':');
         std::string exType = (colonPos != std::string::npos) ? key.substr(0, colonPos) : key;
         writer.WriteExceptionStats(exType, accum);
     }
 }
 
+void StatsAggregator::Flush(NdjsonWriter& writer, MethodCache& cache)
+{
+    std::unordered_map<FunctionID, MethodStatsAccum> mergedMethods;
+    std::unordered_map<std::string, ExceptionStatsAccum> mergedExceptions;
+    CollectDeltaStats(mergedMethods, mergedExceptions);
+    WriteMergedStats(writer, cache, mergedMethods, mergedExceptions);
+}
+
 void StatsAggregator::StartPeriodicFlush(int intervalSeconds, NdjsonWriter* writer, MethodCache* cache)
 {
     if (intervalSeconds <= 0 || writer == nullptr || cache == nullptr)
+        return;
+
+    // Prevent double-start: if already running, bail out
+    if (m_flushThread != nullptr)
         return;
 
     m_flushIntervalSeconds = intervalSeconds;
@@ -141,7 +148,9 @@ void StatsAggregator::StartPeriodicFlush(int intervalSeconds, NdjsonWriter* writ
     if (m_shutdownEvent == nullptr)
         return;
 
-    m_flushThread = CreateThread(nullptr, 0, FlushThreadProc, this, 0, nullptr);
+    unsigned threadId = 0;
+    m_flushThread = reinterpret_cast<HANDLE>(
+        _beginthreadex(nullptr, 0, FlushThreadProc, this, 0, &threadId));
     if (m_flushThread == nullptr)
     {
         CloseHandle(m_shutdownEvent);
@@ -168,7 +177,7 @@ void StatsAggregator::StopPeriodicFlush()
     }
 }
 
-DWORD WINAPI StatsAggregator::FlushThreadProc(LPVOID param)
+unsigned __stdcall StatsAggregator::FlushThreadProc(void* param)
 {
     auto* self = static_cast<StatsAggregator*>(param);
     DWORD intervalMs = static_cast<DWORD>(self->m_flushIntervalSeconds) * 1000;
@@ -183,21 +192,7 @@ DWORD WINAPI StatsAggregator::FlushThreadProc(LPVOID param)
         std::unordered_map<FunctionID, MethodStatsAccum> methods;
         std::unordered_map<std::string, ExceptionStatsAccum> exceptions;
         self->CollectDeltaStats(methods, exceptions);
-
-        for (auto& [funcId, accum] : methods)
-        {
-            const MethodInfo* info = self->m_cache->Lookup(funcId);
-            if (info != nullptr)
-                self->m_writer->WriteMethodStats(*info, accum);
-        }
-
-        for (auto& [key, accum] : exceptions)
-        {
-            size_t colonPos = key.find(':');
-            std::string exType = (colonPos != std::string::npos) ? key.substr(0, colonPos) : key;
-            self->m_writer->WriteExceptionStats(exType, accum);
-        }
-
+        self->WriteMergedStats(*self->m_writer, *self->m_cache, methods, exceptions);
         self->m_writer->Flush();
     }
 

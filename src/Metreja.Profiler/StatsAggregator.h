@@ -54,8 +54,11 @@ private:
     ThreadStats* GetOrCreateThreadStats();
     void CollectDeltaStats(std::unordered_map<FunctionID, MethodStatsAccum>& outMethods,
                            std::unordered_map<std::string, ExceptionStatsAccum>& outExceptions);
+    static void WriteMergedStats(NdjsonWriter& writer, MethodCache& cache,
+                                 const std::unordered_map<FunctionID, MethodStatsAccum>& methods,
+                                 const std::unordered_map<std::string, ExceptionStatsAccum>& exceptions);
 
-    static DWORD WINAPI FlushThreadProc(LPVOID param);
+    static unsigned __stdcall FlushThreadProc(void* param);
 
     DWORD m_tlsIndex;
     std::mutex m_registryMutex;

@@ -150,7 +150,7 @@ metreja add include -s a1b2c3 --namespace "MyApp.Services"
 metreja add exclude -s a1b2c3 --class "*Generated*"
 ```
 
-> **Note:** Only one level option (`--assembly`, `--namespace`, `--class`, or `--method`) can be used per command. To filter multiple levels, use separate commands. Multiple patterns per level are supported (e.g., `--namespace "A" --namespace "B"`).
+> **Note:** Only one level option (`--assembly`, `--namespace`, `--class`, or `--method`) can be used per `add`/`remove` command. To filter multiple levels, use separate commands. Multiple patterns per level are supported in `add` (e.g., `--namespace "A" --namespace "B"`).
 
 #### How Filters Work
 
@@ -181,7 +181,7 @@ Remove a filter rule by exact match.
 | `--method` | string | `*` | Method name pattern |
 
 ```bash
-metreja remove include -s a1b2c3 --assembly MyApp --namespace "MyApp.Core"
+metreja remove include -s a1b2c3 --namespace "MyApp.Core"
 ```
 
 #### `clear-filters`
