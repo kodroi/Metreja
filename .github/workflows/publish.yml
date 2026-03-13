@@ -84,10 +84,3 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "v${{ steps.gitversion.outputs.semVer }}" artifacts/*.nupkg --title "v${{ steps.gitversion.outputs.semVer }}" --generate-notes
-
-      - name: Update version on metreja.io
-        run: |
-          curl -X POST https://metreja.io/api/version \
-            -H "Authorization: Bearer ${{ secrets.VERSION_UPDATE_SECRET }}" \
-            -H "Content-Type: application/json" \
-            -d '{"tag": "v${{ steps.gitversion.outputs.semVer }}"}'
