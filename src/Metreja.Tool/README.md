@@ -145,8 +145,27 @@ Add filter rules controlling which methods get traced. Supports wildcards (`*`).
 
 ```bash
 metreja add include -s a1b2c3 --assembly MyApp
-metreja add include -s a1b2c3 --assembly MyApp --namespace "MyApp.Core" --namespace "MyApp.Services"
+metreja add include -s a1b2c3 --namespace "MyApp.Core"
+metreja add include -s a1b2c3 --namespace "MyApp.Services"
 metreja add exclude -s a1b2c3 --class "*Generated*"
+```
+
+> **Note:** Only one level option (`--assembly`, `--namespace`, `--class`, or `--method`) can be used per command. To filter multiple levels, use separate commands. Multiple patterns per level are supported (e.g., `--namespace "A" --namespace "B"`).
+
+#### How Filters Work
+
+A method is traced if it matches **any** include rule AND does **not** match **any** exclude rule.
+
+- **Include-first, then exclude:** If includes are defined, only methods matching at least one include rule are candidates. Excludes then remove specific methods from that set.
+- **One level per command:** Each `add include`/`add exclude` command accepts a single level (`--assembly`, `--namespace`, `--class`, or `--method`) but can take multiple patterns at that level.
+- **Zero ELT3 overhead for excluded methods:** Filters are evaluated at JIT time via `FunctionIDMapper2`. Excluded methods never get ELT3 hooks installed — there is no per-call cost.
+
+**Example — trace an assembly but exclude generated code:**
+
+```bash
+metreja add include -s a1b2c3 --assembly MyApp
+metreja add exclude -s a1b2c3 --namespace "MyApp.Generated"
+metreja add exclude -s a1b2c3 --class "*ApiClient"
 ```
 
 #### `remove include` / `remove exclude`
@@ -189,6 +208,10 @@ Configure session settings via subcommands.
 | `set output` | `-s ID "path/pattern.ndjson"` | Set output path (supports `{sessionId}`, `{pid}` tokens) |
 | `set max-events` | `-s ID 50000` | Cap event count (0 = unlimited) |
 | `set compute-deltas` | `-s ID true` | Enable delta timing for performance analysis |
+| `set events` | `-s ID enter leave method_stats` | Set enabled event types |
+| `set stats-flush-interval` | `-s ID 30` | Periodic stats flush interval in seconds (0 = disabled, default 30) |
+
+> **Tip:** All subcommands support `--help` for detailed usage (e.g., `metreja set events --help`).
 
 #### `validate`
 
@@ -307,6 +330,7 @@ Stored at `.metreja/sessions/{sessionId}.json`:
   "instrumentation": {
     "maxEvents": 0,
     "computeDeltas": true,
+    "statsFlushIntervalSeconds": 30,
     "includes": [
       { "assembly": "MyApp", "namespace": "*", "class": "*", "method": "*" }
     ],
@@ -322,6 +346,7 @@ Stored at `.metreja/sessions/{sessionId}.json`:
 |-------|------|---------|-------------|
 | `maxEvents` | int | `0` | Event cap per session (0 = unlimited) |
 | `computeDeltas` | bool | `true` | Include delta timing on `leave` events |
+| `statsFlushIntervalSeconds` | int | `30` | Periodic stats flush interval (0 = disabled). Protects against data loss when the profiled process is force-killed. |
 
 ### Output Path Tokens
 

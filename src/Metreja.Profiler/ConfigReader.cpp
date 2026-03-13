@@ -77,6 +77,8 @@ ProfilerConfig ConfigReader::Load()
             config.computeDeltas = inst["computeDeltas"].get<bool>();
         if (inst.contains("disableInlining"))
             config.disableInlining = inst["disableInlining"].get<bool>();
+        if (inst.contains("statsFlushIntervalSeconds"))
+            config.statsFlushIntervalSeconds = inst["statsFlushIntervalSeconds"].get<int>();
 
         auto parseRules = [](const json& arr, std::vector<FilterRule>& rules)
         {

@@ -20,6 +20,7 @@ public static class SetCommand
         command.Subcommands.Add(CreateMaxEventsCommand(sessionOption));
         command.Subcommands.Add(CreateComputeDeltasCommand(sessionOption));
         command.Subcommands.Add(CreateEventsCommand(sessionOption));
+        command.Subcommands.Add(CreateStatsFlushIntervalCommand(sessionOption));
 
         return command;
     }
@@ -146,6 +147,38 @@ public static class SetCommand
             await SetConfigPropertyAsync(session,
                 config => config with { Instrumentation = config.Instrumentation with { Events = eventList } },
                 $"events to: [{string.Join(", ", eventList)}]");
+
+            return 0;
+        });
+
+        return command;
+    }
+
+    private static Command CreateStatsFlushIntervalCommand(Option<string> sessionOption)
+    {
+        var valueArg = new Argument<int>("seconds") { Description = "Flush interval in seconds (0 = disabled)" };
+
+        var command = new Command("stats-flush-interval", "Set periodic stats flush interval");
+        command.Options.Add(sessionOption);
+        command.Arguments.Add(valueArg);
+
+        command.SetAction(async (parseResult, _) =>
+        {
+            var session = parseResult.GetValue(sessionOption)!;
+            var value = parseResult.GetValue(valueArg);
+
+            if (value < 0)
+            {
+                Console.Error.WriteLine("Error: Interval must be >= 0");
+                return 1;
+            }
+
+            await SetConfigPropertyAsync(session,
+                config => config with
+                {
+                    Instrumentation = config.Instrumentation with { StatsFlushIntervalSeconds = value }
+                },
+                $"stats-flush-interval to: {value}s");
 
             return 0;
         });

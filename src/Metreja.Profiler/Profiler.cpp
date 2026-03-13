@@ -83,6 +83,13 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Initialize(IUnknown* pICorProfilerInf
     // Publish atomically — callbacks can now proceed
     g_ctx = ctx.release();
 
+    // Start periodic stats flush if configured and stats are enabled
+    if (g_ctx->statsAggregator && g_ctx->config.statsFlushIntervalSeconds > 0)
+    {
+        g_ctx->statsAggregator->StartPeriodicFlush(g_ctx->config.statsFlushIntervalSeconds,
+                                                    g_ctx->ndjsonWriter.get(), g_ctx->methodCache.get());
+    }
+
     // Build event mask dynamically based on enabled event types
     DWORD eventMask = COR_PRF_MONITOR_JIT_COMPILATION;
 
@@ -137,9 +144,11 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Shutdown()
     ProfilerContext* ctx = g_ctx;
     g_ctx = nullptr;
 
-    // Flush stats aggregator before flushing writer
+    // Stop periodic flush, then do final flush of remaining stats
     if (ctx != nullptr)
     {
+        if (ctx->statsAggregator)
+            ctx->statsAggregator->StopPeriodicFlush();
         if (ctx->statsAggregator && ctx->ndjsonWriter && ctx->methodCache)
             ctx->statsAggregator->Flush(*ctx->ndjsonWriter, *ctx->methodCache);
         if (ctx->ndjsonWriter)

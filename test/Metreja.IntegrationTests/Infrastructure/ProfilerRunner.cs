@@ -20,6 +20,7 @@ public sealed class ProfilerRunner : IAsyncDisposable
         string solutionRoot,
         string? scenario = null,
         List<string>? events = null,
+        int? statsFlushIntervalSeconds = null,
         int timeoutMs = 30_000)
     {
         var profilerDll = ProfilerPrerequisites.GetProfilerDllPath(solutionRoot);
@@ -53,6 +54,8 @@ public sealed class ProfilerRunner : IAsyncDisposable
                 ]
             };
             instrumentation = instrumentation with { Events = events ?? ["enter", "leave", "exception"] };
+            if (statsFlushIntervalSeconds.HasValue)
+                instrumentation = instrumentation with { StatsFlushIntervalSeconds = statsFlushIntervalSeconds.Value };
 
             config = config with
             {
