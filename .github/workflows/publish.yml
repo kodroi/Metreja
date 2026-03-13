@@ -43,7 +43,6 @@ jobs:
         uses: dawidd6/action-download-artifact@v6
         with:
           workflow: build-and-test.yml
-          branch: main
           commit: ${{ github.sha }}
           name: profiler-windows
           path: bin/Release
@@ -52,7 +51,6 @@ jobs:
         uses: dawidd6/action-download-artifact@v6
         with:
           workflow: build-and-test.yml
-          branch: main
           commit: ${{ github.sha }}
           name: profiler-macos
           path: bin/Release
