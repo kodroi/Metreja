@@ -102,10 +102,9 @@ void NdjsonWriter::WriteEnter(long long tsNs, DWORD tid, int depth, const Method
         return;
 
     char line[2048];
-    const char* methodName =
-        info.isAsyncStateMachine && !info.originalMethodName.empty()
-            ? info.originalMethodName.c_str()
-            : info.methodName.c_str();
+    const char* methodName = info.isAsyncStateMachine && !info.originalMethodName.empty()
+                                 ? info.originalMethodName.c_str()
+                                 : info.methodName.c_str();
     int len = snprintf(
         line, sizeof(line),
         R"({"event":"enter","tsNs":%lld,"pid":%lu,"sessionId":"%s","tid":%lu,"depth":%d,"asm":"%s","ns":"%s","cls":"%s","m":"%s","async":%s})"
@@ -124,10 +123,9 @@ void NdjsonWriter::WriteLeave(long long tsNs, DWORD tid, int depth, const Method
         return;
 
     char line[2048];
-    const char* methodName =
-        info.isAsyncStateMachine && !info.originalMethodName.empty()
-            ? info.originalMethodName.c_str()
-            : info.methodName.c_str();
+    const char* methodName = info.isAsyncStateMachine && !info.originalMethodName.empty()
+                                 ? info.originalMethodName.c_str()
+                                 : info.methodName.c_str();
     int len;
     if (tailcall)
     {
@@ -222,17 +220,15 @@ void NdjsonWriter::WriteAllocByClass(long long tsNs, DWORD tid, const std::strin
 void NdjsonWriter::WriteMethodStats(const MethodInfo& info, const MethodStatsAccum& accum)
 {
     char line[2048];
-    const char* methodName =
-        info.isAsyncStateMachine && !info.originalMethodName.empty()
-            ? info.originalMethodName.c_str()
-            : info.methodName.c_str();
+    const char* methodName = info.isAsyncStateMachine && !info.originalMethodName.empty()
+                                 ? info.originalMethodName.c_str()
+                                 : info.methodName.c_str();
     int len = snprintf(
         line, sizeof(line),
         R"({"event":"method_stats","tsNs":0,"pid":%lu,"sessionId":"%s","asm":"%s","ns":"%s","cls":"%s","m":"%s","callCount":%lld,"totalSelfNs":%lld,"maxSelfNs":%lld,"totalInclusiveNs":%lld,"maxInclusiveNs":%lld})"
         "\n",
         m_pid, m_sessionId.c_str(), info.assemblyName.c_str(), info.namespaceName.c_str(), info.className.c_str(),
-        methodName, accum.callCount, accum.totalSelfNs, accum.maxSelfNs, accum.totalInclusiveNs,
-        accum.maxInclusiveNs);
+        methodName, accum.callCount, accum.totalSelfNs, accum.maxSelfNs, accum.totalInclusiveNs, accum.maxInclusiveNs);
 
     if (len > 0 && static_cast<size_t>(len) < sizeof(line))
     {

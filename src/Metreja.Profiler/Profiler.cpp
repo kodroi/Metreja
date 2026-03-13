@@ -83,13 +83,6 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Initialize(IUnknown* pICorProfilerInf
     // Publish atomically — callbacks can now proceed
     g_ctx = ctx.release();
 
-    // Start periodic stats flush if configured and stats are enabled
-    if (g_ctx->statsAggregator && g_ctx->config.statsFlushIntervalSeconds > 0)
-    {
-        g_ctx->statsAggregator->StartPeriodicFlush(g_ctx->config.statsFlushIntervalSeconds,
-                                                    g_ctx->ndjsonWriter.get(), g_ctx->methodCache.get());
-    }
-
     // Build event mask dynamically based on enabled event types
     DWORD eventMask = COR_PRF_MONITOR_JIT_COMPILATION;
 
@@ -135,6 +128,22 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Initialize(IUnknown* pICorProfilerInf
             return hr;
     }
 
+    // Create named event for manual flush (auto-reset, initially non-signaled)
+    // Placed after all fallible setup so resources aren't leaked on early return.
+    if (g_ctx->statsAggregator)
+    {
+        wchar_t eventName[64];
+        swprintf_s(eventName, L"MetrejaFlush_%lu", pid);
+        g_ctx->m_manualFlushEvent = CreateEventW(nullptr, FALSE, FALSE, eventName);
+    }
+
+    // Start flush thread if stats are enabled (handles periodic and/or manual flush)
+    if (g_ctx->statsAggregator)
+    {
+        g_ctx->statsAggregator->StartPeriodicFlush(g_ctx->config.statsFlushIntervalSeconds, g_ctx->ndjsonWriter.get(),
+                                                   g_ctx->methodCache.get(), g_ctx->m_manualFlushEvent);
+    }
+
     return S_OK;
 }
 
@@ -144,7 +153,7 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Shutdown()
     ProfilerContext* ctx = g_ctx;
     g_ctx = nullptr;
 
-    // Stop periodic flush, then do final flush of remaining stats
+    // Stop flush thread, then do final flush of remaining stats
     if (ctx != nullptr)
     {
         if (ctx->statsAggregator)
@@ -153,6 +162,8 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Shutdown()
             ctx->statsAggregator->Flush(*ctx->ndjsonWriter, *ctx->methodCache);
         if (ctx->ndjsonWriter)
             ctx->ndjsonWriter->Flush();
+        if (ctx->m_manualFlushEvent != nullptr)
+            CloseHandle(ctx->m_manualFlushEvent);
         delete ctx;
     }
 
@@ -360,7 +371,8 @@ static void FinalizeDeferredUnwind(ProfilerContext* ctx, ThreadCallStack* ts)
     int depth = ctx->callStackManager->GetDepth();
 
     if (ctx->statsAggregator && HasEvent(ctx->config.enabledEvents, EventType::MethodStats))
-        ctx->statsAggregator->RecordMethod(static_cast<FunctionID>(ts->m_deferredUnwindFunctionId), inclusiveNs, selfNs);
+        ctx->statsAggregator->RecordMethod(static_cast<FunctionID>(ts->m_deferredUnwindFunctionId), inclusiveNs,
+                                           selfNs);
 
     if (HasEvent(ctx->config.enabledEvents, EventType::Leave))
     {
@@ -409,8 +421,7 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionUnwindFunctionEnter(Function
 
     auto* threadStack = ctx->callStackManager->GetThreadStack();
 
-    if (threadStack != nullptr &&
-        threadStack->exceptionCatcherFunctionId == static_cast<UINT_PTR>(functionId))
+    if (threadStack != nullptr && threadStack->exceptionCatcherFunctionId == static_cast<UINT_PTR>(functionId))
     {
         // This frame's FunctionID matches the catcher. It might be the catcher
         // itself, or an inner recursive activation of the same method.

@@ -15,7 +15,7 @@ public class CallersAnalysisTests
     {
         var tracePath = await WriteTraceToTempFileAsync();
 
-        var output = await CaptureConsoleOutputAsync(async () =>
+        var output = await TestHelpers.CaptureConsoleOutputAsync(async () =>
             await CallersAnalyzer.AnalyzeAsync(tracePath, "InnerMethod", top: 20));
 
         Assert.Contains("Callers of InnerMethod", output);
@@ -27,7 +27,7 @@ public class CallersAnalysisTests
     {
         var tracePath = await WriteTraceToTempFileAsync();
 
-        var output = await CaptureConsoleOutputAsync(async () =>
+        var output = await TestHelpers.CaptureConsoleOutputAsync(async () =>
             await CallersAnalyzer.AnalyzeAsync(tracePath, "InnerMethod", top: 20));
 
         Assert.Contains("Total", output);
@@ -40,7 +40,7 @@ public class CallersAnalysisTests
     {
         var tracePath = await WriteTraceToTempFileAsync();
 
-        var errorOutput = await CaptureConsoleErrorAsync(async () =>
+        var errorOutput = await TestHelpers.CaptureConsoleErrorAsync(async () =>
             await CallersAnalyzer.AnalyzeAsync(tracePath, "NonExistentMethod999", top: 20));
 
         Assert.Contains("No calls found", errorOutput);
@@ -51,7 +51,7 @@ public class CallersAnalysisTests
     {
         var tracePath = await WriteTraceToTempFileAsync();
 
-        var output = await CaptureConsoleOutputAsync(async () =>
+        var output = await TestHelpers.CaptureConsoleOutputAsync(async () =>
             await CallersAnalyzer.AnalyzeAsync(tracePath, "InnerMethod", top: 20));
 
         Assert.Contains("total calls", output);
@@ -79,35 +79,4 @@ public class CallersAnalysisTests
         };
     }
 
-    private static async Task<string> CaptureConsoleOutputAsync(Func<Task> action)
-    {
-        var originalOut = Console.Out;
-        using var sw = new StringWriter();
-        Console.SetOut(sw);
-        try
-        {
-            await action();
-            return sw.ToString();
-        }
-        finally
-        {
-            Console.SetOut(originalOut);
-        }
-    }
-
-    private static async Task<string> CaptureConsoleErrorAsync(Func<Task> action)
-    {
-        var originalErr = Console.Error;
-        using var sw = new StringWriter();
-        Console.SetError(sw);
-        try
-        {
-            await action();
-            return sw.ToString();
-        }
-        finally
-        {
-            Console.SetError(originalErr);
-        }
-    }
 }

@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Text.Json;
 using Metreja.Tool;
 using Metreja.Tool.Config;
 
@@ -114,6 +113,111 @@ public sealed class ProfilerRunner : IAsyncDisposable
         }
     }
 
+    public static async Task<InteractiveSession> RunInteractiveAsync(
+        string solutionRoot,
+        List<string>? events = null,
+        int? statsFlushIntervalSeconds = null,
+        int readyTimeoutMs = 30_000)
+    {
+        var profilerDll = ProfilerPrerequisites.GetProfilerDllPath(solutionRoot);
+        var testApp = ProfilerPrerequisites.GetTestAppPath(solutionRoot);
+
+        var tempDir = Path.Combine(Path.GetTempPath(), "metreja-test-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(tempDir);
+
+        var runner = new ProfilerRunner(tempDir);
+
+        try
+        {
+            var outputPath = Path.Combine(tempDir, OutputFileName);
+
+            var configManager = new ConfigManager(tempDir);
+            var sessionId = await configManager.CreateSessionAsync("interactive-test");
+            var config = await configManager.LoadConfigAsync(sessionId);
+
+            var instrumentation = config.Instrumentation with
+            {
+                Includes =
+                [
+                    new FilterRule { Level = "assembly", Pattern = "Metreja.TestApp" }
+                ],
+                Excludes =
+                [
+                    new FilterRule { Level = "assembly", Pattern = "System.*" },
+                    new FilterRule { Level = "assembly", Pattern = "Microsoft.*" }
+                ]
+            };
+            instrumentation = instrumentation with { Events = events ?? ["method_stats"] };
+            if (statsFlushIntervalSeconds.HasValue)
+                instrumentation = instrumentation with { StatsFlushIntervalSeconds = statsFlushIntervalSeconds.Value };
+
+            config = config with
+            {
+                Instrumentation = instrumentation,
+                Output = config.Output with { Path = outputPath }
+            };
+
+            await configManager.SaveConfigAsync(sessionId, config);
+            var configPath = configManager.GetSessionPath(sessionId);
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = testApp,
+                Arguments = "--wait",
+                UseShellExecute = false,
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            psi.Environment["CORECLR_ENABLE_PROFILING"] = "1";
+            psi.Environment["CORECLR_PROFILER"] = MetrejaConstants.ProfilerClsid;
+            psi.Environment["CORECLR_PROFILER_PATH"] = profilerDll;
+            psi.Environment["METREJA_CONFIG"] = Path.GetFullPath(configPath);
+
+            var process = Process.Start(psi)
+                ?? throw new InvalidOperationException("Failed to start TestApp process");
+
+            // Drain stderr asynchronously to prevent pipe buffer deadlock
+            _ = process.StandardError.ReadToEndAsync();
+
+            try
+            {
+                // Wait for "READY" on stdout (all test methods have completed)
+                using var cts = new CancellationTokenSource(readyTimeoutMs);
+                while (!cts.IsCancellationRequested)
+                {
+                    var line = await process.StandardOutput.ReadLineAsync(cts.Token)
+                        ?? throw new InvalidOperationException("TestApp process exited before signaling READY");
+                    if (line == "READY")
+                        break;
+                }
+
+                return new InteractiveSession(outputPath, process, runner);
+            }
+            catch
+            {
+                try
+                {
+                    if (!process.HasExited)
+                        process.Kill(true);
+                }
+                catch
+                {
+                    // Best effort
+                }
+                process.Dispose();
+                throw;
+            }
+        }
+        catch
+        {
+            await runner.DisposeAsync();
+            throw;
+        }
+    }
+
     public ValueTask DisposeAsync()
     {
         try
@@ -127,5 +231,53 @@ public sealed class ProfilerRunner : IAsyncDisposable
         }
 
         return ValueTask.CompletedTask;
+    }
+}
+
+public sealed class InteractiveSession : IAsyncDisposable
+{
+    public string OutputPath { get; }
+    public int Pid => _process.Id;
+
+    private readonly Process _process;
+    private readonly ProfilerRunner _runner;
+
+    internal InteractiveSession(string outputPath, Process process, ProfilerRunner runner)
+    {
+        OutputPath = outputPath;
+        _process = process;
+        _runner = runner;
+    }
+
+    public async Task ReleaseAndWaitForExitAsync(int timeoutMs = 10_000)
+    {
+        if (!_process.HasExited)
+            await _process.StandardInput.WriteLineAsync();
+        using var cts = new CancellationTokenSource(timeoutMs);
+        await _process.WaitForExitAsync(cts.Token);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (!_process.HasExited)
+            {
+                await _process.StandardInput.WriteLineAsync();
+                _process.WaitForExit(5_000);
+                if (!_process.HasExited)
+                    _process.Kill();
+            }
+        }
+        catch
+        {
+            // Best effort
+        }
+        finally
+        {
+            _process.Dispose();
+        }
+
+        await _runner.DisposeAsync();
     }
 }

@@ -19,4 +19,5 @@ struct ProfilerContext
     std::unique_ptr<CallStackManager> callStackManager;
     std::unique_ptr<NdjsonWriter> ndjsonWriter;
     std::unique_ptr<StatsAggregator> statsAggregator;
+    HANDLE m_manualFlushEvent = nullptr;
 };

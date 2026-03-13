@@ -47,7 +47,8 @@ public:
     void RecordMethod(FunctionID functionId, long long inclusiveNs, long long selfNs);
     void RecordException(const MethodInfo& callerInfo, const std::string& exType);
     void Flush(NdjsonWriter& writer, MethodCache& cache);
-    void StartPeriodicFlush(int intervalSeconds, NdjsonWriter* writer, MethodCache* cache);
+    void StartPeriodicFlush(int intervalSeconds, NdjsonWriter* writer, MethodCache* cache,
+                            HANDLE manualFlushEvent = nullptr);
     void StopPeriodicFlush();
 
 private:
@@ -67,6 +68,7 @@ private:
     // Periodic flush state
     HANDLE m_shutdownEvent = nullptr;
     HANDLE m_flushThread = nullptr;
+    HANDLE m_manualFlushEvent = nullptr;
     NdjsonWriter* m_writer = nullptr;
     MethodCache* m_cache = nullptr;
     int m_flushIntervalSeconds = 0;

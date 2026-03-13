@@ -18,6 +18,7 @@ rootCommand.Subcommands.Add(CallTreeCommand.Create());
 rootCommand.Subcommands.Add(CallersCommand.Create());
 rootCommand.Subcommands.Add(MemoryCommand.Create());
 rootCommand.Subcommands.Add(ReportCommand.Create());
+rootCommand.Subcommands.Add(FlushCommand.Create());
 
 var parseResult = rootCommand.Parse(args);
 var exitCode = await parseResult.InvokeAsync();

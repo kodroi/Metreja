@@ -21,4 +21,22 @@ internal static class TestHelpers
             ConsoleGate.Release();
         }
     }
+
+    public static async Task<string> CaptureConsoleErrorAsync(Func<Task> action)
+    {
+        await ConsoleGate.WaitAsync();
+        var originalErr = Console.Error;
+        var sw = new StringWriter();
+        Console.SetError(sw);
+        try
+        {
+            await action();
+            return sw.ToString();
+        }
+        finally
+        {
+            Console.SetError(originalErr);
+            ConsoleGate.Release();
+        }
+    }
 }

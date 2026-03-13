@@ -44,10 +44,9 @@ void StatsAggregator::RecordException(const MethodInfo& callerInfo, const std::s
         return;
 
     // Key: exType + ":" + fully qualified method name (resolved for async)
-    const std::string& methodName =
-        callerInfo.isAsyncStateMachine && !callerInfo.originalMethodName.empty()
-            ? callerInfo.originalMethodName
-            : callerInfo.methodName;
+    const std::string& methodName = callerInfo.isAsyncStateMachine && !callerInfo.originalMethodName.empty()
+                                        ? callerInfo.originalMethodName
+                                        : callerInfo.methodName;
     std::string key = exType + ":" + callerInfo.assemblyName + "." + callerInfo.namespaceName + "." +
                       callerInfo.className + "." + methodName;
 
@@ -64,7 +63,7 @@ void StatsAggregator::RecordException(const MethodInfo& callerInfo, const std::s
 }
 
 void StatsAggregator::CollectDeltaStats(std::unordered_map<FunctionID, MethodStatsAccum>& outMethods,
-                                         std::unordered_map<std::string, ExceptionStatsAccum>& outExceptions)
+                                        std::unordered_map<std::string, ExceptionStatsAccum>& outExceptions)
 {
     std::lock_guard<std::mutex> registryLock(m_registryMutex);
 
@@ -105,8 +104,8 @@ void StatsAggregator::CollectDeltaStats(std::unordered_map<FunctionID, MethodSta
 }
 
 void StatsAggregator::WriteMergedStats(NdjsonWriter& writer, MethodCache& cache,
-                                        const std::unordered_map<FunctionID, MethodStatsAccum>& methods,
-                                        const std::unordered_map<std::string, ExceptionStatsAccum>& exceptions)
+                                       const std::unordered_map<FunctionID, MethodStatsAccum>& methods,
+                                       const std::unordered_map<std::string, ExceptionStatsAccum>& exceptions)
 {
     for (auto& [funcId, accum] : methods)
     {
@@ -131,9 +130,14 @@ void StatsAggregator::Flush(NdjsonWriter& writer, MethodCache& cache)
     WriteMergedStats(writer, cache, mergedMethods, mergedExceptions);
 }
 
-void StatsAggregator::StartPeriodicFlush(int intervalSeconds, NdjsonWriter* writer, MethodCache* cache)
+void StatsAggregator::StartPeriodicFlush(int intervalSeconds, NdjsonWriter* writer, MethodCache* cache,
+                                         HANDLE manualFlushEvent)
 {
-    if (intervalSeconds <= 0 || writer == nullptr || cache == nullptr)
+    if (writer == nullptr || cache == nullptr)
+        return;
+
+    // Nothing to do if neither periodic nor manual flush is requested
+    if (intervalSeconds <= 0 && manualFlushEvent == nullptr)
         return;
 
     // Prevent double-start: if already running, bail out
@@ -143,14 +147,14 @@ void StatsAggregator::StartPeriodicFlush(int intervalSeconds, NdjsonWriter* writ
     m_flushIntervalSeconds = intervalSeconds;
     m_writer = writer;
     m_cache = cache;
+    m_manualFlushEvent = manualFlushEvent;
 
     m_shutdownEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
     if (m_shutdownEvent == nullptr)
         return;
 
     unsigned threadId = 0;
-    m_flushThread = reinterpret_cast<HANDLE>(
-        _beginthreadex(nullptr, 0, FlushThreadProc, this, 0, &threadId));
+    m_flushThread = reinterpret_cast<HANDLE>(_beginthreadex(nullptr, 0, FlushThreadProc, this, 0, &threadId));
     if (m_flushThread == nullptr)
     {
         CloseHandle(m_shutdownEvent);
@@ -180,15 +184,29 @@ void StatsAggregator::StopPeriodicFlush()
 unsigned __stdcall StatsAggregator::FlushThreadProc(void* param)
 {
     auto* self = static_cast<StatsAggregator*>(param);
-    DWORD intervalMs = static_cast<DWORD>(self->m_flushIntervalSeconds) * 1000;
+    DWORD intervalMs =
+        (self->m_flushIntervalSeconds > 0) ? static_cast<DWORD>(self->m_flushIntervalSeconds) * 1000 : INFINITE;
+
+    // Build event array: [shutdown, manualFlush (optional)]
+    HANDLE events[2] = {self->m_shutdownEvent, nullptr};
+    DWORD eventCount = 1;
+    if (self->m_manualFlushEvent != nullptr)
+    {
+        events[eventCount] = self->m_manualFlushEvent;
+        eventCount++;
+    }
 
     while (true)
     {
-        DWORD result = WaitForSingleObject(self->m_shutdownEvent, intervalMs);
+        DWORD result = WaitForMultipleObjects(eventCount, events, FALSE, intervalMs);
         if (result == WAIT_OBJECT_0)
             break; // Shutdown signaled
 
-        // Timeout — collect and flush delta stats
+        // Only flush on timeout (periodic) or manual flush signal
+        if (result != WAIT_TIMEOUT && !(result > WAIT_OBJECT_0 && result < WAIT_OBJECT_0 + eventCount))
+            break; // WAIT_FAILED or unexpected — exit loop to avoid tight spin
+
+        // Timeout (periodic) or manual flush signal — flush delta stats
         std::unordered_map<FunctionID, MethodStatsAccum> methods;
         std::unordered_map<std::string, ExceptionStatsAccum> exceptions;
         self->CollectDeltaStats(methods, exceptions);

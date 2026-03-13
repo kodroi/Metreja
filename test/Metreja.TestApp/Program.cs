@@ -20,6 +20,12 @@ public static class Program
 
         Console.WriteLine();
         Console.WriteLine("All tests completed.");
+
+        if (args.Contains("--wait"))
+        {
+            Console.WriteLine("READY");
+            Console.ReadLine();
+        }
     }
 
     private static void RunSyncCallPaths()
