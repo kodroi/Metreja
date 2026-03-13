@@ -4,7 +4,7 @@ std::atomic<long long> CallStackManager::s_frequency{0};
 std::once_flag CallStackManager::s_frequencyOnce;
 
 CallStackManager::CallStackManager()
-    : m_tlsIndex(TlsAlloc())
+    : m_tlsIndex(PalTlsAlloc())
 {
     InitFrequency();
 }
@@ -14,8 +14,8 @@ CallStackManager::~CallStackManager()
     // Note: individual ThreadCallStack objects are leaked intentionally.
     // Cleaning them up would require tracking all threads, which adds
     // complexity for minimal benefit (process is shutting down anyway).
-    if (m_tlsIndex != TLS_OUT_OF_INDEXES)
-        TlsFree(m_tlsIndex);
+    if (m_tlsIndex != PAL_TLS_INVALID)
+        PalTlsFree(m_tlsIndex);
 }
 
 void CallStackManager::Push(UINT_PTR functionId, long long timestamp)
@@ -40,20 +40,20 @@ CallEntry CallStackManager::Pop()
 
 void CallStackManager::CreditParent(long long inclusiveNs)
 {
-    if (m_tlsIndex == TLS_OUT_OF_INDEXES)
+    if (m_tlsIndex == PAL_TLS_INVALID)
         return;
 
-    auto* stack = static_cast<ThreadCallStack*>(TlsGetValue(m_tlsIndex));
+    auto* stack = static_cast<ThreadCallStack*>(PalTlsGetValue(m_tlsIndex));
     if (stack != nullptr && !stack->stack.empty() && inclusiveNs > 0)
         stack->stack.back().m_childrenTimeNs += inclusiveNs;
 }
 
 int CallStackManager::GetDepth() const
 {
-    if (m_tlsIndex == TLS_OUT_OF_INDEXES)
+    if (m_tlsIndex == PAL_TLS_INVALID)
         return 0;
 
-    auto* stack = static_cast<ThreadCallStack*>(TlsGetValue(m_tlsIndex));
+    auto* stack = static_cast<ThreadCallStack*>(PalTlsGetValue(m_tlsIndex));
     if (stack == nullptr)
         return 0;
 
@@ -64,9 +64,8 @@ ThreadCallStack* CallStackManager::GetThreadStack() { return GetOrCreateStack();
 
 long long CallStackManager::GetTimestampNs()
 {
-    LARGE_INTEGER counter;
-    QueryPerformanceCounter(&counter);
-    long long ticks = counter.QuadPart;
+    long long ticks;
+    PalQueryPerformanceCounter(ticks);
 
     // Overflow-safe conversion: ns = (ticks / freq) * 1e9 + ((ticks % freq) * 1e9) / freq
     long long freq = s_frequency.load(std::memory_order_relaxed);
@@ -80,23 +79,23 @@ void CallStackManager::InitFrequency()
     std::call_once(s_frequencyOnce,
                    []()
                    {
-                       LARGE_INTEGER freq;
-                       QueryPerformanceFrequency(&freq);
-                       s_frequency.store(freq.QuadPart, std::memory_order_relaxed);
+                       long long freq;
+                       PalQueryPerformanceFrequency(freq);
+                       s_frequency.store(freq, std::memory_order_relaxed);
                    });
 }
 
 ThreadCallStack* CallStackManager::GetOrCreateStack()
 {
-    if (m_tlsIndex == TLS_OUT_OF_INDEXES)
+    if (m_tlsIndex == PAL_TLS_INVALID)
         return nullptr;
 
-    auto* stack = static_cast<ThreadCallStack*>(TlsGetValue(m_tlsIndex));
+    auto* stack = static_cast<ThreadCallStack*>(PalTlsGetValue(m_tlsIndex));
     if (stack == nullptr)
     {
         stack = new (std::nothrow) ThreadCallStack();
         if (stack != nullptr)
-            TlsSetValue(m_tlsIndex, stack);
+            PalTlsSetValue(m_tlsIndex, stack);
     }
     return stack;
 }

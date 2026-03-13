@@ -1,4 +1,5 @@
 #include "MethodCache.h"
+#include "platform/pal_io.h"
 
 static size_t FindLastPathSeparator(const std::string& path)
 {
@@ -263,11 +264,11 @@ std::string MethodCache::WideToUtf8(const WCHAR* wide, int len)
     if (wide == nullptr || (len == 0))
         return {};
 
-    int sizeNeeded = WideCharToMultiByte(CP_UTF8, 0, wide, len, nullptr, 0, nullptr, nullptr);
+    int sizeNeeded = PalWideCharToMultiByte(wide, len, nullptr, 0);
     if (sizeNeeded <= 0)
         return {};
 
     std::string result(sizeNeeded, '\0');
-    WideCharToMultiByte(CP_UTF8, 0, wide, len, result.data(), sizeNeeded, nullptr, nullptr);
+    PalWideCharToMultiByte(wide, len, result.data(), sizeNeeded);
     return result;
 }

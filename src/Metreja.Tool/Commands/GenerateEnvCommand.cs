@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Runtime.InteropServices;
 using Metreja.Tool.Config;
 
 namespace Metreja.Tool.Commands;
@@ -13,11 +14,12 @@ public static class GenerateEnvCommand
             Required = true
         };
 
+        var defaultFormat = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "batch" : "shell";
         var formatOption = new Option<string>("--format")
         {
             Description = "Output format: batch, powershell, or shell"
         };
-        formatOption.DefaultValueFactory = _ => "batch";
+        formatOption.DefaultValueFactory = _ => defaultFormat;
 
         var forceOption = new Option<bool>("--force")
         {

@@ -19,6 +19,7 @@
     <PackageProjectUrl>https://github.com/kodroi/Metreja</PackageProjectUrl>
     <RepositoryUrl>https://github.com/kodroi/Metreja</RepositoryUrl>
     <ProfilerDllPath>$(MSBuildThisFileDirectory)..\..\bin\Release\Metreja.Profiler.dll</ProfilerDllPath>
+    <ProfilerDylibPath>$(MSBuildThisFileDirectory)../../bin/Release/libMetreja.Profiler.dylib</ProfilerDylibPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -33,6 +34,7 @@
     <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
+  <!-- Windows: include the DLL -->
   <ItemGroup>
     <Content Include="$(ProfilerDllPath)"
              Pack="false"
@@ -41,11 +43,23 @@
              Condition="Exists('$(ProfilerDllPath)')" />
   </ItemGroup>
 
-  <Target Name="IncludeNativeProfilerInToolPackage" BeforeTargets="GenerateNuspec"
-          Condition="Exists('$(ProfilerDllPath)')">
+  <!-- macOS: include the dylib -->
+  <ItemGroup>
+    <Content Include="$(ProfilerDylibPath)"
+             Pack="false"
+             CopyToOutputDirectory="PreserveNewest"
+             Link="libMetreja.Profiler.dylib"
+             Condition="Exists('$(ProfilerDylibPath)')" />
+  </ItemGroup>
+
+  <Target Name="IncludeNativeProfilerInToolPackage" BeforeTargets="GenerateNuspec">
     <ItemGroup>
       <_PackageFiles Include="$(ProfilerDllPath)"
-                     PackagePath="tools/$(TargetFramework)/any/" />
+                     PackagePath="tools/$(TargetFramework)/any/"
+                     Condition="Exists('$(ProfilerDllPath)')" />
+      <_PackageFiles Include="$(ProfilerDylibPath)"
+                     PackagePath="tools/$(TargetFramework)/any/"
+                     Condition="Exists('$(ProfilerDylibPath)')" />
     </ItemGroup>
   </Target>
 

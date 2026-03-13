@@ -1,6 +1,6 @@
 #include "ConfigReader.h"
 
-#include <Windows.h>
+#include "platform/pal_io.h"
 #include <fstream>
 #include <sstream>
 #include <nlohmann/json.hpp>
@@ -121,7 +121,7 @@ ProfilerConfig ConfigReader::Load()
                 {
                     char msg[256];
                     snprintf(msg, sizeof(msg), "[Metreja] Unknown event type in config: '%s'\n", name.c_str());
-                    OutputDebugStringA(msg);
+                    PalDebugPrint(msg);
                 }
             }
             config.enabledEvents = mask;
@@ -151,7 +151,7 @@ ProfilerConfig ConfigReader::Load()
         config.outputPath = envOutput;
 
     // Expand placeholders in output path
-    DWORD pid = GetCurrentProcessId();
+    DWORD pid = PalGetCurrentProcessId();
     config.outputPath = ExpandPlaceholders(config.outputPath, config.sessionId, pid);
 
     return config;
@@ -160,7 +160,7 @@ ProfilerConfig ConfigReader::Load()
 std::string ConfigReader::GetEnvVar(const char* name)
 {
     char buffer[4096];
-    DWORD len = GetEnvironmentVariableA(name, buffer, sizeof(buffer));
+    DWORD len = PalGetEnvironmentVariable(name, buffer, sizeof(buffer));
     if (len == 0 || len >= sizeof(buffer))
         return {};
     return std::string(buffer, len);

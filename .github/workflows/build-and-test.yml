@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-windows:
     runs-on: windows-latest
 
     env:
@@ -65,6 +65,7 @@ jobs:
             "-I", "src/Metreja.Profiler",
             "-I", "src/Metreja.Profiler/include",
             "-I", "src/Metreja.Profiler/vendor",
+            "-I", "src/Metreja.Profiler/platform",
             "-isystem", "$($msvcPath.FullName)\include",
             "-isystem", "$($sdkVer.FullName)\um",
             "-isystem", "$($sdkVer.FullName)\shared",
@@ -74,6 +75,58 @@ jobs:
           $cppFiles = Get-ChildItem src/Metreja.Profiler/*.cpp | ForEach-Object { $_.FullName }
           & clang-tidy @cppFiles -- -std=c++17 -DWIN32 -D_WINDOWS -DNDEBUG @includes
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build Metreja.TestApp
+        run: dotnet build test/Metreja.TestApp/Metreja.TestApp.csproj -c Release --no-restore
+
+      - name: Run integration tests
+        run: dotnet test test/Metreja.IntegrationTests/Metreja.IntegrationTests.csproj -c Release --no-restore --verbosity normal
+
+  build-macos:
+    runs-on: macos-14
+    continue-on-error: true
+
+    env:
+      HUSKY: 0
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v4.3.3
+        with:
+          versionSpec: '6.x'
+
+      - name: Determine version
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v4.3.3
+
+      - name: Display version
+        run: echo "SemVer ${{ steps.gitversion.outputs.semVer }}"
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build Metreja.Profiler (CMake)
+        run: |
+          cd src/Metreja.Profiler
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+
+      - name: Copy dylib to bin/Release
+        run: |
+          mkdir -p bin/Release
+          cp src/Metreja.Profiler/build/libMetreja.Profiler.dylib bin/Release/
+
+      - name: Restore .NET dependencies
+        run: dotnet restore
+
+      - name: Build Metreja.Tool
+        run: dotnet build src/Metreja.Tool/Metreja.Tool.csproj -c Release --no-restore
 
       - name: Build Metreja.TestApp
         run: dotnet build test/Metreja.TestApp/Metreja.TestApp.csproj -c Release --no-restore

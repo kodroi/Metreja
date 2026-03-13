@@ -4,7 +4,9 @@
 #ifndef __COMMON_LANGUAGE_RUNTIME_HRESULTS__
 #define __COMMON_LANGUAGE_RUNTIME_HRESULTS__
 
+#ifdef _WIN32
 #include <winerror.h>
+#endif
 
 
 //

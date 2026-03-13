@@ -5,6 +5,8 @@
 #include "CallStack.h"
 #include "NdjsonWriter.h"
 #include "StatsAggregator.h"
+#include "platform/pal_io.h"
+#include "platform/pal_threading.h"
 
 // Global context pointer
 ProfilerContext* g_ctx = nullptr;
@@ -65,7 +67,7 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Initialize(IUnknown* pICorProfilerInf
 
     // Init subsystems
     CallStackManager::InitFrequency();
-    DWORD pid = GetCurrentProcessId();
+    DWORD pid = PalGetCurrentProcessId();
     ctx->callStackManager = std::make_unique<CallStackManager>();
     ctx->methodCache = std::make_unique<MethodCache>(m_profilerInfo, ctx->config);
     ctx->ndjsonWriter =
@@ -128,13 +130,13 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Initialize(IUnknown* pICorProfilerInf
             return hr;
     }
 
-    // Create named event for manual flush (auto-reset, initially non-signaled)
+    // Create named semaphore for manual flush
     // Placed after all fallible setup so resources aren't leaked on early return.
     if (g_ctx->statsAggregator)
     {
-        wchar_t eventName[64];
-        swprintf_s(eventName, L"MetrejaFlush_%lu", pid);
-        g_ctx->m_manualFlushEvent = CreateEventW(nullptr, FALSE, FALSE, eventName);
+        char semName[64];
+        snprintf(semName, sizeof(semName), "MetrejaFlush_%lu", static_cast<unsigned long>(pid));
+        g_ctx->m_manualFlushEvent = PalCreateNamedSemaphore(semName);
     }
 
     // Start flush thread if stats are enabled (handles periodic and/or manual flush)
@@ -162,8 +164,8 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Shutdown()
             ctx->statsAggregator->Flush(*ctx->ndjsonWriter, *ctx->methodCache);
         if (ctx->ndjsonWriter)
             ctx->ndjsonWriter->Flush();
-        if (ctx->m_manualFlushEvent != nullptr)
-            CloseHandle(ctx->m_manualFlushEvent);
+        if (ctx->m_manualFlushEvent != PAL_INVALID_SEMAPHORE)
+            PalCloseNamedSemaphore(ctx->m_manualFlushEvent);
         delete ctx;
     }
 
@@ -207,7 +209,7 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionThrown(ObjectID thrownObject
 
     // Try to get method info from top of call stack
     long long tsNs = CallStackManager::GetTimestampNs();
-    DWORD tid = GetCurrentThreadId();
+    DWORD tid = PalGetCurrentThreadId();
 
     MethodInfo exInfo{};
     auto* threadStack = ctx->callStackManager->GetThreadStack();
@@ -341,7 +343,7 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ObjectsAllocatedByClass(ULONG cClassC
             continue;
 
         std::string className = ctx->methodCache->ResolveClassName(classIds[i]);
-        DWORD tid = GetCurrentThreadId();
+        DWORD tid = PalGetCurrentThreadId();
         ctx->ndjsonWriter->WriteAllocByClass(tsNs, tid, className, cObjects[i]);
     }
 
@@ -380,7 +382,7 @@ static void FinalizeDeferredUnwind(ProfilerContext* ctx, ThreadCallStack* ts)
         if (info != nullptr)
         {
             long long deltaNs = ctx->config.computeDeltas ? inclusiveNs : 0;
-            ctx->ndjsonWriter->WriteLeave(ts->m_deferredUnwindTsNs, GetCurrentThreadId(), depth, *info, deltaNs);
+            ctx->ndjsonWriter->WriteLeave(ts->m_deferredUnwindTsNs, PalGetCurrentThreadId(), depth, *info, deltaNs);
         }
     }
 
@@ -461,7 +463,7 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionUnwindFunctionEnter(Function
     if (HasEvent(ctx->config.enabledEvents, EventType::Leave))
     {
         long long deltaNs = ctx->config.computeDeltas ? inclusiveNs : 0;
-        ctx->ndjsonWriter->WriteLeave(tsNs, GetCurrentThreadId(), depth, *info, deltaNs);
+        ctx->ndjsonWriter->WriteLeave(tsNs, PalGetCurrentThreadId(), depth, *info, deltaNs);
     }
     return S_OK;
 }
@@ -591,7 +593,7 @@ static inline bool PrepareStubContext(FunctionIDOrClientID functionIDOrClientID,
         return false;
 
     tsNs = CallStackManager::GetTimestampNs();
-    tid = GetCurrentThreadId();
+    tid = PalGetCurrentThreadId();
     return true;
 }
 

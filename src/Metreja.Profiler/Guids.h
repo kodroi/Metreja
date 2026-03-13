@@ -1,7 +1,12 @@
 #pragma once
 
+#ifdef _WIN32
 #include <initguid.h>
 #include <Windows.h>
+#else
+#define INITGUID
+#include "platform/pal.h"
+#endif
 
 // Metreja Profiler CLSID
 // {7C8F944B-4810-4999-BF98-6A3361185FC2}

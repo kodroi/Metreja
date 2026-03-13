@@ -1,6 +1,7 @@
 #pragma once
 
-#include <Windows.h>
+#include "include/profiling.h"
+#include "platform/pal_threading.h"
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -48,7 +49,7 @@ public:
     void RecordException(const MethodInfo& callerInfo, const std::string& exType);
     void Flush(NdjsonWriter& writer, MethodCache& cache);
     void StartPeriodicFlush(int intervalSeconds, NdjsonWriter* writer, MethodCache* cache,
-                            HANDLE manualFlushEvent = nullptr);
+                            PalNamedSemaphore manualFlushEvent = PAL_INVALID_SEMAPHORE);
     void StopPeriodicFlush();
 
 private:
@@ -59,16 +60,20 @@ private:
                                  const std::unordered_map<FunctionID, MethodStatsAccum>& methods,
                                  const std::unordered_map<std::string, ExceptionStatsAccum>& exceptions);
 
+#ifdef _WIN32
     static unsigned __stdcall FlushThreadProc(void* param);
+#else
+    static void* FlushThreadProc(void* param);
+#endif
 
-    DWORD m_tlsIndex;
+    PalTlsIndex m_tlsIndex;
     std::mutex m_registryMutex;
     std::vector<ThreadStats*> m_allThreadStats;
 
     // Periodic flush state
-    HANDLE m_shutdownEvent = nullptr;
-    HANDLE m_flushThread = nullptr;
-    HANDLE m_manualFlushEvent = nullptr;
+    PalEventHandle m_shutdownEvent = PAL_INVALID_EVENT;
+    PalThreadHandle m_flushThread = PAL_INVALID_THREAD;
+    PalNamedSemaphore m_manualFlushEvent = PAL_INVALID_SEMAPHORE;
     NdjsonWriter* m_writer = nullptr;
     MethodCache* m_cache = nullptr;
     int m_flushIntervalSeconds = 0;
