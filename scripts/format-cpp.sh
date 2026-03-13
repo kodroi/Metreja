@@ -19,14 +19,14 @@ echo "Using: $CLANG_FORMAT"
 echo ""
 
 # Format .cpp and .h files in profiler source directories
-find "$PROFILER_DIR" -maxdepth 1 -name '*.cpp' -o -name '*.h' | while read -r f; do
+find "$PROFILER_DIR" -maxdepth 1 \( -name '*.cpp' -o -name '*.h' \) | while read -r f; do
     echo "Formatting: $(basename "$f")"
     "$CLANG_FORMAT" -i "$f"
 done
 
 # Format platform/ directory
 if [ -d "$PROFILER_DIR/platform" ]; then
-    find "$PROFILER_DIR/platform" -name '*.cpp' -o -name '*.h' | while read -r f; do
+    find "$PROFILER_DIR/platform" \( -name '*.cpp' -o -name '*.h' \) | while read -r f; do
         echo "Formatting: platform/$(basename "$f")"
         "$CLANG_FORMAT" -i "$f"
     done

@@ -91,7 +91,6 @@ jobs:
 
   build-macos:
     runs-on: macos-14
-    continue-on-error: true
 
     env:
       HUSKY: 0

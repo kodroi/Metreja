@@ -79,8 +79,20 @@ public static class FlushCommand
             return 1;
         }
 
-        _ = SemPost(sem);
-        _ = SemClose(sem);
+        if (SemPost(sem) != 0)
+        {
+            var errno = Marshal.GetLastPInvokeError();
+            _ = SemClose(sem);
+            Console.Error.WriteLine($"Error: Failed to signal flush for PID {pid} (errno {errno}).");
+            return 1;
+        }
+
+        if (SemClose(sem) != 0)
+        {
+            var errno = Marshal.GetLastPInvokeError();
+            Console.Error.WriteLine($"Warning: sem_close failed for PID {pid} (errno {errno}).");
+        }
+
         Console.WriteLine($"Flush signaled for PID {pid}");
         return 0;
     }
@@ -91,9 +103,9 @@ public static class FlushCommand
         CharSet = CharSet.Ansi, BestFitMapping = false, ThrowOnUnmappableChar = true)]
     private static extern IntPtr SemOpen(string name, int oflag, uint mode, uint value);
 
-    [DllImport("libSystem.B.dylib", EntryPoint = "sem_post")]
+    [DllImport("libSystem.B.dylib", EntryPoint = "sem_post", SetLastError = true)]
     private static extern int SemPost(IntPtr sem);
 
-    [DllImport("libSystem.B.dylib", EntryPoint = "sem_close")]
+    [DllImport("libSystem.B.dylib", EntryPoint = "sem_close", SetLastError = true)]
     private static extern int SemClose(IntPtr sem);
 }

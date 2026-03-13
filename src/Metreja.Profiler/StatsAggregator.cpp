@@ -152,11 +152,7 @@ void StatsAggregator::StartPeriodicFlush(int intervalSeconds, NdjsonWriter* writ
     if (m_shutdownEvent == PAL_INVALID_EVENT)
         return;
 
-#ifdef _WIN32
-    m_flushThread = PalCreateThread(FlushThreadProc, this);
-#else
-    m_flushThread = PalCreateThreadPosix(FlushThreadProc, this);
-#endif
+    m_flushThread = PalCreateThreadUnified(FlushThreadProc, this);
     if (m_flushThread == PAL_INVALID_THREAD)
     {
         PalCloseEvent(m_shutdownEvent);
@@ -182,11 +178,7 @@ void StatsAggregator::StopPeriodicFlush()
     }
 }
 
-#ifdef _WIN32
-unsigned __stdcall StatsAggregator::FlushThreadProc(void* param)
-#else
 void* StatsAggregator::FlushThreadProc(void* param)
-#endif
 {
     auto* self = static_cast<StatsAggregator*>(param);
     DWORD intervalMs =
@@ -248,11 +240,7 @@ void* StatsAggregator::FlushThreadProc(void* param)
         }
     }
 
-#ifdef _WIN32
-    return 0;
-#else
     return nullptr;
-#endif
 }
 
 ThreadStats* StatsAggregator::GetOrCreateThreadStats()

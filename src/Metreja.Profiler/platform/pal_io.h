@@ -118,9 +118,13 @@ inline DWORD PalGetCurrentProcessId() { return static_cast<DWORD>(getpid()); }
 
 inline DWORD PalGetCurrentThreadId()
 {
+#ifdef __APPLE__
     uint64_t tid = 0;
     pthread_threadid_np(nullptr, &tid);
     return static_cast<DWORD>(tid);
+#else
+    return static_cast<DWORD>(gettid());
+#endif
 }
 
 // ─── Debug output ─────────────────────────────────────────────────────────────

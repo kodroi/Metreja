@@ -81,6 +81,35 @@ inline PalThreadHandle PalCreateThread(PalThreadProc proc, void* param)
     return reinterpret_cast<HANDLE>(_beginthreadex(nullptr, 0, proc, param, 0, &threadId));
 }
 
+// Unified thread creation: accepts a void*(*)(void*) proc and adapts it for _beginthreadex.
+typedef void* (*PalUnifiedThreadProc)(void*);
+
+struct PalUnifiedThreadContext
+{
+    PalUnifiedThreadProc proc;
+    void* param;
+};
+
+inline unsigned __stdcall PalUnifiedThreadAdapter(void* ctx)
+{
+    auto* c = static_cast<PalUnifiedThreadContext*>(ctx);
+    auto proc = c->proc;
+    auto param = c->param;
+    delete c;
+    proc(param);
+    return 0;
+}
+
+inline PalThreadHandle PalCreateThreadUnified(PalUnifiedThreadProc proc, void* param)
+{
+    auto* ctx = new PalUnifiedThreadContext{proc, param};
+    unsigned threadId = 0;
+    auto h = reinterpret_cast<HANDLE>(_beginthreadex(nullptr, 0, PalUnifiedThreadAdapter, ctx, 0, &threadId));
+    if (h == nullptr)
+        delete ctx;
+    return h;
+}
+
 inline void PalJoinThread(PalThreadHandle h)
 {
     if (h != PAL_INVALID_THREAD)
@@ -294,9 +323,6 @@ inline void PalCloseNamedSemaphore(PalNamedSemaphore h)
 typedef pthread_t PalThreadHandle;
 #define PAL_INVALID_THREAD ((pthread_t)0)
 
-// pthread uses void*(*)(void*), but we match the Windows unsigned(*)(void*) signature.
-// Callers must declare their thread proc as: void* ThreadProc(void* param)
-// We use a typedef that matches pthread on macOS and _beginthreadex on Windows.
 typedef void* (*PalThreadProcPosix)(void*);
 
 inline PalThreadHandle PalCreateThreadPosix(PalThreadProcPosix proc, void* param)
@@ -305,6 +331,14 @@ inline PalThreadHandle PalCreateThreadPosix(PalThreadProcPosix proc, void* param
     if (pthread_create(&thread, nullptr, proc, param) != 0)
         return PAL_INVALID_THREAD;
     return thread;
+}
+
+// Unified thread creation: same signature on both platforms — void*(*)(void*)
+typedef void* (*PalUnifiedThreadProc)(void*);
+
+inline PalThreadHandle PalCreateThreadUnified(PalUnifiedThreadProc proc, void* param)
+{
+    return PalCreateThreadPosix(proc, param);
 }
 
 inline void PalJoinThread(PalThreadHandle h)

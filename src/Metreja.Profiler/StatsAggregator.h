@@ -60,11 +60,7 @@ private:
                                  const std::unordered_map<FunctionID, MethodStatsAccum>& methods,
                                  const std::unordered_map<std::string, ExceptionStatsAccum>& exceptions);
 
-#ifdef _WIN32
-    static unsigned __stdcall FlushThreadProc(void* param);
-#else
     static void* FlushThreadProc(void* param);
-#endif
 
     PalTlsIndex m_tlsIndex;
     std::mutex m_registryMutex;
