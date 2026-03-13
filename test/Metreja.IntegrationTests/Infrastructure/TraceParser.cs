@@ -7,7 +7,7 @@ public static class TraceParser
     public static async Task<List<TraceEvent>> ParseAsync(string ndjsonPath)
     {
         var events = new List<TraceEvent>();
-        var lines = await File.ReadAllLinesAsync(ndjsonPath);
+        var lines = await ReadAllLinesSharedAsync(ndjsonPath);
 
         foreach (var line in lines)
         {
@@ -114,5 +114,13 @@ public static class TraceParser
         }
 
         return events;
+    }
+
+    private static async Task<string[]> ReadAllLinesSharedAsync(string path)
+    {
+        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var reader = new StreamReader(fs);
+        var content = await reader.ReadToEndAsync();
+        return content.Split('\n', StringSplitOptions.RemoveEmptyEntries);
     }
 }
