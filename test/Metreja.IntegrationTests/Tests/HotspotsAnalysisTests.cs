@@ -15,7 +15,7 @@ public class HotspotsAnalysisTests
     {
         var tracePath = await WriteTraceToTempFileAsync();
 
-        var output = await CaptureConsoleOutputAsync(async () =>
+        var output = await TestHelpers.CaptureConsoleOutputAsync(async () =>
             await HotspotsAnalyzer.AnalyzeAsync(tracePath, top: 50, minMs: 0, sortBy: "self", filters: []));
 
         Assert.Contains("Self Total", output);
@@ -29,7 +29,7 @@ public class HotspotsAnalysisTests
     {
         var tracePath = await WriteTraceToTempFileAsync();
 
-        var output = await CaptureConsoleOutputAsync(async () =>
+        var output = await TestHelpers.CaptureConsoleOutputAsync(async () =>
             await HotspotsAnalyzer.AnalyzeAsync(tracePath, top: 5, minMs: 0, sortBy: "inclusive", filters: []));
 
         Assert.Contains("Incl Total", output);
@@ -43,7 +43,7 @@ public class HotspotsAnalysisTests
     {
         var tracePath = await WriteTraceToTempFileAsync();
 
-        var output = await CaptureConsoleOutputAsync(async () =>
+        var output = await TestHelpers.CaptureConsoleOutputAsync(async () =>
             await HotspotsAnalyzer.AnalyzeAsync(tracePath, top: 20, minMs: 0, sortBy: "self",
                 filters: ["InnerMethod", "MiddleMethod"]));
 
@@ -57,7 +57,7 @@ public class HotspotsAnalysisTests
     {
         var tracePath = await WriteTraceToTempFileAsync();
 
-        var output = await CaptureConsoleOutputAsync(async () =>
+        var output = await TestHelpers.CaptureConsoleOutputAsync(async () =>
             await HotspotsAnalyzer.AnalyzeAsync(tracePath, top: 20, minMs: 100, sortBy: "self", filters: []));
 
         // With a 100ms threshold, most methods should be filtered out
@@ -86,19 +86,4 @@ public class HotspotsAnalysisTests
         };
     }
 
-    private static async Task<string> CaptureConsoleOutputAsync(Func<Task> action)
-    {
-        var originalOut = Console.Out;
-        using var sw = new StringWriter();
-        Console.SetOut(sw);
-        try
-        {
-            await action();
-            return sw.ToString();
-        }
-        finally
-        {
-            Console.SetOut(originalOut);
-        }
-    }
 }
