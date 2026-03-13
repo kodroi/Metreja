@@ -37,7 +37,7 @@ public class ManualFlushTests
         {
             await Task.Delay(100);
             var eventsAfter = await TraceParser.ParseAsync(session.OutputPath);
-            stats = eventsAfter.OfType<MethodStatsEvent>().ToList();
+            stats = [.. eventsAfter.OfType<MethodStatsEvent>()];
         } while (stats.Count == 0 && DateTime.UtcNow < deadline);
         Assert.NotEmpty(stats);
 
@@ -67,7 +67,7 @@ public class ManualFlushTests
             eventsAfterFirst = await TraceParser.ParseAsync(session.OutputPath);
         } while (!eventsAfterFirst.OfType<MethodStatsEvent>().Any() && DateTime.UtcNow < deadline);
 
-        var statsFirst = eventsAfterFirst.OfType<MethodStatsEvent>().ToList();
+        List<MethodStatsEvent> statsFirst = [.. eventsAfterFirst.OfType<MethodStatsEvent>()];
         Assert.NotEmpty(statsFirst);
 
         // Second flush — delta stats should be empty (no new calls happened)

@@ -185,9 +185,8 @@ public sealed class ProfilerRunner : IAsyncDisposable
                 using var cts = new CancellationTokenSource(readyTimeoutMs);
                 while (!cts.IsCancellationRequested)
                 {
-                    var line = await process.StandardOutput.ReadLineAsync(cts.Token);
-                    if (line is null)
-                        throw new InvalidOperationException("TestApp process exited before signaling READY");
+                    var line = await process.StandardOutput.ReadLineAsync(cts.Token)
+                        ?? throw new InvalidOperationException("TestApp process exited before signaling READY");
                     if (line == "READY")
                         break;
                 }
