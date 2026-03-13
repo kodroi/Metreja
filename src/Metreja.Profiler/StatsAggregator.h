@@ -29,6 +29,7 @@ struct ExceptionStatsAccum
 
 struct ThreadStats
 {
+    std::mutex mutex;
     std::unordered_map<FunctionID, MethodStatsAccum> methodStats;
     std::unordered_map<std::string, ExceptionStatsAccum> exceptionStats;
 };
@@ -46,11 +47,27 @@ public:
     void RecordMethod(FunctionID functionId, long long inclusiveNs, long long selfNs);
     void RecordException(const MethodInfo& callerInfo, const std::string& exType);
     void Flush(NdjsonWriter& writer, MethodCache& cache);
+    void StartPeriodicFlush(int intervalSeconds, NdjsonWriter* writer, MethodCache* cache);
+    void StopPeriodicFlush();
 
 private:
     ThreadStats* GetOrCreateThreadStats();
+    void CollectDeltaStats(std::unordered_map<FunctionID, MethodStatsAccum>& outMethods,
+                           std::unordered_map<std::string, ExceptionStatsAccum>& outExceptions);
+    static void WriteMergedStats(NdjsonWriter& writer, MethodCache& cache,
+                                 const std::unordered_map<FunctionID, MethodStatsAccum>& methods,
+                                 const std::unordered_map<std::string, ExceptionStatsAccum>& exceptions);
+
+    static unsigned __stdcall FlushThreadProc(void* param);
 
     DWORD m_tlsIndex;
     std::mutex m_registryMutex;
     std::vector<ThreadStats*> m_allThreadStats;
+
+    // Periodic flush state
+    HANDLE m_shutdownEvent = nullptr;
+    HANDLE m_flushThread = nullptr;
+    NdjsonWriter* m_writer = nullptr;
+    MethodCache* m_cache = nullptr;
+    int m_flushIntervalSeconds = 0;
 };

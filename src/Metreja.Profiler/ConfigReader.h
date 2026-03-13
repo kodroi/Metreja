@@ -48,6 +48,7 @@ struct ProfilerConfig
     bool computeDeltas = true;
     bool disableInlining = true;
     EventType enabledEvents = EventType::None;
+    int statsFlushIntervalSeconds = 30;
     std::vector<FilterRule> includes;
     std::vector<FilterRule> excludes;
 };

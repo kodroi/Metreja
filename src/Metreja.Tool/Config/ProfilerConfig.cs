@@ -34,6 +34,9 @@ public record InstrumentationConfig
     [JsonPropertyName("disableInlining")]
     public bool DisableInlining { get; init; } = true;
 
+    [JsonPropertyName("statsFlushIntervalSeconds")]
+    public int StatsFlushIntervalSeconds { get; init; } = 30;
+
     [JsonPropertyName("events")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? Events { get; init; }
