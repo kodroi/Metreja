@@ -83,21 +83,6 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Initialize(IUnknown* pICorProfilerInf
     // Publish atomically — callbacks can now proceed
     g_ctx = ctx.release();
 
-    // Create named event for manual flush (auto-reset, initially non-signaled)
-    if (g_ctx->statsAggregator)
-    {
-        wchar_t eventName[64];
-        swprintf_s(eventName, L"MetrejaFlush_%lu", pid);
-        g_ctx->m_manualFlushEvent = CreateEventW(nullptr, FALSE, FALSE, eventName);
-    }
-
-    // Start flush thread if stats are enabled (handles periodic and/or manual flush)
-    if (g_ctx->statsAggregator)
-    {
-        g_ctx->statsAggregator->StartPeriodicFlush(g_ctx->config.statsFlushIntervalSeconds, g_ctx->ndjsonWriter.get(),
-                                                   g_ctx->methodCache.get(), g_ctx->m_manualFlushEvent);
-    }
-
     // Build event mask dynamically based on enabled event types
     DWORD eventMask = COR_PRF_MONITOR_JIT_COMPILATION;
 
@@ -141,6 +126,22 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Initialize(IUnknown* pICorProfilerInf
         hr = m_profilerInfo->SetFunctionIDMapper2(reinterpret_cast<FunctionIDMapper2*>(FunctionMapper), nullptr);
         if (FAILED(hr))
             return hr;
+    }
+
+    // Create named event for manual flush (auto-reset, initially non-signaled)
+    // Placed after all fallible setup so resources aren't leaked on early return.
+    if (g_ctx->statsAggregator)
+    {
+        wchar_t eventName[64];
+        swprintf_s(eventName, L"MetrejaFlush_%lu", pid);
+        g_ctx->m_manualFlushEvent = CreateEventW(nullptr, FALSE, FALSE, eventName);
+    }
+
+    // Start flush thread if stats are enabled (handles periodic and/or manual flush)
+    if (g_ctx->statsAggregator)
+    {
+        g_ctx->statsAggregator->StartPeriodicFlush(g_ctx->config.statsFlushIntervalSeconds, g_ctx->ndjsonWriter.get(),
+                                                   g_ctx->methodCache.get(), g_ctx->m_manualFlushEvent);
     }
 
     return S_OK;

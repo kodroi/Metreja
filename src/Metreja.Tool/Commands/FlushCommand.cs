@@ -19,6 +19,12 @@ public static class FlushCommand
         {
             var pid = parseResult.GetValue(pidOption);
 
+            if (pid <= 0)
+            {
+                Console.Error.WriteLine($"Error: --pid must be a positive integer, got {pid}.");
+                return Task.FromResult(1);
+            }
+
             if (!OperatingSystem.IsWindows())
             {
                 Console.Error.WriteLine("Error: flush command is only supported on Windows.");

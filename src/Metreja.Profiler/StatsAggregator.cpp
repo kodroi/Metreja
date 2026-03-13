@@ -204,7 +204,7 @@ unsigned __stdcall StatsAggregator::FlushThreadProc(void* param)
 
         // Only flush on timeout (periodic) or manual flush signal
         if (result != WAIT_TIMEOUT && !(result > WAIT_OBJECT_0 && result < WAIT_OBJECT_0 + eventCount))
-            continue; // WAIT_FAILED or unexpected — skip
+            break; // WAIT_FAILED or unexpected — exit loop to avoid tight spin
 
         // Timeout (periodic) or manual flush signal — flush delta stats
         std::unordered_map<FunctionID, MethodStatsAccum> methods;

@@ -179,6 +179,9 @@ public sealed class ProfilerRunner : IAsyncDisposable
             var process = Process.Start(psi)
                 ?? throw new InvalidOperationException("Failed to start TestApp process");
 
+            // Drain stderr asynchronously to prevent pipe buffer deadlock
+            _ = process.StandardError.ReadToEndAsync();
+
             try
             {
                 // Wait for "READY" on stdout (all test methods have completed)
