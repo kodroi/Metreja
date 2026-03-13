@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   publish:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     env:
       HUSKY: 0
@@ -39,8 +39,27 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
+      - name: Download Windows profiler from latest CI
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: build-and-test.yml
+          branch: main
+          name: profiler-windows
+          path: bin/Release
+
+      - name: Download macOS profiler from latest CI
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: build-and-test.yml
+          branch: main
+          name: profiler-macos
+          path: bin/Release
+
+      - name: Verify native binaries
+        run: |
+          ls -la bin/Release/
+          test -f bin/Release/Metreja.Profiler.dll
+          test -f bin/Release/libMetreja.Profiler.dylib
 
       - name: Restore .NET dependencies
         run: dotnet restore
@@ -48,24 +67,20 @@ jobs:
       - name: Build Metreja.Tool
         run: dotnet build src/Metreja.Tool/Metreja.Tool.csproj -c Release --no-restore
 
-      - name: Build Metreja.Profiler (C++ DLL)
-        run: msbuild src/Metreja.Profiler/Metreja.Profiler.vcxproj /p:Configuration=Release /p:Platform=x64 "/p:SolutionDir=${{ github.workspace }}/"
-
-      - name: Build Metreja.TestApp
-        run: dotnet build test/Metreja.TestApp/Metreja.TestApp.csproj -c Release --no-restore
-
-      - name: Run integration tests
-        run: dotnet test test/Metreja.IntegrationTests/Metreja.IntegrationTests.csproj -c Release --no-restore --verbosity normal
-
       - name: Pack NuGet package
         run: dotnet pack src/Metreja.Tool/Metreja.Tool.csproj -c Release --no-build -o artifacts /p:PackageVersion=${{ steps.gitversion.outputs.semVer }}
 
+      - name: Inspect package contents
+        run: |
+          for f in artifacts/*.nupkg; do
+            echo "=== $f ==="
+            unzip -l "$f" | grep -E "(Profiler\.dll|Profiler\.dylib)"
+          done
+
       - name: Push to NuGet.org
-        shell: bash
         run: dotnet nuget push artifacts/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
 
       - name: Create GitHub release
-        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "v${{ steps.gitversion.outputs.semVer }}" artifacts/*.nupkg --title "v${{ steps.gitversion.outputs.semVer }}" --generate-notes

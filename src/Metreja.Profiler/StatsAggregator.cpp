@@ -232,9 +232,9 @@ void* StatsAggregator::FlushThreadProc(void* param)
         if (result == PalWaitResult::Timeout && self->m_manualFlushEvent != PAL_INVALID_SEMAPHORE &&
             pollWs.intervalMs != intervalMs)
         {
-            // This was a short poll cycle — only flush if the full interval has elapsed
-            // For simplicity, we flush on every poll timeout. The overhead is minimal
-            // since CollectDeltaStats will find nothing if no new data arrived.
+            // This was a short poll cycle — only flush if the full periodic interval has elapsed
+            if (intervalMs == INFINITE)
+                continue; // Periodic disabled; only manual flush triggers output
         }
 
         // Flush delta stats

@@ -1,9 +1,8 @@
-using System.Runtime.Versioning;
+using System.Runtime.InteropServices;
 using Metreja.IntegrationTests.Infrastructure;
 
 namespace Metreja.IntegrationTests.Tests;
 
-[SupportedOSPlatform("windows")]
 public class ManualFlushTests
 {
     private static string GetSolutionRoot()
@@ -86,18 +85,56 @@ public class ManualFlushTests
     {
         var eventName = $"MetrejaFlush_{pid}";
         const int maxRetries = 10;
-        for (var i = 0; i < maxRetries; i++)
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            try
+            for (var i = 0; i < maxRetries; i++)
             {
-                using var handle = EventWaitHandle.OpenExisting(eventName);
-                handle.Set();
-                return;
-            }
-            catch (WaitHandleCannotBeOpenedException) when (i < maxRetries - 1)
-            {
-                await Task.Delay(200);
+                try
+                {
+                    using var handle = EventWaitHandle.OpenExisting(eventName);
+                    handle.Set();
+                    return;
+                }
+                catch (WaitHandleCannotBeOpenedException) when (i < maxRetries - 1)
+                {
+                    await Task.Delay(200);
+                }
             }
         }
+        else
+        {
+            // macOS/Linux: profiler uses POSIX named semaphore (sem_open with '/' prefix)
+            var semName = $"/{eventName}";
+            for (var i = 0; i < maxRetries; i++)
+            {
+                var sem = PosixSemaphore.sem_open(semName, 0, 0, 0);
+                if (sem != PosixSemaphore.SEM_FAILED)
+                {
+                    _ = PosixSemaphore.sem_post(sem);
+                    _ = PosixSemaphore.sem_close(sem);
+                    return;
+                }
+
+                if (i < maxRetries - 1)
+                    await Task.Delay(200);
+            }
+
+            throw new InvalidOperationException($"Failed to open POSIX semaphore '{semName}' after {maxRetries} retries");
+        }
+    }
+
+    private static class PosixSemaphore
+    {
+        public static readonly IntPtr SEM_FAILED = new(-1);
+
+        [DllImport("libSystem.B.dylib", SetLastError = true, CharSet = CharSet.Ansi, BestFitMapping = false, ThrowOnUnmappableChar = true)]
+        public static extern IntPtr sem_open([MarshalAs(UnmanagedType.LPStr)] string name, int oflag, uint mode, uint value);
+
+        [DllImport("libSystem.B.dylib", SetLastError = true)]
+        public static extern int sem_post(IntPtr sem);
+
+        [DllImport("libSystem.B.dylib", SetLastError = true)]
+        public static extern int sem_close(IntPtr sem);
     }
 }
