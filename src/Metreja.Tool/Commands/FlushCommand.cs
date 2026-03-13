@@ -41,6 +41,13 @@ public static class FlushCommand
                     "Ensure the process is running with stats events enabled (method_stats or exception_stats).");
                 return Task.FromResult(1);
             }
+            catch (UnauthorizedAccessException)
+            {
+                Console.Error.WriteLine(
+                    $"Error: Access denied to flush event for PID {pid}. " +
+                    "Try running with elevated privileges.");
+                return Task.FromResult(1);
+            }
         });
 
         return command;

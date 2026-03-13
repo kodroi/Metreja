@@ -179,16 +179,35 @@ public sealed class ProfilerRunner : IAsyncDisposable
             var process = Process.Start(psi)
                 ?? throw new InvalidOperationException("Failed to start TestApp process");
 
-            // Wait for "READY" on stdout (all test methods have completed)
-            using var cts = new CancellationTokenSource(readyTimeoutMs);
-            while (!cts.IsCancellationRequested)
+            try
             {
-                var line = await process.StandardOutput.ReadLineAsync(cts.Token);
-                if (line == "READY")
-                    break;
-            }
+                // Wait for "READY" on stdout (all test methods have completed)
+                using var cts = new CancellationTokenSource(readyTimeoutMs);
+                while (!cts.IsCancellationRequested)
+                {
+                    var line = await process.StandardOutput.ReadLineAsync(cts.Token);
+                    if (line is null)
+                        throw new InvalidOperationException("TestApp process exited before signaling READY");
+                    if (line == "READY")
+                        break;
+                }
 
-            return new InteractiveSession(outputPath, process, runner);
+                return new InteractiveSession(outputPath, process, runner);
+            }
+            catch
+            {
+                try
+                {
+                    if (!process.HasExited)
+                        process.Kill(true);
+                }
+                catch
+                {
+                    // Best effort
+                }
+                process.Dispose();
+                throw;
+            }
         }
         catch
         {
@@ -230,7 +249,8 @@ public sealed class InteractiveSession : IAsyncDisposable
 
     public async Task ReleaseAndWaitForExitAsync(int timeoutMs = 10_000)
     {
-        await _process.StandardInput.WriteLineAsync();
+        if (!_process.HasExited)
+            await _process.StandardInput.WriteLineAsync();
         using var cts = new CancellationTokenSource(timeoutMs);
         await _process.WaitForExitAsync(cts.Token);
     }

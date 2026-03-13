@@ -202,7 +202,11 @@ unsigned __stdcall StatsAggregator::FlushThreadProc(void* param)
         if (result == WAIT_OBJECT_0)
             break; // Shutdown signaled
 
-        // Either timeout (periodic) or manual flush signal — flush delta stats
+        // Only flush on timeout (periodic) or manual flush signal
+        if (result != WAIT_TIMEOUT && !(result > WAIT_OBJECT_0 && result < WAIT_OBJECT_0 + eventCount))
+            continue; // WAIT_FAILED or unexpected — skip
+
+        // Timeout (periodic) or manual flush signal — flush delta stats
         std::unordered_map<FunctionID, MethodStatsAccum> methods;
         std::unordered_map<std::string, ExceptionStatsAccum> exceptions;
         self->CollectDeltaStats(methods, exceptions);

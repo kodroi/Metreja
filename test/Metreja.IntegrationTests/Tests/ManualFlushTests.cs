@@ -28,14 +28,17 @@ public class ManualFlushTests
         Assert.DoesNotContain(eventsBefore, e => e is MethodStatsEvent);
 
         // Signal manual flush
-        SignalFlush(session.Pid);
+        await SignalFlushAsync(session.Pid);
 
-        // Wait briefly for the flush to write to disk
-        await Task.Delay(500);
-
-        // Now method_stats events should exist from the manual flush
-        var eventsAfter = await TraceParser.ParseAsync(session.OutputPath);
-        var stats = eventsAfter.OfType<MethodStatsEvent>().ToList();
+        // Poll until stats appear or timeout
+        List<MethodStatsEvent> stats;
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        do
+        {
+            await Task.Delay(100);
+            var eventsAfter = await TraceParser.ParseAsync(session.OutputPath);
+            stats = eventsAfter.OfType<MethodStatsEvent>().ToList();
+        } while (stats.Count == 0 && DateTime.UtcNow < deadline);
         Assert.NotEmpty(stats);
 
         // LoopBody should have exactly 1000 calls
@@ -55,16 +58,21 @@ public class ManualFlushTests
             root, events: ["method_stats"], statsFlushIntervalSeconds: 0);
 
         // First flush
-        SignalFlush(session.Pid);
-        await Task.Delay(500);
+        await SignalFlushAsync(session.Pid);
+        List<TraceEvent> eventsAfterFirst;
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        do
+        {
+            await Task.Delay(100);
+            eventsAfterFirst = await TraceParser.ParseAsync(session.OutputPath);
+        } while (!eventsAfterFirst.OfType<MethodStatsEvent>().Any() && DateTime.UtcNow < deadline);
 
-        var eventsAfterFirst = await TraceParser.ParseAsync(session.OutputPath);
         var statsFirst = eventsAfterFirst.OfType<MethodStatsEvent>().ToList();
         Assert.NotEmpty(statsFirst);
 
         // Second flush — delta stats should be empty (no new calls happened)
         // but the mechanism should not crash
-        SignalFlush(session.Pid);
+        await SignalFlushAsync(session.Pid);
         await Task.Delay(500);
 
         // Should still be parseable (no corruption from double flush)
@@ -74,10 +82,22 @@ public class ManualFlushTests
         await session.ReleaseAndWaitForExitAsync();
     }
 
-    private static void SignalFlush(int pid)
+    private static async Task SignalFlushAsync(int pid)
     {
         var eventName = $"MetrejaFlush_{pid}";
-        using var handle = EventWaitHandle.OpenExisting(eventName);
-        handle.Set();
+        const int maxRetries = 10;
+        for (var i = 0; i < maxRetries; i++)
+        {
+            try
+            {
+                using var handle = EventWaitHandle.OpenExisting(eventName);
+                handle.Set();
+                return;
+            }
+            catch (WaitHandleCannotBeOpenedException) when (i < maxRetries - 1)
+            {
+                await Task.Delay(200);
+            }
+        }
     }
 }

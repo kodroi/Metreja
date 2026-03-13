@@ -88,14 +88,14 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Initialize(IUnknown* pICorProfilerInf
     {
         wchar_t eventName[64];
         swprintf_s(eventName, L"MetrejaFlush_%lu", pid);
-        g_ctx->manualFlushEvent = CreateEventW(nullptr, FALSE, FALSE, eventName);
+        g_ctx->m_manualFlushEvent = CreateEventW(nullptr, FALSE, FALSE, eventName);
     }
 
     // Start flush thread if stats are enabled (handles periodic and/or manual flush)
     if (g_ctx->statsAggregator)
     {
         g_ctx->statsAggregator->StartPeriodicFlush(g_ctx->config.statsFlushIntervalSeconds, g_ctx->ndjsonWriter.get(),
-                                                   g_ctx->methodCache.get(), g_ctx->manualFlushEvent);
+                                                   g_ctx->methodCache.get(), g_ctx->m_manualFlushEvent);
     }
 
     // Build event mask dynamically based on enabled event types
@@ -161,8 +161,8 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Shutdown()
             ctx->statsAggregator->Flush(*ctx->ndjsonWriter, *ctx->methodCache);
         if (ctx->ndjsonWriter)
             ctx->ndjsonWriter->Flush();
-        if (ctx->manualFlushEvent != nullptr)
-            CloseHandle(ctx->manualFlushEvent);
+        if (ctx->m_manualFlushEvent != nullptr)
+            CloseHandle(ctx->m_manualFlushEvent);
         delete ctx;
     }
 
