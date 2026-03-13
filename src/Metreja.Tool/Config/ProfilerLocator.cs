@@ -1,8 +1,11 @@
+using System.Runtime.InteropServices;
+
 namespace Metreja.Tool.Config;
 
 public static class ProfilerLocator
 {
-    private const string DllName = "Metreja.Profiler.dll";
+    private static string DllName =>
+        RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "libMetreja.Profiler.dylib" : "Metreja.Profiler.dll";
 
     public static string? GetDefaultProfilerPath()
     {

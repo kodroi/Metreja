@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include "ConfigReader.h"
+#include "platform/pal_threading.h"
 
 class MethodCache;
 class CallStackManager;
@@ -19,5 +20,5 @@ struct ProfilerContext
     std::unique_ptr<CallStackManager> callStackManager;
     std::unique_ptr<NdjsonWriter> ndjsonWriter;
     std::unique_ptr<StatsAggregator> statsAggregator;
-    HANDLE m_manualFlushEvent = nullptr;
+    PalNamedSemaphore m_manualFlushEvent = PAL_INVALID_SEMAPHORE;
 };

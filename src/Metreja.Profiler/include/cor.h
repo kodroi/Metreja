@@ -13,8 +13,10 @@
 
 //*****************************************************************************
 // Required includes
+#ifdef _WIN32
 #include <ole2.h>                       // Definitions of OLE types.
 #include <specstrings.h>
+#endif
 #include "corerror.h"
 
 //*****************************************************************************

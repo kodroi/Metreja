@@ -3,10 +3,9 @@
 #include "NdjsonWriter.h"
 
 #include <algorithm>
-#include <process.h>
 
 StatsAggregator::StatsAggregator()
-    : m_tlsIndex(TlsAlloc())
+    : m_tlsIndex(PalTlsAlloc())
 {
 }
 
@@ -16,8 +15,8 @@ StatsAggregator::~StatsAggregator()
 
     // ThreadStats objects are leaked intentionally (same pattern as CallStack).
     // Process is shutting down anyway.
-    if (m_tlsIndex != TLS_OUT_OF_INDEXES)
-        TlsFree(m_tlsIndex);
+    if (m_tlsIndex != PAL_TLS_INVALID)
+        PalTlsFree(m_tlsIndex);
 }
 
 void StatsAggregator::RecordMethod(FunctionID functionId, long long inclusiveNs, long long selfNs)
@@ -131,17 +130,17 @@ void StatsAggregator::Flush(NdjsonWriter& writer, MethodCache& cache)
 }
 
 void StatsAggregator::StartPeriodicFlush(int intervalSeconds, NdjsonWriter* writer, MethodCache* cache,
-                                         HANDLE manualFlushEvent)
+                                         PalNamedSemaphore manualFlushEvent)
 {
     if (writer == nullptr || cache == nullptr)
         return;
 
     // Nothing to do if neither periodic nor manual flush is requested
-    if (intervalSeconds <= 0 && manualFlushEvent == nullptr)
+    if (intervalSeconds <= 0 && manualFlushEvent == PAL_INVALID_SEMAPHORE)
         return;
 
     // Prevent double-start: if already running, bail out
-    if (m_flushThread != nullptr)
+    if (m_flushThread != PAL_INVALID_THREAD)
         return;
 
     m_flushIntervalSeconds = intervalSeconds;
@@ -149,86 +148,118 @@ void StatsAggregator::StartPeriodicFlush(int intervalSeconds, NdjsonWriter* writ
     m_cache = cache;
     m_manualFlushEvent = manualFlushEvent;
 
-    m_shutdownEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-    if (m_shutdownEvent == nullptr)
+    m_shutdownEvent = PalCreateEvent(true, false); // manual-reset, initially non-signaled
+    if (m_shutdownEvent == PAL_INVALID_EVENT)
         return;
 
-    unsigned threadId = 0;
-    m_flushThread = reinterpret_cast<HANDLE>(_beginthreadex(nullptr, 0, FlushThreadProc, this, 0, &threadId));
-    if (m_flushThread == nullptr)
+    m_flushThread = PalCreateThreadUnified(FlushThreadProc, this);
+    if (m_flushThread == PAL_INVALID_THREAD)
     {
-        CloseHandle(m_shutdownEvent);
-        m_shutdownEvent = nullptr;
+        PalCloseEvent(m_shutdownEvent);
+        m_shutdownEvent = PAL_INVALID_EVENT;
     }
 }
 
 void StatsAggregator::StopPeriodicFlush()
 {
-    if (m_shutdownEvent != nullptr)
-        SetEvent(m_shutdownEvent);
+    if (m_shutdownEvent != PAL_INVALID_EVENT)
+        PalSetEvent(m_shutdownEvent);
 
-    if (m_flushThread != nullptr)
+    if (m_flushThread != PAL_INVALID_THREAD)
     {
-        WaitForSingleObject(m_flushThread, INFINITE);
-        CloseHandle(m_flushThread);
-        m_flushThread = nullptr;
+        PalJoinThread(m_flushThread);
+        m_flushThread = PAL_INVALID_THREAD;
     }
 
-    if (m_shutdownEvent != nullptr)
+    if (m_shutdownEvent != PAL_INVALID_EVENT)
     {
-        CloseHandle(m_shutdownEvent);
-        m_shutdownEvent = nullptr;
+        PalCloseEvent(m_shutdownEvent);
+        m_shutdownEvent = PAL_INVALID_EVENT;
     }
 }
 
-unsigned __stdcall StatsAggregator::FlushThreadProc(void* param)
+void* StatsAggregator::FlushThreadProc(void* param)
 {
     auto* self = static_cast<StatsAggregator*>(param);
     DWORD intervalMs =
         (self->m_flushIntervalSeconds > 0) ? static_cast<DWORD>(self->m_flushIntervalSeconds) * 1000 : INFINITE;
+    DWORD elapsedPollMs = 0;
 
-    // Build event array: [shutdown, manualFlush (optional)]
-    HANDLE events[2] = {self->m_shutdownEvent, nullptr};
-    DWORD eventCount = 1;
-    if (self->m_manualFlushEvent != nullptr)
-    {
-        events[eventCount] = self->m_manualFlushEvent;
-        eventCount++;
-    }
+    // Build wait set for PalWaitMultiple (handles shutdown + timeout)
+    PalWaitSet ws;
+    ws.shutdownEvent = self->m_shutdownEvent;
+    ws.manualFlushEvent = PAL_INVALID_EVENT;
+    ws.intervalMs = intervalMs;
 
     while (true)
     {
-        DWORD result = WaitForMultipleObjects(eventCount, events, FALSE, intervalMs);
-        if (result == WAIT_OBJECT_0)
-            break; // Shutdown signaled
+        // Check for manual flush signal via named semaphore (non-blocking)
+        bool manualFlush = PalTryWaitNamedSemaphore(self->m_manualFlushEvent);
+        if (manualFlush)
+        {
+            // Flush immediately without waiting
+            std::unordered_map<FunctionID, MethodStatsAccum> methods;
+            std::unordered_map<std::string, ExceptionStatsAccum> exceptions;
+            self->CollectDeltaStats(methods, exceptions);
+            self->WriteMergedStats(*self->m_writer, *self->m_cache, methods, exceptions);
+            self->m_writer->Flush();
+            elapsedPollMs = 0;
+            continue;
+        }
 
-        // Only flush on timeout (periodic) or manual flush signal
-        if (result != WAIT_TIMEOUT && !(result > WAIT_OBJECT_0 && result < WAIT_OBJECT_0 + eventCount))
-            break; // WAIT_FAILED or unexpected — exit loop to avoid tight spin
+        // Wait for shutdown or periodic timeout (poll named semaphore via short timeout)
+        PalWaitSet pollWs = ws;
+        if (self->m_manualFlushEvent != PAL_INVALID_SEMAPHORE)
+        {
+            // Use short poll interval so we notice manual flush signals promptly
+            DWORD pollMs = 250;
+            pollWs.intervalMs = (intervalMs == INFINITE) ? pollMs : (intervalMs < pollMs ? intervalMs : pollMs);
+        }
 
-        // Timeout (periodic) or manual flush signal — flush delta stats
+        PalWaitResult result = PalWaitMultiple(pollWs);
+        if (result == PalWaitResult::Shutdown)
+            break;
+        if (result == PalWaitResult::Error)
+            break;
+
+        // On timeout: check if it's a real periodic timeout or just a poll cycle
+        if (result == PalWaitResult::Timeout && self->m_manualFlushEvent != PAL_INVALID_SEMAPHORE &&
+            pollWs.intervalMs != intervalMs)
+        {
+            if (intervalMs == INFINITE)
+                continue; // Periodic disabled; only manual flush triggers output
+            elapsedPollMs += pollWs.intervalMs;
+            if (elapsedPollMs < intervalMs)
+                continue; // Full periodic interval not yet reached
+            elapsedPollMs = 0;
+        }
+
+        // Flush delta stats
         std::unordered_map<FunctionID, MethodStatsAccum> methods;
         std::unordered_map<std::string, ExceptionStatsAccum> exceptions;
         self->CollectDeltaStats(methods, exceptions);
-        self->WriteMergedStats(*self->m_writer, *self->m_cache, methods, exceptions);
-        self->m_writer->Flush();
+        if (!methods.empty() || !exceptions.empty())
+        {
+            self->WriteMergedStats(*self->m_writer, *self->m_cache, methods, exceptions);
+            self->m_writer->Flush();
+        }
     }
 
-    return 0;
+    return nullptr;
 }
 
 ThreadStats* StatsAggregator::GetOrCreateThreadStats()
 {
-    if (m_tlsIndex == TLS_OUT_OF_INDEXES)
+    if (m_tlsIndex == PAL_TLS_INVALID)
         return nullptr;
 
-    auto* stats = static_cast<ThreadStats*>(TlsGetValue(m_tlsIndex));
+    auto* stats = static_cast<ThreadStats*>(PalTlsGetValue(m_tlsIndex));
     if (stats == nullptr)
     {
         stats = new (std::nothrow) ThreadStats();
         if (stats != nullptr)
         {
-            TlsSetValue(m_tlsIndex, stats);
+            PalTlsSetValue(m_tlsIndex, stats);
             std::lock_guard<std::mutex> lock(m_registryMutex);
             m_allThreadStats.push_back(stats);
         }

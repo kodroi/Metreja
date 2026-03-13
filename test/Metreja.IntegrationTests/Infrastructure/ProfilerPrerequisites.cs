@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace Metreja.IntegrationTests.Infrastructure;
 
 public static class ProfilerPrerequisites
@@ -16,11 +18,21 @@ public static class ProfilerPrerequisites
             "Could not find Metreja.sln by walking up from " + AppContext.BaseDirectory);
     }
 
-    public static string GetProfilerDllPath(string solutionRoot) =>
-        Path.Combine(solutionRoot, "bin", "Release", "Metreja.Profiler.dll");
+    public static string GetProfilerDllPath(string solutionRoot)
+    {
+        var fileName = RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
+            ? "libMetreja.Profiler.dylib"
+            : "Metreja.Profiler.dll";
+        return Path.Combine(solutionRoot, "bin", "Release", fileName);
+    }
 
-    public static string GetTestAppPath(string solutionRoot) =>
-        Path.Combine(solutionRoot, "test", "Metreja.TestApp", "bin", "Release", "net10.0", "Metreja.TestApp.exe");
+    public static string GetTestAppPath(string solutionRoot)
+    {
+        var fileName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? "Metreja.TestApp.exe"
+            : "Metreja.TestApp";
+        return Path.Combine(solutionRoot, "test", "Metreja.TestApp", "bin", "Release", "net10.0", fileName);
+    }
 
     public static string? GetSkipReason(string solutionRoot)
     {

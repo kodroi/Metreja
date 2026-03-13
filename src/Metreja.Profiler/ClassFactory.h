@@ -1,7 +1,6 @@
 #pragma once
 
-#include <Windows.h>
-#include <unknwn.h>
+#include "include/profiling.h"
 #include <atomic>
 
 class ClassFactory final : public IClassFactory

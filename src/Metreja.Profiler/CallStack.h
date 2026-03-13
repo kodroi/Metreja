@@ -1,6 +1,8 @@
 #pragma once
 
-#include <Windows.h>
+#include "include/profiling.h"
+#include "platform/pal_threading.h"
+#include "platform/pal_time.h"
 #include <atomic>
 #include <mutex>
 #include <vector>
@@ -52,7 +54,7 @@ public:
 private:
     ThreadCallStack* GetOrCreateStack();
 
-    DWORD m_tlsIndex;
+    PalTlsIndex m_tlsIndex;
     static std::atomic<long long> s_frequency;
     static std::once_flag s_frequencyOnce;
 };

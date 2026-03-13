@@ -9,9 +9,16 @@ Metreja is a .NET Call-Path Profiler: a native C++ DLL implementing ICorProfiler
 ## Build Commands
 
 ```bash
-# Build projects
+# Build CLI (all platforms)
 dotnet build src/Metreja.Tool/Metreja.Tool.csproj -c Release
+
+# Build profiler — Windows (x64)
 msbuild src/Metreja.Profiler/Metreja.Profiler.vcxproj /p:Configuration=Release /p:Platform=x64 "/p:SolutionDir=%CD%\\"
+
+# Build profiler — macOS (ARM64, via CMake)
+scripts/build-macos.sh
+# Or manually:
+cd src/Metreja.Profiler && cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build
 
 # Run integration tests
 dotnet test test/Metreja.IntegrationTests/Metreja.IntegrationTests.csproj -c Release
@@ -20,16 +27,19 @@ dotnet test test/Metreja.IntegrationTests/Metreja.IntegrationTests.csproj -c Rel
 dotnet test test/Metreja.IntegrationTests/Metreja.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~SyncCallPathTests"
 
 # Format C++ code
-scripts/format-cpp.bat
+scripts/format-cpp.bat   # Windows
+scripts/format-cpp.sh    # macOS/Linux
 ```
 
-Build outputs: CLI at `src/Metreja.Tool/bin/Release/net10.0/metreja.exe`, profiler DLL at `bin/Release/Metreja.Profiler.dll`.
+Build outputs:
+- **Windows:** CLI at `src/Metreja.Tool/bin/Release/net10.0/metreja.exe`, profiler DLL at `bin/Release/Metreja.Profiler.dll`
+- **macOS:** CLI at `src/Metreja.Tool/bin/Release/net10.0/metreja`, profiler dylib at `bin/Release/libMetreja.Profiler.dylib`
 
 ## Architecture
 
 **Two-component system:**
 
-1. **Metreja.Profiler** (`src/Metreja.Profiler/`) — Native C++ DLL (vcxproj, v143 toolset, C++20, x64 only, MASM assembly helpers). Implements COM class factory with CLSID `{7C8F944B-4810-4999-BF98-6A3361185FC2}`. Attaches to .NET runtime via `COR_PROFILER` environment variables, hooks method enter/leave via ELT3, writes NDJSON traces.
+1. **Metreja.Profiler** (`src/Metreja.Profiler/`) — Native C++ library (vcxproj on Windows x64 / CMake on macOS ARM64, C++20). Windows uses MASM assembly helpers (`amd64/asmhelpers.asm`), macOS uses GAS (`arm64/asmhelpers.S`). Platform abstraction via `platform/pal*.h` headers. Implements COM class factory with CLSID `{7C8F944B-4810-4999-BF98-6A3361185FC2}`. Attaches to .NET runtime via `COR_PROFILER` environment variables, hooks method enter/leave via ELT3, writes NDJSON traces.
 
 2. **Metreja.Tool** (`src/Metreja.Tool/`) — C# CLI targeting net8.0/net9.0/net10.0. Uses System.CommandLine 2.0.3. Session-based: configs stored in `.metreja/sessions/{sessionId}.json`. Commands split across `Commands/` (session management) and `Analysis/` (hotspots, calltree, callers, memory, diff).
 
@@ -62,7 +72,7 @@ Events written by the profiler DLL (controlled by `set events` command):
 
 **Husky.Net** manages git hooks (`.husky/`). Auto-installed on `dotnet restore` via `Directory.Build.targets`. The pre-commit hook runs `.husky/clang-format-check.sh` on staged `*.cpp`/`*.h` files — fails the commit if formatting differs from `.clang-format`.
 
-**CI** (`.github/workflows/build-and-test.yml`): builds both components, runs clang-tidy on C++ sources, builds TestApp, runs integration tests. Set `HUSKY=0` to skip hook installation in CI.
+**CI** (`.github/workflows/build-and-test.yml`): two jobs — `build-windows` (msbuild + clang-tidy + tests) and `build-macos` (CMake + tests, `continue-on-error: true`). Set `HUSKY=0` to skip hook installation in CI.
 
 ## Snapshot Testing Workflow
 
@@ -95,6 +105,13 @@ GitVersion (ContinuousDeployment mode) drives semver. Bump via commit messages: 
 
 ## Prerequisites
 
-- Windows 10/11 (profiler is x64/Windows-only)
+**Windows:**
+- Windows 10/11
 - Visual Studio 2022 Build Tools with "Desktop development with C++" workload
+- .NET 10 SDK (multi-targets 8/9/10)
+
+**macOS:**
+- macOS 14+ (Apple Silicon / ARM64)
+- Xcode Command Line Tools (provides clang++)
+- CMake (`brew install cmake`)
 - .NET 10 SDK (multi-targets 8/9/10)

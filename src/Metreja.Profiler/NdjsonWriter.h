@@ -1,6 +1,7 @@
 #pragma once
 
-#include <Windows.h>
+#include "include/profiling.h"
+#include "platform/pal_io.h"
 #include <atomic>
 #include <cstdint>
 #include <string>
@@ -42,7 +43,7 @@ private:
     size_t m_bufferPos;
     int64_t m_maxEvents;
     std::atomic<int64_t> m_eventCount;
-    HANDLE m_fileHandle;
+    PalFileHandle m_fileHandle;
     std::mutex m_mutex;
     std::string m_sessionId;
     DWORD m_pid;

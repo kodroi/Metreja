@@ -135,7 +135,7 @@ extern "C" void STDMETHODCALLTYPE EnterStub(FunctionIDOrClientID functionIDOrCli
 extern "C" void STDMETHODCALLTYPE LeaveStub(FunctionIDOrClientID functionIDOrClientID, COR_PRF_ELT_INFO eltInfo);
 extern "C" void STDMETHODCALLTYPE TailcallStub(FunctionIDOrClientID functionIDOrClientID, COR_PRF_ELT_INFO eltInfo);
 
-// Assembly naked hooks (defined in amd64/asmhelpers.asm)
+// Assembly naked hooks (amd64/asmhelpers.asm on Windows, arm64/asmhelpers.S on macOS)
 extern "C" void EnterNaked(FunctionIDOrClientID functionIDOrClientID, COR_PRF_ELT_INFO eltInfo);
 extern "C" void LeaveNaked(FunctionIDOrClientID functionIDOrClientID, COR_PRF_ELT_INFO eltInfo);
 extern "C" void TailcallNaked(FunctionIDOrClientID functionIDOrClientID, COR_PRF_ELT_INFO eltInfo);
