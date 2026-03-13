@@ -35,13 +35,43 @@ Build outputs: CLI at `src/Metreja.Tool/bin/Release/net10.0/metreja.exe`, profil
 
 **Data flow:** CLI creates session config → `generate-env` sets profiler env vars → profiled app loads DLL → DLL writes NDJSON → CLI analysis commands read NDJSON.
 
-**Tests** (`test/Metreja.IntegrationTests/`) — XUnit + Verify.Xunit snapshot testing. `ProfilerRunner` spawns `Metreja.TestApp` under the profiler, captures NDJSON, normalizes events, verifies against `Snapshots/` files.
+**C++ global context:** The profiler uses a global `g_ctx` (`ProfilerContext*`) because ELT3 callbacks are bare function pointers with no `this`. `ProfilerContext` owns `MethodCache`, `CallStackManager`, `NdjsonWriter`, and `StatsAggregator`. Published atomically in `Profiler::Initialize()`.
+
+**Config delivery to the DLL:** The CLI writes session JSON to `.metreja/sessions/{id}.json`, then `generate-env` sets `METREJA_CONFIG` env var pointing to that file. `ConfigReader` in the DLL reads this on `Initialize()`.
+
+**Tests** (`test/Metreja.IntegrationTests/`) — XUnit + Verify.Xunit snapshot testing. `ProfilerRunner` spawns `Metreja.TestApp` under the profiler, captures NDJSON, normalizes events via `TraceNormalizer` (maps real thread IDs → `Thread-N`), verifies against `Snapshots/*.verified.txt` files. `Metreja.Tool` has `InternalsVisibleTo: Metreja.IntegrationTests` for analysis command testing.
+
+## NDJSON Event Types
+
+Events written by the profiler DLL (controlled by `set events` command):
+
+- `session_metadata` — emitted once at start (scenario, sessionId, pid)
+- `enter` / `leave` — method entry/exit with tsNs, tid, depth, deltaNs (on leave)
+- `exception` — exception thrown (exType, method info)
+- `gc_started` / `gc_finished` — GC events by generation
+- `alloc_by_class` — per-type allocation counts
+- `method_stats` / `exception_stats` — periodic aggregated statistics
 
 ## Code Style
 
 **C#:** Warnings as errors, `AnalysisLevel: latest-recommended`, nullable enabled, file-scoped namespaces, Allman braces, 4-space indent. Private fields: `_camelCase`. Private methods go after public ones.
 
 **C++:** Microsoft-based style via `.clang-format` (Allman braces, 120 col limit, 4-space indent). Member vars: `m_` prefix, statics: `s_`, globals: `g_`, constants: `UPPER_CASE`. Pre-commit hook enforces clang-format on staged `.cpp`/`.h` files.
+
+## Pre-commit Hooks & CI
+
+**Husky.Net** manages git hooks (`.husky/`). Auto-installed on `dotnet restore` via `Directory.Build.targets`. The pre-commit hook runs `.husky/clang-format-check.sh` on staged `*.cpp`/`*.h` files — fails the commit if formatting differs from `.clang-format`.
+
+**CI** (`.github/workflows/build-and-test.yml`): builds both components, runs clang-tidy on C++ sources, builds TestApp, runs integration tests. Set `HUSKY=0` to skip hook installation in CI.
+
+## Snapshot Testing Workflow
+
+Tests use Verify.Xunit: actual output compared against `*.verified.txt` files in `test/Metreja.IntegrationTests/Snapshots/`. When test behavior changes intentionally:
+
+1. Run the failing test — Verify writes `*.received.txt` next to the verified file
+2. Diff the received vs verified output
+3. If the change is correct, replace the `.verified.txt` content with the `.received.txt` content
+4. Commit the updated snapshot
 
 ## Versioning
 
@@ -60,6 +90,8 @@ GitVersion (ContinuousDeployment mode) drives semver. Bump via commit messages: 
 - `_CRT_SECURE_NO_WARNINGS` needed in vcxproj for fopen/snprintf
 - vcxproj OutDir must use `$(SolutionDir)\bin\` (backslash) to avoid path concatenation bug
 - System.CommandLine 2.0.3 stable API: `Subcommands.Add`, `SetAction`, `ParseResult.InvokeAsync`
+- C++ async state machine detection: `MethodCache` detects `MoveNext` on `IAsyncStateMachine` implementors and unwraps to the original method name
+- Per-thread call stacks use TLS — `CallStackManager` maintains deferred unwind state for exception handling
 
 ## Prerequisites
 
