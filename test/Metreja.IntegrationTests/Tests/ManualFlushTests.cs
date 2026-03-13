@@ -101,6 +101,8 @@ public class ManualFlushTests
                     await Task.Delay(200);
                 }
             }
+
+            throw new InvalidOperationException($"Failed to open EventWaitHandle '{eventName}' after {maxRetries} retries");
         }
         else
         {

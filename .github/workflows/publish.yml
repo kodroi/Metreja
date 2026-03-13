@@ -44,6 +44,7 @@ jobs:
         with:
           workflow: build-and-test.yml
           branch: main
+          commit: ${{ github.sha }}
           name: profiler-windows
           path: bin/Release
 
@@ -52,6 +53,7 @@ jobs:
         with:
           workflow: build-and-test.yml
           branch: main
+          commit: ${{ github.sha }}
           name: profiler-macos
           path: bin/Release
 
@@ -74,7 +76,8 @@ jobs:
         run: |
           for f in artifacts/*.nupkg; do
             echo "=== $f ==="
-            unzip -l "$f" | grep -E "(Profiler\.dll|Profiler\.dylib)"
+            unzip -l "$f" | grep -q "Metreja\.Profiler\.dll"
+            unzip -l "$f" | grep -q "libMetreja\.Profiler\.dylib"
           done
 
       - name: Push to NuGet.org

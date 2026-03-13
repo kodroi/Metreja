@@ -183,6 +183,7 @@ void* StatsAggregator::FlushThreadProc(void* param)
     auto* self = static_cast<StatsAggregator*>(param);
     DWORD intervalMs =
         (self->m_flushIntervalSeconds > 0) ? static_cast<DWORD>(self->m_flushIntervalSeconds) * 1000 : INFINITE;
+    DWORD elapsedPollMs = 0;
 
     // Build wait set for PalWaitMultiple (handles shutdown + timeout)
     PalWaitSet ws;
@@ -202,6 +203,7 @@ void* StatsAggregator::FlushThreadProc(void* param)
             self->CollectDeltaStats(methods, exceptions);
             self->WriteMergedStats(*self->m_writer, *self->m_cache, methods, exceptions);
             self->m_writer->Flush();
+            elapsedPollMs = 0;
             continue;
         }
 
@@ -224,9 +226,12 @@ void* StatsAggregator::FlushThreadProc(void* param)
         if (result == PalWaitResult::Timeout && self->m_manualFlushEvent != PAL_INVALID_SEMAPHORE &&
             pollWs.intervalMs != intervalMs)
         {
-            // This was a short poll cycle — only flush if the full periodic interval has elapsed
             if (intervalMs == INFINITE)
                 continue; // Periodic disabled; only manual flush triggers output
+            elapsedPollMs += pollWs.intervalMs;
+            if (elapsedPollMs < intervalMs)
+                continue; // Full periodic interval not yet reached
+            elapsedPollMs = 0;
         }
 
         // Flush delta stats
