@@ -67,8 +67,11 @@ public static class CallTreeAnalyzer
             }
             else if (eventType == "leave")
             {
-                var depth = stack.Count > 0 ? stack.Count - 1 : 0;
-                if (stack.Count > 0) stack.Pop();
+                var depth = root.TryGetProperty("depth", out var dp) ? dp.GetInt32() : (stack.Count > 0 ? stack.Count - 1 : 0);
+                if (stack.Count > 0)
+                {
+                    stack.Pop();
+                }
 
                 var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
                 var deltaNs = root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0;

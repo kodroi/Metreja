@@ -82,7 +82,7 @@ internal static class AnalyzerHelpers
                 if (string.IsNullOrWhiteSpace(eventType))
                     continue;
 
-                yield return (eventType, doc.RootElement);
+                yield return (eventType, doc.RootElement.Clone());
             }
         }
     }
@@ -91,6 +91,11 @@ internal static class AnalyzerHelpers
     {
         foreach (var filter in filters)
         {
+            if (string.IsNullOrWhiteSpace(filter))
+            {
+                continue;
+            }
+
             if (MatchesPattern(filter, ns, cls, method) ||
                 fullKey.Contains(filter, StringComparison.OrdinalIgnoreCase))
             {
@@ -105,8 +110,15 @@ internal static class AnalyzerHelpers
     {
         foreach (var filter in filters)
         {
+            if (string.IsNullOrWhiteSpace(filter))
+            {
+                continue;
+            }
+
             if (className.Contains(filter, StringComparison.OrdinalIgnoreCase))
+            {
                 return true;
+            }
         }
 
         return false;
