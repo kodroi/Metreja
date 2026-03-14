@@ -17,7 +17,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Verify.Xunit" Version="28.*" />
+    <PackageReference Include="Verify.Xunit" Version="31.*" />
   </ItemGroup>
 
   <ItemGroup>
