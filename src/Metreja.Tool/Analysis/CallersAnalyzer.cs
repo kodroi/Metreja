@@ -44,59 +44,43 @@ public static class CallersAnalyzer
         var threadStacks = new Dictionary<long, Stack<string>>();
         var totalCalls = 0;
 
-        await foreach (var line in File.ReadLinesAsync(filePath))
+        await foreach (var (eventType, root) in AnalyzerHelpers.StreamEventsAsync(filePath))
         {
-            if (string.IsNullOrWhiteSpace(line)) continue;
+            var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
+            var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
+            var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
 
-            try
+            if (!threadStacks.TryGetValue(tid, out var stack))
             {
-                using var doc = JsonDocument.Parse(line);
-                var root = doc.RootElement;
-
-                if (!root.TryGetProperty("event", out var eventProp))
-                    continue;
-
-                var eventType = eventProp.GetString();
-                var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
-                var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
-                var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
-
-                if (!threadStacks.TryGetValue(tid, out var stack))
-                {
-                    stack = new Stack<string>();
-                    threadStacks[tid] = stack;
-                }
-
-                if (eventType == "enter")
-                {
-                    stack.Push(key);
-                }
-                else if (eventType == "leave")
-                {
-                    if (stack.Count > 0) stack.Pop();
-
-                    if (AnalyzerHelpers.MatchesPattern(methodPattern, ns, cls, m))
-                    {
-                        totalCalls++;
-                        var deltaNs = root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0;
-
-                        var callerKey = stack.Count > 0 ? stack.Peek() : "<root>";
-
-                        if (!callerStats.TryGetValue(callerKey, out var cs))
-                        {
-                            cs = new CallerStats();
-                            callerStats[callerKey] = cs;
-                        }
-
-                        cs.Count++;
-                        cs.TotalNs += deltaNs;
-                        if (deltaNs > cs.MaxNs) cs.MaxNs = deltaNs;
-                    }
-                }
+                stack = new Stack<string>();
+                threadStacks[tid] = stack;
             }
-            catch (JsonException)
+
+            if (eventType == "enter")
             {
-                // Skip malformed lines
+                stack.Push(key);
+            }
+            else if (eventType == "leave")
+            {
+                if (stack.Count > 0) stack.Pop();
+
+                if (AnalyzerHelpers.MatchesPattern(methodPattern, ns, cls, m))
+                {
+                    totalCalls++;
+                    var deltaNs = root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0;
+
+                    var callerKey = stack.Count > 0 ? stack.Peek() : "<root>";
+
+                    if (!callerStats.TryGetValue(callerKey, out var cs))
+                    {
+                        cs = new CallerStats();
+                        callerStats[callerKey] = cs;
+                    }
+
+                    cs.Count++;
+                    cs.TotalNs += deltaNs;
+                    if (deltaNs > cs.MaxNs) cs.MaxNs = deltaNs;
+                }
             }
         }
 

@@ -1,13 +1,6 @@
 #include "MethodCache.h"
+#include "StringUtils.h"
 #include "platform/pal_io.h"
-
-static size_t FindLastPathSeparator(const std::string& path)
-{
-    size_t pos = path.rfind('\\');
-    if (pos == std::string::npos)
-        pos = path.rfind('/');
-    return pos;
-}
 
 MethodCache::MethodCache(ICorProfilerInfo3* profilerInfo, const ProfilerConfig& config)
     : m_profilerInfo(profilerInfo)

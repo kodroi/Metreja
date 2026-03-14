@@ -7,11 +7,7 @@ public static class SetCommand
 {
     public static Command Create()
     {
-        var sessionOption = new Option<string>("--session", "-s")
-        {
-            Description = "Session ID",
-            Required = true
-        };
+        var sessionOption = SharedOptions.SessionOption();
 
         var command = new Command("set", "Set session configuration values");
 
@@ -189,7 +185,7 @@ public static class SetCommand
     private static async Task SetConfigPropertyAsync(
         string session, Func<ProfilerConfig, ProfilerConfig> transform, string confirmationDetail)
     {
-        var manager = new ConfigManager();
+        var manager = ConfigManager.Default;
         var config = await manager.LoadConfigAsync(session);
         await manager.SaveConfigAsync(session, transform(config));
         Console.WriteLine($"Set {confirmationDetail} for session {session}");

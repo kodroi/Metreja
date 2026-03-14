@@ -8,11 +8,7 @@ public static class RunCommand
 {
     public static Command Create()
     {
-        var sessionOption = new Option<string>("--session", "-s")
-        {
-            Description = "Session ID for profiler config",
-            Required = true
-        };
+        var sessionOption = SharedOptions.SessionOption();
 
         var detachOption = new Option<bool>("--detach")
         {
@@ -44,16 +40,12 @@ public static class RunCommand
             var extraArgs = parseResult.GetValue(extraArgsArgument) ?? [];
 
             // 1. Resolve profiler DLL
-            var profilerPath = ProfilerLocator.GetDefaultProfilerPath();
-            if (string.IsNullOrEmpty(profilerPath) || !File.Exists(profilerPath))
-            {
-                Console.Error.WriteLine("Error: Profiler DLL not found. Ensure Metreja.Profiler.dll is adjacent to the CLI assembly.");
+            var absoluteDllPath = ProfilerLocator.ResolveProfilerPath();
+            if (absoluteDllPath is null)
                 return 1;
-            }
-            var absoluteDllPath = Path.GetFullPath(profilerPath);
 
             // 2. Resolve session config
-            var manager = new ConfigManager();
+            var manager = ConfigManager.Default;
             var configPath = manager.GetSessionPath(session);
             if (!File.Exists(configPath))
             {

@@ -19,6 +19,13 @@ struct MethodInfo
     bool isIncluded = false;
     bool isAsyncStateMachine = false;
     std::string originalMethodName;
+
+    const char* GetDisplayName() const
+    {
+        return isAsyncStateMachine && !originalMethodName.empty()
+                   ? originalMethodName.c_str()
+                   : methodName.c_str();
+    }
 };
 
 class MethodCache

@@ -48,59 +48,43 @@ public static class CallTreeAnalyzer
         var occurrences = new List<Occurrence>();
         var threadStacks = new Dictionary<long, Stack<int>>();
 
-        await foreach (var line in File.ReadLinesAsync(filePath))
+        await foreach (var (eventType, root) in AnalyzerHelpers.StreamEventsAsync(filePath))
         {
-            if (string.IsNullOrWhiteSpace(line)) continue;
+            var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
 
-            try
+            if (tidFilter.HasValue && tid != tidFilter.Value)
+                continue;
+
+            if (!threadStacks.TryGetValue(tid, out var stack))
             {
-                using var doc = JsonDocument.Parse(line);
-                var root = doc.RootElement;
-
-                if (!root.TryGetProperty("event", out var eventProp))
-                    continue;
-
-                var eventType = eventProp.GetString();
-                var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
-
-                if (tidFilter.HasValue && tid != tidFilter.Value)
-                    continue;
-
-                if (!threadStacks.TryGetValue(tid, out var stack))
-                {
-                    stack = new Stack<int>();
-                    threadStacks[tid] = stack;
-                }
-
-                if (eventType == "enter")
-                {
-                    stack.Push(stack.Count);
-                }
-                else if (eventType == "leave")
-                {
-                    var depth = stack.Count > 0 ? stack.Count - 1 : 0;
-                    if (stack.Count > 0) stack.Pop();
-
-                    var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
-                    var deltaNs = root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0;
-                    var tsNs = root.TryGetProperty("tsNs", out var ts) ? ts.GetInt64() : 0;
-
-                    if (AnalyzerHelpers.MatchesPattern(methodPattern, ns, cls, m))
-                    {
-                        occurrences.Add(new Occurrence
-                        {
-                            Tid = tid,
-                            Depth = depth,
-                            EnterTsNs = tsNs - deltaNs,
-                            LeaveTsNs = tsNs,
-                            DeltaNs = deltaNs
-                        });
-                    }
-                }
+                stack = new Stack<int>();
+                threadStacks[tid] = stack;
             }
-            catch (JsonException)
+
+            if (eventType == "enter")
             {
-                // Skip malformed lines
+                stack.Push(stack.Count);
+            }
+            else if (eventType == "leave")
+            {
+                var depth = stack.Count > 0 ? stack.Count - 1 : 0;
+                if (stack.Count > 0) stack.Pop();
+
+                var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
+                var deltaNs = root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0;
+                var tsNs = root.TryGetProperty("tsNs", out var ts) ? ts.GetInt64() : 0;
+
+                if (AnalyzerHelpers.MatchesPattern(methodPattern, ns, cls, m))
+                {
+                    occurrences.Add(new Occurrence
+                    {
+                        Tid = tid,
+                        Depth = depth,
+                        EnterTsNs = tsNs - deltaNs,
+                        LeaveTsNs = tsNs,
+                        DeltaNs = deltaNs
+                    });
+                }
             }
         }
 
@@ -114,76 +98,60 @@ public static class CallTreeAnalyzer
         // Stack of entries by depth for attaching leave timing
         var depthStack = new Stack<DisplayEntry>();
 
-        await foreach (var line in File.ReadLinesAsync(filePath))
+        await foreach (var (eventType, root) in AnalyzerHelpers.StreamEventsAsync(filePath))
         {
-            if (string.IsNullOrWhiteSpace(line)) continue;
+            var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
 
-            try
+            if (tid != target.Tid) continue;
+
+            var tsNs = root.TryGetProperty("tsNs", out var ts) ? ts.GetInt64() : 0;
+
+            if (eventType == "enter")
             {
-                using var doc = JsonDocument.Parse(line);
-                var root = doc.RootElement;
+                var depth = root.TryGetProperty("depth", out var dp) ? dp.GetInt32() : 0;
 
-                if (!root.TryGetProperty("event", out var eventProp))
-                    continue;
-
-                var eventType = eventProp.GetString();
-                var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
-
-                if (tid != target.Tid) continue;
-
-                var tsNs = root.TryGetProperty("tsNs", out var ts) ? ts.GetInt64() : 0;
-
-                if (eventType == "enter")
+                // Detect start of our target subtree
+                if (!inSubtree && depth == target.Depth &&
+                    tsNs >= target.EnterTsNs && tsNs <= target.LeaveTsNs)
                 {
-                    var depth = root.TryGetProperty("depth", out var dp) ? dp.GetInt32() : 0;
-
-                    // Detect start of our target subtree
-                    if (!inSubtree && depth == target.Depth &&
-                        tsNs >= target.EnterTsNs && tsNs <= target.LeaveTsNs)
-                    {
-                        inSubtree = true;
-                    }
-
-                    if (inSubtree && depth >= target.Depth)
-                    {
-                        var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
-                        var isAsync = root.TryGetProperty("async", out var asyncProp) &&
-                                      asyncProp.ValueKind == JsonValueKind.True;
-                        var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
-
-                        var entry = new DisplayEntry
-                        {
-                            Depth = depth - target.Depth,
-                            Name = key,
-                            IsAsync = isAsync
-                        };
-                        entries.Add(entry);
-                        depthStack.Push(entry);
-                    }
+                    inSubtree = true;
                 }
-                else if (eventType == "leave" && inSubtree)
+
+                if (inSubtree && depth >= target.Depth)
                 {
-                    var deltaNs = root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0;
-                    var exType = root.TryGetProperty("ex", out var ex) ? ex.GetString() ?? "" : "";
+                    var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
+                    var isAsync = root.TryGetProperty("async", out var asyncProp) &&
+                                  asyncProp.ValueKind == JsonValueKind.True;
+                    var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
 
-                    if (depthStack.Count > 0)
+                    var entry = new DisplayEntry
                     {
-                        var entry = depthStack.Pop();
-                        entry.DeltaNs = deltaNs;
-                        entry.IsException = !string.IsNullOrEmpty(exType);
-                        entry.ExceptionType = exType;
-                    }
-
-                    // If we've popped back to the root of the subtree, we're done
-                    if (depthStack.Count == 0)
-                    {
-                        break;
-                    }
+                        Depth = depth - target.Depth,
+                        Name = key,
+                        IsAsync = isAsync
+                    };
+                    entries.Add(entry);
+                    depthStack.Push(entry);
                 }
             }
-            catch (JsonException)
+            else if (eventType == "leave" && inSubtree)
             {
-                // Skip malformed lines
+                var deltaNs = root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0;
+                var exType = root.TryGetProperty("ex", out var ex) ? ex.GetString() ?? "" : "";
+
+                if (depthStack.Count > 0)
+                {
+                    var entry = depthStack.Pop();
+                    entry.DeltaNs = deltaNs;
+                    entry.IsException = !string.IsNullOrEmpty(exType);
+                    entry.ExceptionType = exType;
+                }
+
+                // If we've popped back to the root of the subtree, we're done
+                if (depthStack.Count == 0)
+                {
+                    break;
+                }
             }
         }
 

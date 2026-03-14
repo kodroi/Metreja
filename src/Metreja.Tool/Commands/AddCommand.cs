@@ -7,11 +7,7 @@ public static class AddCommand
 {
     public static Command Create()
     {
-        var sessionOption = new Option<string>("--session", "-s")
-        {
-            Description = "Session ID",
-            Required = true
-        };
+        var sessionOption = SharedOptions.SessionOption();
 
         var command = new Command("add", "Add include or exclude filter rules");
 
@@ -82,7 +78,7 @@ public static class AddCommand
             var (values, level) = active[0];
             var rules = values.Select(v => new FilterRule { Level = level, Pattern = v }).ToList();
 
-            var manager = new ConfigManager();
+            var manager = ConfigManager.Default;
             var config = await manager.LoadConfigAsync(session);
 
             var updatedInstrumentation = name == "include"

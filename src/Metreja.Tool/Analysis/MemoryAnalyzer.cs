@@ -23,55 +23,38 @@ public static class MemoryAnalyzer
         var allocations = new Dictionary<string, long>();
         var hasFilters = filters.Length > 0;
 
-        await foreach (var line in File.ReadLinesAsync(filePath))
+        await foreach (var (eventType, root) in AnalyzerHelpers.StreamEventsAsync(filePath))
         {
-            if (string.IsNullOrWhiteSpace(line)) continue;
-
-            try
+            switch (eventType)
             {
-                using var doc = JsonDocument.Parse(line);
-                var root = doc.RootElement;
-
-                if (!root.TryGetProperty("event", out var eventProp))
-                    continue;
-
-                var eventType = eventProp.GetString();
-
-                switch (eventType)
+                case "gc_start":
                 {
-                    case "gc_start":
-                    {
-                        if (root.TryGetProperty("gen0", out var g0) && g0.GetBoolean()) gc.Gen0Count++;
-                        if (root.TryGetProperty("gen1", out var g1) && g1.GetBoolean()) gc.Gen1Count++;
-                        if (root.TryGetProperty("gen2", out var g2) && g2.GetBoolean()) gc.Gen2Count++;
-                        gc.TotalCount++;
-                        break;
-                    }
-                    case "gc_end":
-                    {
-                        var durationNs = root.TryGetProperty("durationNs", out var d) ? d.GetInt64() : 0;
-                        gc.TotalPauseNs += durationNs;
-                        if (durationNs > gc.MaxPauseNs) gc.MaxPauseNs = durationNs;
-                        break;
-                    }
-                    case "alloc_by_class":
-                    {
-                        var className = root.TryGetProperty("className", out var cn) ? cn.GetString() ?? "Unknown" : "Unknown";
-                        var count = root.TryGetProperty("count", out var c) ? c.GetInt64() : 0;
-
-                        if (hasFilters && !MatchesAnyFilter(filters, className))
-                            break;
-
-                        if (!allocations.TryGetValue(className, out var existing))
-                            existing = 0;
-                        allocations[className] = existing + count;
-                        break;
-                    }
+                    if (root.TryGetProperty("gen0", out var g0) && g0.GetBoolean()) gc.Gen0Count++;
+                    if (root.TryGetProperty("gen1", out var g1) && g1.GetBoolean()) gc.Gen1Count++;
+                    if (root.TryGetProperty("gen2", out var g2) && g2.GetBoolean()) gc.Gen2Count++;
+                    gc.TotalCount++;
+                    break;
                 }
-            }
-            catch (JsonException)
-            {
-                // Skip malformed lines
+                case "gc_end":
+                {
+                    var durationNs = root.TryGetProperty("durationNs", out var d) ? d.GetInt64() : 0;
+                    gc.TotalPauseNs += durationNs;
+                    if (durationNs > gc.MaxPauseNs) gc.MaxPauseNs = durationNs;
+                    break;
+                }
+                case "alloc_by_class":
+                {
+                    var className = root.TryGetProperty("className", out var cn) ? cn.GetString() ?? "Unknown" : "Unknown";
+                    var count = root.TryGetProperty("count", out var c) ? c.GetInt64() : 0;
+
+                    if (hasFilters && !AnalyzerHelpers.MatchesAnyFilter(filters, className))
+                        break;
+
+                    if (!allocations.TryGetValue(className, out var existing))
+                        existing = 0;
+                    allocations[className] = existing + count;
+                    break;
+                }
             }
         }
 
@@ -129,17 +112,6 @@ public static class MemoryAnalyzer
 
         Console.WriteLine($"  {new string('-', 65)}");
         Console.WriteLine($"  Showing top {sorted.Count} of {allocations.Count} types");
-    }
-
-    private static bool MatchesAnyFilter(string[] filters, string className)
-    {
-        foreach (var filter in filters)
-        {
-            if (className.Contains(filter, StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-
-        return false;
     }
 
     private sealed class GcSummary

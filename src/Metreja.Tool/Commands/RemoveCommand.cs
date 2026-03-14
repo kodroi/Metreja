@@ -7,11 +7,7 @@ public static class RemoveCommand
 {
     public static Command Create()
     {
-        var sessionOption = new Option<string>("--session", "-s")
-        {
-            Description = "Session ID",
-            Required = true
-        };
+        var sessionOption = SharedOptions.SessionOption();
 
         var command = new Command("remove", "Remove include or exclude filter rules");
 
@@ -66,7 +62,7 @@ public static class RemoveCommand
             var (pattern, level) = active[0];
             var rule = new FilterRule { Level = level, Pattern = pattern! };
 
-            var manager = new ConfigManager();
+            var manager = ConfigManager.Default;
             var config = await manager.LoadConfigAsync(session);
 
             var list = name == "include"
