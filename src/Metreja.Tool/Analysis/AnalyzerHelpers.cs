@@ -74,7 +74,9 @@ internal static class AnalyzerHelpers
                 if (doc.RootElement.ValueKind != JsonValueKind.Object ||
                     !doc.RootElement.TryGetProperty("event", out var eventProp) ||
                     eventProp.ValueKind != JsonValueKind.String)
+                {
                     continue;
+                }
 
                 var eventType = eventProp.GetString();
                 if (string.IsNullOrWhiteSpace(eventType))
