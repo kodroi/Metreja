@@ -42,38 +42,24 @@ public static class DiffAnalyzer
     {
         var timings = new Dictionary<string, long>();
 
-        await foreach (var line in File.ReadLinesAsync(path))
+        await foreach (var (eventType, root) in AnalyzerHelpers.StreamEventsAsync(path))
         {
-            if (string.IsNullOrWhiteSpace(line)) continue;
-
-            try
+            long? timing = eventType switch
             {
-                using var doc = JsonDocument.Parse(line);
-                var root = doc.RootElement;
+                "leave" => root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0,
+                "method_stats" => root.TryGetProperty("totalInclusiveNs", out var inc) ? inc.GetInt64() : 0,
+                _ => null
+            };
 
-                if (!root.TryGetProperty("event", out var eventProp))
-                    continue;
-
-                var eventType = eventProp.GetString();
-
-                long? timing = eventType switch
-                {
-                    "leave" => root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0,
-                    "method_stats" => root.TryGetProperty("totalInclusiveNs", out var inc) ? inc.GetInt64() : 0,
-                    _ => null
-                };
-
-                if (timing is not null)
-                {
-                    var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
-                    var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
-
-                    timings[key] = timings.GetValueOrDefault(key, 0) + timing.Value;
-                }
-            }
-            catch (JsonException)
+            if (timing is not null)
             {
-                // Skip malformed lines
+                var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
+                var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
+
+                // Timings are summed across all invocations. For method_stats events this is correct
+                // as totalInclusiveNs is already an aggregate. For leave events, this gives the total
+                // time across all calls, not per-call average.
+                timings[key] = timings.GetValueOrDefault(key, 0) + timing.Value;
             }
         }
 

@@ -51,73 +51,35 @@ public static class HotspotsAnalyzer
         var threadStacks = new Dictionary<long, Stack<StackFrame>>();
         var hasFilters = filters.Length > 0;
 
-        await foreach (var line in File.ReadLinesAsync(filePath))
+        await foreach (var (eventType, root) in AnalyzerHelpers.StreamEventsAsync(filePath))
         {
-            if (string.IsNullOrWhiteSpace(line)) continue;
-
-            try
+            if (eventType == "enter")
             {
-                using var doc = JsonDocument.Parse(line);
-                var root = doc.RootElement;
+                var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
+                var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
+                var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
 
-                if (!root.TryGetProperty("event", out var eventProp))
-                    continue;
-
-                var eventType = eventProp.GetString();
-
-                if (eventType == "enter")
+                if (!threadStacks.TryGetValue(tid, out var stack))
                 {
-                    var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
-                    var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
-                    var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
-
-                    if (!threadStacks.TryGetValue(tid, out var stack))
-                    {
-                        stack = new Stack<StackFrame>();
-                        threadStacks[tid] = stack;
-                    }
-
-                    stack.Push(new StackFrame { Key = key });
+                    stack = new Stack<StackFrame>();
+                    threadStacks[tid] = stack;
                 }
-                else if (eventType == "leave")
+
+                stack.Push(new StackFrame { Key = key });
+            }
+            else if (eventType == "leave")
+            {
+                var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
+                var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
+                var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
+                var deltaNs = root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0;
+
+                if (threadStacks.TryGetValue(tid, out var stack) && stack.Count > 0)
                 {
-                    var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
-                    var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
-                    var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
-                    var deltaNs = root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0;
+                    var frame = stack.Pop();
+                    var selfNs = deltaNs - frame.ChildrenNs;
 
-                    if (threadStacks.TryGetValue(tid, out var stack) && stack.Count > 0)
-                    {
-                        var frame = stack.Pop();
-                        var selfNs = deltaNs - frame.ChildrenNs;
-
-                        if (!hasFilters || MatchesAnyFilter(filters, ns, cls, m, key))
-                        {
-                            if (!stats.TryGetValue(key, out var ms))
-                            {
-                                ms = new MethodStats();
-                                stats[key] = ms;
-                            }
-
-                            ms.Count++;
-                            ms.InclusiveTotal += deltaNs;
-                            ms.SelfTotal += selfNs;
-                            if (deltaNs > ms.InclusiveMax) ms.InclusiveMax = deltaNs;
-                            if (selfNs > ms.SelfMax) ms.SelfMax = selfNs;
-                        }
-
-                        if (stack.Count > 0)
-                        {
-                            stack.Peek().ChildrenNs += deltaNs;
-                        }
-                    }
-                }
-                else if (eventType == "method_stats")
-                {
-                    var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
-                    var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
-
-                    if (!hasFilters || MatchesAnyFilter(filters, ns, cls, m, key))
+                    if (!hasFilters || AnalyzerHelpers.MatchesAnyFilter(filters, ns, cls, m, key))
                     {
                         if (!stats.TryGetValue(key, out var ms))
                         {
@@ -125,54 +87,59 @@ public static class HotspotsAnalyzer
                             stats[key] = ms;
                         }
 
-                        ms.Count += root.TryGetProperty("callCount", out var cc) ? cc.GetInt64() : 0;
-                        ms.SelfTotal += root.TryGetProperty("totalSelfNs", out var sn) ? sn.GetInt64() : 0;
-                        ms.SelfMax = Math.Max(ms.SelfMax, root.TryGetProperty("maxSelfNs", out var smx) ? smx.GetInt64() : 0);
-                        ms.InclusiveTotal += root.TryGetProperty("totalInclusiveNs", out var inc) ? inc.GetInt64() : 0;
-                        ms.InclusiveMax = Math.Max(ms.InclusiveMax, root.TryGetProperty("maxInclusiveNs", out var imx) ? imx.GetInt64() : 0);
+                        ms.Count++;
+                        ms.InclusiveTotal += deltaNs;
+                        ms.SelfTotal += selfNs;
+                        if (deltaNs > ms.InclusiveMax) ms.InclusiveMax = deltaNs;
+                        if (selfNs > ms.SelfMax) ms.SelfMax = selfNs;
                     }
-                }
-                else if (eventType == "alloc_by_class")
-                {
-                    var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
-                    var allocCount = root.TryGetProperty("count", out var c) ? c.GetInt64() : 0;
 
-                    if (allocCount > 0 && threadStacks.TryGetValue(tid, out var stack) && stack.Count > 0)
+                    if (stack.Count > 0)
                     {
-                        var topKey = stack.Peek().Key;
-                        if (!stats.TryGetValue(topKey, out var ms))
-                        {
-                            ms = new MethodStats();
-                            stats[topKey] = ms;
-                        }
-
-                        ms.AllocCount += allocCount;
+                        stack.Peek().ChildrenNs += deltaNs;
                     }
                 }
             }
-            catch (JsonException)
+            else if (eventType == "method_stats")
             {
-                // Skip malformed lines
+                var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
+                var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
+
+                if (!hasFilters || AnalyzerHelpers.MatchesAnyFilter(filters, ns, cls, m, key))
+                {
+                    if (!stats.TryGetValue(key, out var ms))
+                    {
+                        ms = new MethodStats();
+                        stats[key] = ms;
+                    }
+
+                    ms.Count += root.TryGetProperty("callCount", out var cc) ? cc.GetInt64() : 0;
+                    ms.SelfTotal += root.TryGetProperty("totalSelfNs", out var sn) ? sn.GetInt64() : 0;
+                    ms.SelfMax = Math.Max(ms.SelfMax, root.TryGetProperty("maxSelfNs", out var smx) ? smx.GetInt64() : 0);
+                    ms.InclusiveTotal += root.TryGetProperty("totalInclusiveNs", out var inc) ? inc.GetInt64() : 0;
+                    ms.InclusiveMax = Math.Max(ms.InclusiveMax, root.TryGetProperty("maxInclusiveNs", out var imx) ? imx.GetInt64() : 0);
+                }
+            }
+            else if (eventType == "alloc_by_class")
+            {
+                var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
+                var allocCount = root.TryGetProperty("count", out var c) ? c.GetInt64() : 0;
+
+                if (allocCount > 0 && threadStacks.TryGetValue(tid, out var stack) && stack.Count > 0)
+                {
+                    var topKey = stack.Peek().Key;
+                    if (!stats.TryGetValue(topKey, out var ms))
+                    {
+                        ms = new MethodStats();
+                        stats[topKey] = ms;
+                    }
+
+                    ms.AllocCount += allocCount;
+                }
             }
         }
 
         return stats;
-    }
-
-    private static bool MatchesAnyFilter(string[] filters, string ns, string cls, string m, string fullKey)
-    {
-        foreach (var filter in filters)
-        {
-            if (fullKey.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(m, filter, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(cls, filter, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(ns, filter, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private sealed class StackFrame

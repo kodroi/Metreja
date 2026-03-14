@@ -7,10 +7,7 @@ public static class ClearCommand
 {
     public static Command Create()
     {
-        var sessionOption = new Option<string>("--session", "-s")
-        {
-            Description = "Session ID to delete"
-        };
+        var sessionOption = SharedOptions.SessionOption(required: false);
 
         var allOption = new Option<bool>("--all")
         {
@@ -25,7 +22,7 @@ public static class ClearCommand
         {
             var session = parseResult.GetValue(sessionOption);
             var all = parseResult.GetValue(allOption);
-            var manager = new ConfigManager();
+            var manager = ConfigManager.Default;
 
             if (all)
             {

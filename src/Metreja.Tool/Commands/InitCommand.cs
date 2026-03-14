@@ -18,7 +18,7 @@ public static class InitCommand
         command.SetAction(async (parseResult, _) =>
         {
             var scenario = parseResult.GetValue(scenarioOption);
-            var manager = new ConfigManager();
+            var manager = ConfigManager.Default;
             var sessionId = await manager.CreateSessionAsync(scenario);
             Console.WriteLine(sessionId);
         });

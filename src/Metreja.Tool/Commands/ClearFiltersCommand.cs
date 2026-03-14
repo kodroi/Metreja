@@ -7,11 +7,7 @@ public static class ClearFiltersCommand
 {
     public static Command Create()
     {
-        var sessionOption = new Option<string>("--session", "-s")
-        {
-            Description = "Session ID",
-            Required = true
-        };
+        var sessionOption = SharedOptions.SessionOption();
 
         var typeOption = new Option<string>("--type")
         {
@@ -33,7 +29,7 @@ public static class ClearFiltersCommand
                 return 1;
             }
 
-            var manager = new ConfigManager();
+            var manager = ConfigManager.Default;
             var config = await manager.LoadConfigAsync(session);
 
             var clearIncludes = type is null or "include";

@@ -1,16 +1,9 @@
 #include "NdjsonWriter.h"
 #include "StatsAggregator.h"
+#include "StringUtils.h"
 
 #include <cstdio>
 #include <cstring>
-
-static size_t FindLastPathSeparator(const std::string& path)
-{
-    size_t pos = path.rfind('\\');
-    if (pos == std::string::npos)
-        pos = path.rfind('/');
-    return pos;
-}
 
 static void CreateDirectoriesRecursive(const std::string& path)
 {
@@ -100,16 +93,26 @@ void NdjsonWriter::WriteEnter(long long tsNs, DWORD tid, int depth, const Method
         return;
 
     char line[2048];
-    const char* methodName = info.isAsyncStateMachine && !info.originalMethodName.empty()
-                                 ? info.originalMethodName.c_str()
-                                 : info.methodName.c_str();
-    int len = snprintf(
-        line, sizeof(line),
-        R"({"event":"enter","tsNs":%lld,"pid":%lu,"sessionId":"%s","tid":%lu,"depth":%d,"asm":"%s","ns":"%s","cls":"%s","m":"%s","async":%s})"
-        "\n",
-        tsNs, static_cast<unsigned long>(m_pid), m_sessionId.c_str(), static_cast<unsigned long>(tid), depth,
-        info.assemblyName.c_str(), info.namespaceName.c_str(), info.className.c_str(), methodName,
-        info.isAsyncStateMachine ? "true" : "false");
+    const char* methodName = info.GetDisplayName();
+    int len;
+    if (info.isAsyncStateMachine)
+    {
+        len = snprintf(
+            line, sizeof(line),
+            R"({"event":"enter","tsNs":%lld,"pid":%lu,"sessionId":"%s","tid":%lu,"depth":%d,"asm":"%s","ns":"%s","cls":"%s","m":"%s","async":true})"
+            "\n",
+            tsNs, static_cast<unsigned long>(m_pid), m_sessionId.c_str(), static_cast<unsigned long>(tid), depth,
+            info.assemblyName.c_str(), info.namespaceName.c_str(), info.className.c_str(), methodName);
+    }
+    else
+    {
+        len = snprintf(
+            line, sizeof(line),
+            R"({"event":"enter","tsNs":%lld,"pid":%lu,"sessionId":"%s","tid":%lu,"depth":%d,"asm":"%s","ns":"%s","cls":"%s","m":"%s"})"
+            "\n",
+            tsNs, static_cast<unsigned long>(m_pid), m_sessionId.c_str(), static_cast<unsigned long>(tid), depth,
+            info.assemblyName.c_str(), info.namespaceName.c_str(), info.className.c_str(), methodName);
+    }
 
     if (len > 0 && static_cast<size_t>(len) < sizeof(line))
         WriteLockedEvent(line, static_cast<size_t>(len));
@@ -122,30 +125,21 @@ void NdjsonWriter::WriteLeave(long long tsNs, DWORD tid, int depth, const Method
         return;
 
     char line[2048];
-    const char* methodName = info.isAsyncStateMachine && !info.originalMethodName.empty()
-                                 ? info.originalMethodName.c_str()
-                                 : info.methodName.c_str();
-    int len;
-    if (tailcall)
-    {
-        len = snprintf(
-            line, sizeof(line),
-            R"({"event":"leave","tsNs":%lld,"pid":%lu,"sessionId":"%s","tid":%lu,"depth":%d,"asm":"%s","ns":"%s","cls":"%s","m":"%s","async":%s,"deltaNs":%lld,"tailcall":true})"
-            "\n",
-            tsNs, static_cast<unsigned long>(m_pid), m_sessionId.c_str(), static_cast<unsigned long>(tid), depth,
-            info.assemblyName.c_str(), info.namespaceName.c_str(), info.className.c_str(), methodName,
-            info.isAsyncStateMachine ? "true" : "false", deltaNs);
-    }
-    else
-    {
-        len = snprintf(
-            line, sizeof(line),
-            R"({"event":"leave","tsNs":%lld,"pid":%lu,"sessionId":"%s","tid":%lu,"depth":%d,"asm":"%s","ns":"%s","cls":"%s","m":"%s","async":%s,"deltaNs":%lld})"
-            "\n",
-            tsNs, static_cast<unsigned long>(m_pid), m_sessionId.c_str(), static_cast<unsigned long>(tid), depth,
-            info.assemblyName.c_str(), info.namespaceName.c_str(), info.className.c_str(), methodName,
-            info.isAsyncStateMachine ? "true" : "false", deltaNs);
-    }
+    const char* methodName = info.GetDisplayName();
+    const char* suffix = "";
+    if (info.isAsyncStateMachine && tailcall)
+        suffix = R"(,"async":true,"tailcall":true)";
+    else if (info.isAsyncStateMachine)
+        suffix = R"(,"async":true)";
+    else if (tailcall)
+        suffix = R"(,"tailcall":true)";
+    int len = snprintf(
+        line, sizeof(line),
+        R"({"event":"leave","tsNs":%lld,"pid":%lu,"sessionId":"%s","tid":%lu,"depth":%d,"asm":"%s","ns":"%s","cls":"%s","m":"%s","deltaNs":%lld%s})"
+        "\n",
+        tsNs, static_cast<unsigned long>(m_pid), m_sessionId.c_str(), static_cast<unsigned long>(tid), depth,
+        info.assemblyName.c_str(), info.namespaceName.c_str(), info.className.c_str(), methodName,
+        deltaNs, suffix);
 
     if (len > 0 && static_cast<size_t>(len) < sizeof(line))
         WriteLockedEvent(line, static_cast<size_t>(len));
@@ -223,9 +217,7 @@ void NdjsonWriter::WriteAllocByClass(long long tsNs, DWORD tid, const std::strin
 void NdjsonWriter::WriteMethodStats(const MethodInfo& info, const MethodStatsAccum& accum)
 {
     char line[2048];
-    const char* methodName = info.isAsyncStateMachine && !info.originalMethodName.empty()
-                                 ? info.originalMethodName.c_str()
-                                 : info.methodName.c_str();
+    const char* methodName = info.GetDisplayName();
     int len = snprintf(
         line, sizeof(line),
         R"({"event":"method_stats","tsNs":0,"pid":%lu,"sessionId":"%s","asm":"%s","ns":"%s","cls":"%s","m":"%s","callCount":%lld,"totalSelfNs":%lld,"maxSelfNs":%lld,"totalInclusiveNs":%lld,"maxInclusiveNs":%lld})"

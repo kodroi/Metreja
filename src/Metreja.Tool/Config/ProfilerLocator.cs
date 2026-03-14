@@ -16,4 +16,19 @@ public static class ProfilerLocator
 
         return null;
     }
+
+    /// <summary>
+    /// Returns the absolute path to the profiler library, or null with an error written to stderr if not found.
+    /// </summary>
+    public static string? ResolveProfilerPath()
+    {
+        var detectedPath = GetDefaultProfilerPath();
+        if (string.IsNullOrEmpty(detectedPath) || !File.Exists(detectedPath))
+        {
+            Console.Error.WriteLine("Error: Could not find the profiler library. Ensure it is adjacent to the CLI assembly.");
+            return null;
+        }
+
+        return Path.GetFullPath(detectedPath);
+    }
 }

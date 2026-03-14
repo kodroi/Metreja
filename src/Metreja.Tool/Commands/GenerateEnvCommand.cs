@@ -8,11 +8,7 @@ public static class GenerateEnvCommand
 {
     public static Command Create()
     {
-        var sessionOption = new Option<string>("--session", "-s")
-        {
-            Description = "Session ID",
-            Required = true
-        };
+        var sessionOption = SharedOptions.SessionOption();
 
         var defaultFormat = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "batch" : "shell";
         var formatOption = new Option<string>("--format")
@@ -37,20 +33,18 @@ public static class GenerateEnvCommand
             var format = parseResult.GetValue(formatOption)!;
             var force = parseResult.GetValue(forceOption);
 
-            var manager = new ConfigManager();
+            var manager = ConfigManager.Default;
             var configPath = Path.GetFullPath(manager.GetSessionPath(session));
 
-            var detectedPath = ProfilerLocator.GetDefaultProfilerPath();
-            var absoluteDllPath = string.IsNullOrEmpty(detectedPath) ? "" : Path.GetFullPath(detectedPath);
-
-            if (string.IsNullOrEmpty(absoluteDllPath) || !File.Exists(absoluteDllPath))
+            var absoluteDllPath = ProfilerLocator.ResolveProfilerPath();
+            if (absoluteDllPath is null)
             {
-                Console.Error.WriteLine($"Error: Profiler DLL not found. Searched adjacent to CLI assembly and bin/Release/.");
                 if (!force)
                 {
                     Console.Error.WriteLine("Use --force to generate the script anyway.");
                     return 1;
                 }
+                absoluteDllPath = "";
             }
 
             if (format.Equals("powershell", StringComparison.OrdinalIgnoreCase))

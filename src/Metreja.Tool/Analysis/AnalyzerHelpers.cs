@@ -52,4 +52,75 @@ internal static class AnalyzerHelpers
         Console.Error.WriteLine($"Error: {label} not found: {path}");
         return false;
     }
+
+    public static async IAsyncEnumerable<(string EventType, JsonElement Root)> StreamEventsAsync(string path)
+    {
+        await foreach (var line in File.ReadLinesAsync(path))
+        {
+            if (string.IsNullOrWhiteSpace(line)) continue;
+
+            JsonDocument doc;
+            try
+            {
+                doc = JsonDocument.Parse(line);
+            }
+            catch (JsonException)
+            {
+                continue;
+            }
+
+            using (doc)
+            {
+                if (doc.RootElement.ValueKind != JsonValueKind.Object ||
+                    !doc.RootElement.TryGetProperty("event", out var eventProp) ||
+                    eventProp.ValueKind != JsonValueKind.String)
+                {
+                    continue;
+                }
+
+                var eventType = eventProp.GetString();
+                if (string.IsNullOrWhiteSpace(eventType))
+                    continue;
+
+                yield return (eventType, doc.RootElement.Clone());
+            }
+        }
+    }
+
+    public static bool MatchesAnyFilter(string[] filters, string ns, string cls, string method, string fullKey)
+    {
+        foreach (var filter in filters)
+        {
+            if (string.IsNullOrWhiteSpace(filter))
+            {
+                continue;
+            }
+
+            if (MatchesPattern(filter, ns, cls, method) ||
+                fullKey.Contains(filter, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static bool MatchesAnyFilter(string[] filters, string className)
+    {
+        foreach (var filter in filters)
+        {
+            if (string.IsNullOrWhiteSpace(filter))
+            {
+                continue;
+            }
+
+            if (className.Contains(filter, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

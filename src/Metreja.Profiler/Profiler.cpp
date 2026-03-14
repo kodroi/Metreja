@@ -614,7 +614,7 @@ extern "C" void STDMETHODCALLTYPE EnterStub(FunctionIDOrClientID functionIDOrCli
         ctx->ndjsonWriter->WriteEnter(tsNs, tid, depth, *info);
 }
 
-extern "C" void STDMETHODCALLTYPE LeaveStub(FunctionIDOrClientID functionIDOrClientID, COR_PRF_ELT_INFO eltInfo)
+static void ProcessLeave(FunctionIDOrClientID functionIDOrClientID, bool isTailcall)
 {
     ProfilerContext* ctx;
     const MethodInfo* info;
@@ -638,36 +638,18 @@ extern "C" void STDMETHODCALLTYPE LeaveStub(FunctionIDOrClientID functionIDOrCli
     if (HasEvent(ctx->config.enabledEvents, EventType::Leave))
     {
         long long deltaNs = ctx->config.computeDeltas ? inclusiveNs : 0;
-        ctx->ndjsonWriter->WriteLeave(tsNs, tid, depth, *info, deltaNs);
+        ctx->ndjsonWriter->WriteLeave(tsNs, tid, depth, *info, deltaNs, isTailcall);
     }
+}
+
+extern "C" void STDMETHODCALLTYPE LeaveStub(FunctionIDOrClientID functionIDOrClientID, COR_PRF_ELT_INFO eltInfo)
+{
+    ProcessLeave(functionIDOrClientID, false);
 }
 
 extern "C" void STDMETHODCALLTYPE TailcallStub(FunctionIDOrClientID functionIDOrClientID, COR_PRF_ELT_INFO eltInfo)
 {
-    ProfilerContext* ctx;
-    const MethodInfo* info;
-    FunctionID funcId;
-    long long tsNs;
-    DWORD tid;
-    if (!PrepareStubContext(functionIDOrClientID, ctx, info, funcId, tsNs, tid))
-        return;
-
-    CallEntry entry = ctx->callStackManager->Pop();
-    long long inclusiveNs = (entry.enterTsNs > 0) ? (tsNs - entry.enterTsNs) : 0;
-    long long selfNs = inclusiveNs - entry.m_childrenTimeNs;
-    if (selfNs < 0)
-        selfNs = 0;
-    ctx->callStackManager->CreditParent(inclusiveNs);
-    int depth = ctx->callStackManager->GetDepth();
-
-    if (ctx->statsAggregator && HasEvent(ctx->config.enabledEvents, EventType::MethodStats))
-        ctx->statsAggregator->RecordMethod(funcId, inclusiveNs, selfNs);
-
-    if (HasEvent(ctx->config.enabledEvents, EventType::Leave))
-    {
-        long long deltaNs = ctx->config.computeDeltas ? inclusiveNs : 0;
-        ctx->ndjsonWriter->WriteLeave(tsNs, tid, depth, *info, deltaNs, true);
-    }
+    ProcessLeave(functionIDOrClientID, true);
 }
 
 // FunctionIDMapper2 callback - filter excluded functions at JIT time

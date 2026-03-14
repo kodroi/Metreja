@@ -11,6 +11,8 @@ public class ConfigManager
         WriteIndented = true
     };
 
+    public static ConfigManager Default => new();
+
     private readonly string _sessionsDir;
 
     public ConfigManager(string? baseDir = null)

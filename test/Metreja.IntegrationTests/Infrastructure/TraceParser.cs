@@ -40,7 +40,7 @@ public static class TraceParser
                     Ns = root.GetProperty("ns").GetString()!,
                     Cls = root.GetProperty("cls").GetString()!,
                     M = root.GetProperty("m").GetString()!,
-                    Async = root.GetProperty("async").GetBoolean()
+                    Async = root.TryGetProperty("async", out var a) && a.GetBoolean()
                 },
                 "leave" => new LeaveEvent
                 {
@@ -54,7 +54,7 @@ public static class TraceParser
                     Ns = root.GetProperty("ns").GetString()!,
                     Cls = root.GetProperty("cls").GetString()!,
                     M = root.GetProperty("m").GetString()!,
-                    Async = root.GetProperty("async").GetBoolean(),
+                    Async = root.TryGetProperty("async", out var al) && al.GetBoolean(),
                     DeltaNs = root.GetProperty("deltaNs").GetInt64(),
                     Tailcall = root.TryGetProperty("tailcall", out var tc) && tc.GetBoolean()
                 },

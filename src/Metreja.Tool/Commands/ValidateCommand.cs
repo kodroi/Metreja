@@ -7,11 +7,7 @@ public static class ValidateCommand
 {
     public static Command Create()
     {
-        var sessionOption = new Option<string>("--session", "-s")
-        {
-            Description = "Session ID",
-            Required = true
-        };
+        var sessionOption = SharedOptions.SessionOption();
 
         var command = new Command("validate", "Validate session configuration");
         command.Options.Add(sessionOption);
@@ -19,7 +15,7 @@ public static class ValidateCommand
         command.SetAction(async (parseResult, _) =>
         {
             var session = parseResult.GetValue(sessionOption)!;
-            var manager = new ConfigManager();
+            var manager = ConfigManager.Default;
 
             ProfilerConfig config;
             try
