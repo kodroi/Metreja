@@ -138,8 +138,10 @@ public static class CallTreeAnalyzer
             {
                 var deltaNs = root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0;
                 var exType = root.TryGetProperty("ex", out var ex) ? ex.GetString() ?? "" : "";
+                var depth = root.TryGetProperty("depth", out var dp) ? dp.GetInt32() : 0;
+                var relativeDepth = depth - target.Depth;
 
-                if (depthStack.Count > 0)
+                if (depthStack.Count > 0 && relativeDepth >= 0)
                 {
                     var entry = depthStack.Pop();
                     entry.DeltaNs = deltaNs;

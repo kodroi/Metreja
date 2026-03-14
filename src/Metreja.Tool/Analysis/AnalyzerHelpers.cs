@@ -71,11 +71,13 @@ internal static class AnalyzerHelpers
 
             using (doc)
             {
-                if (!doc.RootElement.TryGetProperty("event", out var eventProp))
+                if (doc.RootElement.ValueKind != JsonValueKind.Object ||
+                    !doc.RootElement.TryGetProperty("event", out var eventProp) ||
+                    eventProp.ValueKind != JsonValueKind.String)
                     continue;
 
                 var eventType = eventProp.GetString();
-                if (eventType == null)
+                if (string.IsNullOrWhiteSpace(eventType))
                     continue;
 
                 yield return (eventType, doc.RootElement);
