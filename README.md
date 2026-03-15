@@ -35,31 +35,23 @@ Agent: Setting up profiling session...
 Existing .NET profilers require a human in the seat — launching GUIs, clicking through views, interpreting results manually. Metreja removes the human from the loop.
 
 - **Data layer for agents** — the CLI captures, aggregates, and surfaces profiling data. Your agent or script decides what it means.
-- **Structured output, not reports** — every command returns machine-readable results that agents consume directly. No screenshots, no interactive sessions.
+- **Structured output, not visualizations** — every command returns machine-readable results that agents consume directly. No interactive sessions.
 - **Finds the real bottleneck** — self-time analysis pinpoints the method that's actually slow, not the one that calls it.
 - **Proves the fix worked** — diff two traces. See the numbers change. No guessing whether your change helped.
-- **Lightweight enough for daily use** — fast to set up, fast to execute, fast to analyze. Profiling becomes as routine as running tests.
+- **Lightweight enough for daily use** — fast to set up, fast to run, fast to analyze.
 - **Traces only your code** — filter by assembly, namespace, or class. Framework noise stays out, overhead stays low.
-
-## Design Philosophy
-
-Metreja is a data layer, not an intelligence layer. The CLI profiles, captures, and aggregates — it never interprets what the data means for your codebase. That intelligence belongs to the consumer: an AI agent, a skill, or a custom script. Built for machines first, Metreja assumes its caller can parse structured text and make decisions.
-
-Read the full design philosophy in [`docs/design-philosophy.md`](docs/design-philosophy.md).
 
 ## Installation
 
-**Prerequisites:** .NET 8 SDK or later, Windows 10/11 (x64)
+**Prerequisites:** .NET 8 SDK or later. Windows 10/11 (x64) or macOS 14+ (Apple Silicon).
 
 ```bash
 dotnet tool install -g Metreja.Tool
 ```
 
-After installation, the `metreja` command is available globally.
-
 ## Quick Start
 
-Install the [metreja-profiler](https://github.com/kodroi/metreja-profiler) skill for Claude Code and just ask a question:
+Install the [metreja-profiler](https://github.com/kodroi/metreja-profiler) skill for Claude Code and ask a question:
 
 ```
 /plugin marketplace add kodroi/metreja-profiler-marketplace
@@ -75,7 +67,7 @@ Agent: Setting up profiling session...
 
 ### Manual CLI Usage
 
-Five commands from zero to actionable hotspot data:
+Five commands from zero to hotspot data:
 
 ```bash
 # 1. Create a session
@@ -109,48 +101,72 @@ metreja calltree .metreja/output/*.ndjson --method "ValidateInventory"
 
 For the full CLI reference with all options, see [src/Metreja.Tool/README.md](src/Metreja.Tool/README.md).
 
+## Design Philosophy
+
+Metreja is a data layer, not an intelligence layer. The CLI profiles, captures, and aggregates — it never interprets what the data means for your codebase. That intelligence belongs to the consumer: an AI agent, a skill, or a custom script.
+
+Read the full design philosophy in [`docs/design-philosophy.md`](docs/design-philosophy.md).
+
 ## Building from Source
 
-**Prerequisites:**
+**Windows prerequisites:**
 - Windows 10/11 (x64)
 - [.NET 10 SDK](https://dotnet.microsoft.com/download) (multi-targets .NET 8/9/10)
 - Visual Studio 2022 Build Tools with "Desktop development with C++" workload
 
+**macOS prerequisites:**
+- macOS 14+ (Apple Silicon / ARM64)
+- Xcode Command Line Tools
+- CMake (`brew install cmake`)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download) (multi-targets .NET 8/9/10)
+
 ```bash
-# Build components
+# Build CLI (all platforms)
 dotnet build src/Metreja.Tool/Metreja.Tool.csproj -c Release
-msbuild src/Metreja.Profiler/Metreja.Profiler.vcxproj /p:Configuration=Release /p:Platform=x64
+
+# Build profiler — Windows
+msbuild src/Metreja.Profiler/Metreja.Profiler.vcxproj /p:Configuration=Release /p:Platform=x64 "/p:SolutionDir=%CD%\\"
+
+# Build profiler — macOS
+scripts/build-macos.sh
 
 # Run integration tests
 dotnet test test/Metreja.IntegrationTests/Metreja.IntegrationTests.csproj -c Release
 
 # Format C++ code
-scripts/format-cpp.bat
+scripts/format-cpp.bat   # Windows
+scripts/format-cpp.sh    # macOS/Linux
 ```
 
 Build outputs:
-- CLI: `src/Metreja.Tool/bin/Release/net10.0/metreja.exe`
-- Profiler DLL: `bin/Release/Metreja.Profiler.dll`
+- **Windows:** CLI at `src/Metreja.Tool/bin/Release/net10.0/metreja.exe`, profiler DLL at `bin/Release/Metreja.Profiler.dll`
+- **macOS:** CLI at `src/Metreja.Tool/bin/Release/net10.0/metreja`, profiler dylib at `bin/Release/libMetreja.Profiler.dylib`
 
 ## Architecture
 
 Metreja is a two-component system:
 
-1. **Metreja.Profiler** — Native C++ DLL implementing `ICorProfilerCallback3` with ELT3 hooks. Attaches to the .NET runtime via `COR_PROFILER` environment variables, hooks method enter/leave, and writes NDJSON traces.
+1. **Metreja.Profiler** — Native C++ library (DLL on Windows, dylib on macOS) implementing `ICorProfilerCallback3` with ELT3 hooks. Attaches to the .NET runtime via `COR_PROFILER` environment variables, hooks method enter/leave, and writes NDJSON traces.
 
 2. **Metreja.Tool** — C# CLI for session management and trace analysis. Creates session configs, generates profiler environment scripts, and provides analysis commands (hotspots, calltree, callers, memory, diff).
 
-**Data flow:** CLI creates session config → `generate-env` sets profiler env vars → profiled app loads DLL → DLL writes NDJSON → CLI analysis commands read NDJSON.
+**Data flow:** CLI creates session config → `generate-env` sets profiler env vars → profiled app loads the profiler → profiler writes NDJSON → CLI analysis commands read NDJSON.
 
 ## Reporting Issues
 
-Report bugs or feature requests directly from the CLI:
+Report bugs or feature requests from the CLI or directly on GitHub:
+
+**From the CLI:**
 
 ```bash
 metreja report --title "Bug: crash on empty trace" --description "Running hotspots on an empty NDJSON file causes an unhandled exception."
 ```
 
-Requires the [GitHub CLI (`gh`)](https://cli.github.com/) to be installed and authenticated. Issues are created on the [kodroi/Metreja](https://github.com/kodroi/Metreja) repository.
+Requires the [GitHub CLI (`gh`)](https://cli.github.com/) to be installed and authenticated.
+
+**On GitHub:**
+
+Open an issue manually at [kodroi/Metreja/issues](https://github.com/kodroi/Metreja/issues).
 
 ## License
 

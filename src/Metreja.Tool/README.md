@@ -1,8 +1,8 @@
 # Metreja
 
-**A .NET profiler built for AI coding agents.** Tell your agent "find why this is slow" or "where am I wasting memory?" and get an answer backed by real profiling data — no detours, no GUIs, no context switching.
+**A .NET call-path profiler for AI agents and scripts.** Measure, analyze, and compare .NET performance — no GUI, no detours, no human in the seat.
 
-Every operation is a CLI command. Every output is machine-readable. The full measure-analyze-fix loop runs without human intervention.
+Every operation is a CLI command. Every output is structured for machines. Your agent provides the intelligence — Metreja provides the data.
 
 ```
 You: "This endpoint takes 3 seconds, find out why"
@@ -27,26 +27,26 @@ Agent: Setting up profiling session...
 
 ## Why Metreja
 
-- **Profiling without the detour** — no separate tool, no manual setup. Your agent profiles as part of fixing the problem.
+Existing .NET profilers require a human in the seat — launching GUIs, clicking through views, interpreting results manually. Metreja removes the human from the loop.
+
+- **Data layer for agents** — the CLI captures, aggregates, and surfaces profiling data. Your agent or script decides what it means.
+- **Structured output, not visualizations** — every command returns machine-readable results that agents consume directly. No interactive sessions.
 - **Finds the real bottleneck** — self-time analysis pinpoints the method that's actually slow, not the one that calls it.
-- **Catches wastefulness** — excessive allocations, GC thrashing, memory pressure. See which types allocate the most and which methods trigger gen2 collections.
-- **Proves the fix worked** — diff two traces. See the numbers. No guessing whether your change helped.
+- **Proves the fix worked** — diff two traces. See the numbers change. No guessing whether your change helped.
+- **Lightweight enough for daily use** — fast to set up, fast to run, fast to analyze.
 - **Traces only your code** — filter by assembly, namespace, or class. Framework noise stays out, overhead stays low.
-- **Reproducible** — session configs are isolated files. Re-run the same investigation anytime.
 
 ## Installation
 
-**Prerequisites:** .NET 8 SDK or later, Windows 10/11 (x64)
+**Prerequisites:** .NET 8 SDK or later. Windows 10/11 (x64) or macOS 14+ (Apple Silicon).
 
 ```bash
 dotnet tool install -g Metreja.Tool
 ```
 
-After installation, the `metreja` command is available globally.
+## Claude Code Skill
 
-## Claude Code Plugin
-
-Install the [metreja-profiler](https://github.com/kodroi/metreja-profiler) plugin and Claude handles everything automatically — session setup, profiling, analysis, and fix suggestions. Just ask a question.
+Install the [metreja-profiler](https://github.com/kodroi/metreja-profiler) skill for Claude Code and ask a question:
 
 ```
 /plugin marketplace add kodroi/metreja-profiler-marketplace
@@ -55,7 +55,7 @@ Install the [metreja-profiler](https://github.com/kodroi/metreja-profiler) plugi
 
 ## Quick Start
 
-Five commands from zero to actionable hotspot data:
+Five commands from zero to hotspot data:
 
 ```bash
 # 1. Create a session
