@@ -35,10 +35,8 @@ public class CheckAnalysisTests : IAsyncLifetime
         ]);
 
         var result = 0;
-        var output = await TestHelpers.CaptureConsoleOutputAsync(async () =>
-        {
-            result = await CheckAnalyzer.AnalyzeAsync(_baseFile, _compareFile, 10.0);
-        });
+        var output = await TestHelpers.CaptureConsoleOutputAsync(
+            async () => result = await CheckAnalyzer.AnalyzeAsync(_baseFile, _compareFile, 10.0));
 
         Assert.Equal(0, result);
         Assert.Contains("PASS", output);
@@ -57,10 +55,8 @@ public class CheckAnalysisTests : IAsyncLifetime
         ]);
 
         var result = 0;
-        var output = await TestHelpers.CaptureConsoleOutputAsync(async () =>
-        {
-            result = await CheckAnalyzer.AnalyzeAsync(_baseFile, _compareFile, 10.0);
-        });
+        var output = await TestHelpers.CaptureConsoleOutputAsync(
+            async () => result = await CheckAnalyzer.AnalyzeAsync(_baseFile, _compareFile, 10.0));
 
         Assert.Equal(1, result);
         Assert.Contains("FAIL", output);
@@ -80,10 +76,8 @@ public class CheckAnalysisTests : IAsyncLifetime
         ]);
 
         var result = 0;
-        var output = await TestHelpers.CaptureConsoleOutputAsync(async () =>
-        {
-            result = await CheckAnalyzer.AnalyzeAsync(_baseFile, _compareFile, 10.0);
-        });
+        var output = await TestHelpers.CaptureConsoleOutputAsync(
+            async () => result = await CheckAnalyzer.AnalyzeAsync(_baseFile, _compareFile, 10.0));
 
         Assert.Equal(0, result);
         Assert.Contains("OK", output);
@@ -102,10 +96,8 @@ public class CheckAnalysisTests : IAsyncLifetime
         ]);
 
         var result = 0;
-        var output = await TestHelpers.CaptureConsoleOutputAsync(async () =>
-        {
-            result = await CheckAnalyzer.AnalyzeAsync(_baseFile, _compareFile, 3.0);
-        });
+        var output = await TestHelpers.CaptureConsoleOutputAsync(
+            async () => result = await CheckAnalyzer.AnalyzeAsync(_baseFile, _compareFile, 3.0));
 
         Assert.Equal(1, result);
         Assert.Contains("REGRESSION", output);
@@ -125,10 +117,8 @@ public class CheckAnalysisTests : IAsyncLifetime
         ]);
 
         var result = 0;
-        var output = await TestHelpers.CaptureConsoleOutputAsync(async () =>
-        {
-            result = await CheckAnalyzer.AnalyzeAsync(_baseFile, _compareFile, 10.0);
-        });
+        var output = await TestHelpers.CaptureConsoleOutputAsync(
+            async () => result = await CheckAnalyzer.AnalyzeAsync(_baseFile, _compareFile, 10.0));
 
         Assert.Equal(0, result);
         Assert.Contains("PASS", output);
