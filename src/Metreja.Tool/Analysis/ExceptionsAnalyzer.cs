@@ -4,20 +4,53 @@ namespace Metreja.Tool.Analysis;
 
 public static class ExceptionsAnalyzer
 {
-    public static async Task AnalyzeAsync(string filePath, int top, string[] filters)
+    private static readonly JsonSerializerOptions s_jsonOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
+    public static async Task<int> AnalyzeAsync(string filePath, int top, string[] filters, string format = "text")
     {
         if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
-            return;
+            return 1;
 
         var stats = await AggregateAsync(filePath, filters);
+
+        if (format == "json")
+        {
+            var sorted = stats
+                .OrderByDescending(kv => kv.Value.Count)
+                .Take(top)
+                .Select(kv => new
+                {
+                    exceptionType = kv.Key,
+                    count = kv.Value.Count,
+                    topThrowSites = kv.Value.ThrowSites
+                        .OrderByDescending(ts => ts.Value)
+                        .Take(3)
+                        .Select(ts => new { method = ts.Key, count = ts.Value })
+                        .ToList(),
+                })
+                .ToList();
+
+            var jsonOutput = new
+            {
+                exceptions = sorted,
+                totalTypes = stats.Count,
+            };
+
+            Console.WriteLine(JsonSerializer.Serialize(jsonOutput, s_jsonOptions));
+            return 0;
+        }
 
         if (stats.Count == 0)
         {
             Console.WriteLine("No exceptions found");
-            return;
+            return 0;
         }
 
-        var sorted = stats
+        var sortedText = stats
             .OrderByDescending(kv => kv.Value.Count)
             .Take(top)
             .ToList();
@@ -26,7 +59,7 @@ public static class ExceptionsAnalyzer
             $"{"Exception Type",-50} {"Count",7}  Top Throw Sites");
         Console.WriteLine(new string('-', 75));
 
-        foreach (var (exType, s) in sorted)
+        foreach (var (exType, s) in sortedText)
         {
             var topSites = s.ThrowSites
                 .OrderByDescending(kv => kv.Value)
@@ -41,7 +74,9 @@ public static class ExceptionsAnalyzer
         }
 
         Console.WriteLine(new string('-', 75));
-        Console.WriteLine($"Showing top {sorted.Count} of {stats.Count} exception types");
+        Console.WriteLine($"Showing top {sortedText.Count} of {stats.Count} exception types");
+
+        return 0;
     }
 
     private static async Task<Dictionary<string, ExceptionTypeStats>> AggregateAsync(string filePath, string[] filters)

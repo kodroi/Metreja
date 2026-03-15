@@ -56,7 +56,8 @@ public static class TraceParser
                     M = root.GetProperty("m").GetString()!,
                     Async = root.TryGetProperty("async", out var al) && al.GetBoolean(),
                     DeltaNs = root.GetProperty("deltaNs").GetInt64(),
-                    Tailcall = root.TryGetProperty("tailcall", out var tc) && tc.GetBoolean()
+                    Tailcall = root.TryGetProperty("tailcall", out var tc) && tc.GetBoolean(),
+                    WallTimeNs = root.TryGetProperty("wallTimeNs", out var wt) ? wt.GetInt64() : null
                 },
                 "exception" => new ExceptionEvent
                 {
@@ -100,12 +101,34 @@ public static class TraceParser
                     M = root.GetProperty("m").GetString()!,
                     Count = root.GetProperty("count").GetInt64()
                 },
-                "gc_start" or "gc_end" or "alloc_by_class" => new GcEvent
+                "gc_start" or "gc_end" => new GcEvent
                 {
                     Event = eventType,
                     TsNs = root.GetProperty("tsNs").GetInt64(),
                     Pid = root.GetProperty("pid").GetInt32(),
                     SessionId = root.GetProperty("sessionId").GetString()!
+                },
+                "alloc_by_class" => new AllocByClassEvent
+                {
+                    Event = eventType,
+                    TsNs = root.GetProperty("tsNs").GetInt64(),
+                    Pid = root.GetProperty("pid").GetInt32(),
+                    SessionId = root.GetProperty("sessionId").GetString()!,
+                    Tid = root.TryGetProperty("tid", out var allocTid) ? allocTid.GetInt32() : null,
+                    ClassName = root.GetProperty("className").GetString()!,
+                    Count = root.GetProperty("count").GetInt64(),
+                    AllocAsm = root.TryGetProperty("allocAsm", out var aasm) ? aasm.GetString() : null,
+                    AllocM = root.TryGetProperty("allocM", out var am) ? am.GetString() : null,
+                    AllocNs = root.TryGetProperty("allocNs", out var ans) ? ans.GetString() : null,
+                    AllocCls = root.TryGetProperty("allocCls", out var acs) ? acs.GetString() : null
+                },
+                "contention_start" or "contention_end" => new ContentionEvent
+                {
+                    Event = eventType,
+                    TsNs = root.GetProperty("tsNs").GetInt64(),
+                    Pid = root.GetProperty("pid").GetInt32(),
+                    SessionId = root.GetProperty("sessionId").GetString()!,
+                    Tid = root.TryGetProperty("tid", out var contentionTid) ? contentionTid.GetInt32() : 0
                 },
                 _ => throw new InvalidOperationException($"Unknown event type: {eventType}")
             };

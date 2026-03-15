@@ -4,10 +4,16 @@ namespace Metreja.Tool.Analysis;
 
 public static class CallTreeAnalyzer
 {
-    public static async Task AnalyzeAsync(string filePath, string methodPattern, long? tidFilter, int occurrence)
+    private static readonly JsonSerializerOptions s_jsonOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+
+    public static async Task<int> AnalyzeAsync(string filePath, string methodPattern, long? tidFilter, int occurrence, string format = "text")
     {
         if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
-            return;
+            return 1;
 
         // Pass 1: Find all occurrences of the method
         var occurrences = await FindOccurrencesAsync(filePath, methodPattern, tidFilter);
@@ -15,7 +21,7 @@ public static class CallTreeAnalyzer
         if (occurrences.Count == 0)
         {
             Console.Error.WriteLine($"No invocations found matching '{methodPattern}'");
-            return;
+            return 1;
         }
 
         // Sort by deltaNs descending (slowest first)
@@ -25,21 +31,49 @@ public static class CallTreeAnalyzer
         {
             Console.Error.WriteLine(
                 $"Occurrence {occurrence} out of range (1-{occurrences.Count})");
-            return;
+            return 1;
         }
 
         var selected = occurrences[occurrence - 1];
 
-        Console.WriteLine(
-            $"Found {occurrences.Count} invocation(s). Showing #{occurrence} (slowest-first).");
-        Console.WriteLine(
-            $"Call tree for tid {selected.Tid} (total: {AnalyzerHelpers.FormatNs(selected.DeltaNs)})");
-        Console.WriteLine(new string('-', 80));
+        // Pass 2: Collect the subtree entries
+        var entries = await CollectSubtreeAsync(filePath, selected);
 
-        // Pass 2: Extract and print the subtree
-        await PrintSubtreeAsync(filePath, selected);
+        if (format == "json")
+        {
+            var jsonOutput = new
+            {
+                method = methodPattern,
+                occurrences = occurrences.Count,
+                showing = occurrence,
+                tid = selected.Tid,
+                totalNs = selected.DeltaNs,
+                tree = entries.Select(e => new
+                {
+                    name = e.Name,
+                    depth = e.Depth,
+                    deltaNs = e.DeltaNs,
+                    isAsync = e.IsAsync,
+                    exception = e.IsException ? e.ExceptionType : null
+                }).ToArray()
+            };
 
-        Console.WriteLine(new string('-', 80));
+            Console.WriteLine(JsonSerializer.Serialize(jsonOutput, s_jsonOptions));
+        }
+        else
+        {
+            Console.WriteLine(
+                $"Found {occurrences.Count} invocation(s). Showing #{occurrence} (slowest-first).");
+            Console.WriteLine(
+                $"Call tree for tid {selected.Tid} (total: {AnalyzerHelpers.FormatNs(selected.DeltaNs)})");
+            Console.WriteLine(new string('-', 80));
+
+            PrintEntries(entries);
+
+            Console.WriteLine(new string('-', 80));
+        }
+
+        return 0;
     }
 
     private static async Task<List<Occurrence>> FindOccurrencesAsync(
@@ -94,7 +128,7 @@ public static class CallTreeAnalyzer
         return occurrences;
     }
 
-    private static async Task PrintSubtreeAsync(string filePath, Occurrence target)
+    private static async Task<List<DisplayEntry>> CollectSubtreeAsync(string filePath, Occurrence target)
     {
         var entries = new List<DisplayEntry>();
         var inSubtree = false;
@@ -170,7 +204,11 @@ public static class CallTreeAnalyzer
             }
         }
 
-        // Print collected entries top-down
+        return entries;
+    }
+
+    private static void PrintEntries(List<DisplayEntry> entries)
+    {
         foreach (var entry in entries)
         {
             var indent = new string(' ', entry.Depth * 2);

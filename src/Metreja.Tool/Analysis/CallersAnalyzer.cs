@@ -4,17 +4,23 @@ namespace Metreja.Tool.Analysis;
 
 public static class CallersAnalyzer
 {
-    public static async Task AnalyzeAsync(string filePath, string methodPattern, int top)
+    private static readonly JsonSerializerOptions s_jsonOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+
+    public static async Task<int> AnalyzeAsync(string filePath, string methodPattern, int top, string format = "text")
     {
         if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
-            return;
+            return 1;
 
         var (callerStats, totalCalls) = await AggregateAsync(filePath, methodPattern);
 
         if (callerStats.Count == 0)
         {
             Console.Error.WriteLine($"No calls found matching '{methodPattern}'");
-            return;
+            return 1;
         }
 
         var sorted = callerStats
@@ -22,19 +28,46 @@ public static class CallersAnalyzer
             .Take(top)
             .ToList();
 
-        Console.WriteLine($"Callers of {methodPattern} ({totalCalls} total calls):");
-        Console.WriteLine(
-            $"  {"Caller",-50} {"Calls",7} {"Total",12} {"Avg",12} {"Max",12}");
-        Console.WriteLine($"  {new string('-', 93)}");
-
-        foreach (var (caller, s) in sorted)
+        if (format == "json")
         {
-            var avg = s.Count > 0 ? s.TotalNs / s.Count : 0;
+            var jsonOutput = new
+            {
+                method = methodPattern,
+                totalCalls,
+                callers = sorted.Select(kv =>
+                {
+                    var avg = kv.Value.Count > 0 ? kv.Value.TotalNs / kv.Value.Count : 0;
+                    return new
+                    {
+                        caller = kv.Key,
+                        calls = kv.Value.Count,
+                        totalNs = kv.Value.TotalNs,
+                        avgNs = avg,
+                        maxNs = kv.Value.MaxNs
+                    };
+                }).ToArray()
+            };
+
+            Console.WriteLine(JsonSerializer.Serialize(jsonOutput, s_jsonOptions));
+        }
+        else
+        {
+            Console.WriteLine($"Callers of {methodPattern} ({totalCalls} total calls):");
             Console.WriteLine(
-                $"  {AnalyzerHelpers.Truncate(caller, 50),-50} {s.Count,7} {AnalyzerHelpers.FormatNs(s.TotalNs),12} {AnalyzerHelpers.FormatNs(avg),12} {AnalyzerHelpers.FormatNs(s.MaxNs),12}");
+                $"  {"Caller",-50} {"Calls",7} {"Total",12} {"Avg",12} {"Max",12}");
+            Console.WriteLine($"  {new string('-', 93)}");
+
+            foreach (var (caller, s) in sorted)
+            {
+                var avg = s.Count > 0 ? s.TotalNs / s.Count : 0;
+                Console.WriteLine(
+                    $"  {AnalyzerHelpers.Truncate(caller, 50),-50} {s.Count,7} {AnalyzerHelpers.FormatNs(s.TotalNs),12} {AnalyzerHelpers.FormatNs(avg),12} {AnalyzerHelpers.FormatNs(s.MaxNs),12}");
+            }
+
+            Console.WriteLine($"  {new string('-', 93)}");
         }
 
-        Console.WriteLine($"  {new string('-', 93)}");
+        return 0;
     }
 
     private static async Task<(Dictionary<string, CallerStats> Stats, int TotalCalls)> AggregateAsync(

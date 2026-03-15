@@ -4,21 +4,55 @@ namespace Metreja.Tool.Analysis;
 
 public static class TrendAnalyzer
 {
-    public static async Task AnalyzeAsync(string filePath, string methodPattern)
+    private static readonly JsonSerializerOptions s_jsonOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
+    public static async Task<int> AnalyzeAsync(string filePath, string methodPattern, string format = "text")
     {
         if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
-            return;
+            return 1;
 
         var intervals = await CollectIntervalsAsync(filePath, methodPattern);
 
         if (intervals.Count == 0)
         {
             Console.Error.WriteLine($"No method_stats events found matching '{methodPattern}'");
-            return;
+            return 1;
         }
 
         var methodKey = intervals[0].MethodKey;
         var baseTsNs = intervals[0].TsNs;
+
+        if (format == "json")
+        {
+            var output = new
+            {
+                Method = methodKey,
+                Intervals = intervals.Select(iv =>
+                {
+                    var relativeTs = iv.TsNs - baseTsNs;
+                    var selfAvg = iv.CallCount > 0 ? iv.TotalSelfNs / iv.CallCount : 0;
+                    var inclAvg = iv.CallCount > 0 ? iv.TotalInclusiveNs / iv.CallCount : 0;
+
+                    return new
+                    {
+                        FlushTimeNs = relativeTs,
+                        iv.CallCount,
+                        iv.TotalSelfNs,
+                        SelfAvgNs = selfAvg,
+                        iv.TotalInclusiveNs,
+                        InclusiveAvgNs = inclAvg
+                    };
+                }).ToList(),
+                TotalIntervals = intervals.Count
+            };
+
+            Console.WriteLine(JsonSerializer.Serialize(output, s_jsonOptions));
+            return 0;
+        }
 
         Console.WriteLine($"Trend: {methodKey}");
         Console.WriteLine(new string('-', 50));
@@ -38,6 +72,8 @@ public static class TrendAnalyzer
 
         Console.WriteLine(new string('-', 50));
         Console.WriteLine($"{intervals.Count} intervals found");
+
+        return 0;
     }
 
     private static async Task<List<TrendInterval>> CollectIntervalsAsync(string filePath, string methodPattern)

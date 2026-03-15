@@ -4,16 +4,51 @@ namespace Metreja.Tool.Analysis;
 
 public static class MemoryAnalyzer
 {
-    public static async Task AnalyzeAsync(string filePath, int top, string[] filters)
+    private static readonly JsonSerializerOptions s_jsonOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
+    public static async Task<int> AnalyzeAsync(string filePath, int top, string[] filters, string format = "text")
     {
         if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
-            return;
+            return 1;
 
         var (gcEvents, allocations) = await AggregateAsync(filePath, filters);
+
+        if (format == "json")
+        {
+            var sorted = allocations
+                .OrderByDescending(kv => kv.Value)
+                .Take(top)
+                .Select(kv => new { className = kv.Key, count = kv.Value })
+                .ToList();
+
+            var jsonOutput = new
+            {
+                gc = new
+                {
+                    totalCount = gcEvents.TotalCount,
+                    gen0Count = gcEvents.Gen0Count,
+                    gen1Count = gcEvents.Gen1Count,
+                    gen2Count = gcEvents.Gen2Count,
+                    totalPauseNs = gcEvents.TotalPauseNs,
+                    maxPauseNs = gcEvents.MaxPauseNs,
+                },
+                allocations = sorted,
+                totalTypes = allocations.Count,
+            };
+
+            Console.WriteLine(JsonSerializer.Serialize(jsonOutput, s_jsonOptions));
+            return 0;
+        }
 
         PrintGcSummary(gcEvents);
         Console.WriteLine();
         PrintAllocationTable(allocations, top);
+
+        return 0;
     }
 
     private static async Task<(GcSummary Gc, Dictionary<string, long> Allocations)> AggregateAsync(

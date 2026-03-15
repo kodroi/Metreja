@@ -4,17 +4,33 @@ namespace Metreja.Tool.Analysis;
 
 public static class ThreadsAnalyzer
 {
-    public static async Task AnalyzeAsync(string filePath, string sortBy)
+    private static readonly JsonSerializerOptions s_jsonOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
+    public static async Task<int> AnalyzeAsync(string filePath, string sortBy, string format = "text")
     {
         if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
-            return;
+            return 1;
 
         var threads = await AggregateAsync(filePath);
 
         if (threads.Count == 0)
         {
-            Console.WriteLine("No thread activity found.");
-            return;
+            if (format == "json")
+            {
+                Console.WriteLine(JsonSerializer.Serialize(
+                    new { Threads = Array.Empty<object>(), TotalThreads = 0 },
+                    s_jsonOptions));
+            }
+            else
+            {
+                Console.WriteLine("No thread activity found.");
+            }
+
+            return 0;
         }
 
         var globalMinTsNs = threads.Values.Min(t => t.FirstTsNs);
@@ -24,6 +40,33 @@ public static class ThreadsAnalyzer
             "time" => [.. threads.OrderByDescending(kv => kv.Value.RootTimeNs)],
             _ => [.. threads.OrderByDescending(kv => kv.Value.CallCount)]
         };
+
+        if (format == "json")
+        {
+            var output = new
+            {
+                Threads = sorted.Select(kv =>
+                {
+                    var firstRelative = kv.Value.FirstTsNs - globalMinTsNs;
+                    var lastRelative = kv.Value.LastTsNs - globalMinTsNs;
+                    var activeDuration = kv.Value.LastTsNs - kv.Value.FirstTsNs;
+
+                    return new
+                    {
+                        Tid = kv.Key,
+                        kv.Value.CallCount,
+                        kv.Value.RootTimeNs,
+                        FirstEventNs = firstRelative,
+                        LastEventNs = lastRelative,
+                        ActiveDurationNs = activeDuration
+                    };
+                }).ToList(),
+                TotalThreads = threads.Count
+            };
+
+            Console.WriteLine(JsonSerializer.Serialize(output, s_jsonOptions));
+            return 0;
+        }
 
         Console.WriteLine(
             $"{"TID",-15} {"Calls",7} {"Root Time",12} {"First Event",14} {"Last Event",14} {"Active Duration",17}");
@@ -41,6 +84,8 @@ public static class ThreadsAnalyzer
 
         Console.WriteLine(new string('-', 82));
         Console.WriteLine($"Total threads: {threads.Count}");
+
+        return 0;
     }
 
     private static async Task<Dictionary<long, ThreadStats>> AggregateAsync(string filePath)

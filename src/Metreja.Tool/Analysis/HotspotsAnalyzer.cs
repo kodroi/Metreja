@@ -4,10 +4,16 @@ namespace Metreja.Tool.Analysis;
 
 public static class HotspotsAnalyzer
 {
-    public static async Task AnalyzeAsync(string filePath, int top, double minMs, string sortBy, string[] filters)
+    private static readonly JsonSerializerOptions s_jsonOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
+    public static async Task<int> AnalyzeAsync(string filePath, int top, double minMs, string sortBy, string[] filters, string format = "text")
     {
         if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
-            return;
+            return 1;
 
         var stats = await AggregateAsync(filePath, filters);
 
@@ -26,6 +32,37 @@ public static class HotspotsAnalyzer
 
         var shown = sorted.Take(top).ToList();
 
+        if (format == "json")
+        {
+            var output = new
+            {
+                Methods = shown.Select(kv =>
+                {
+                    var s = kv.Value;
+                    var selfAvg = s.Count > 0 ? s.SelfTotal / s.Count : 0;
+                    var inclAvg = s.Count > 0 ? s.InclusiveTotal / s.Count : 0;
+                    return new
+                    {
+                        Method = kv.Key,
+                        Calls = s.Count,
+                        SelfTotalNs = s.SelfTotal,
+                        SelfAvgNs = selfAvg,
+                        InclusiveTotalNs = s.InclusiveTotal,
+                        InclusiveAvgNs = inclAvg,
+                        s.AllocCount,
+                        s.TailcallCount,
+                        s.ExceptionCount
+                    };
+                }).ToList(),
+                TotalMethods = stats.Count,
+                SortedBy = sortBy,
+                MinThresholdMs = minMs
+            };
+
+            Console.WriteLine(JsonSerializer.Serialize(output, s_jsonOptions));
+            return 0;
+        }
+
         Console.WriteLine(
             $"{"#",-5} {"Method",-50} {"Calls",7} {"Self Total",12} {"Self Avg",10} {"Incl Total",12} {"Incl Avg",10} {"Allocs",9} {"Tailcalls",10} {"Exceptions",11}");
         Console.WriteLine(new string('-', 138));
@@ -43,6 +80,8 @@ public static class HotspotsAnalyzer
         Console.WriteLine(new string('-', 138));
         Console.WriteLine(
             $"Showing top {shown.Count} of {stats.Count} methods (min threshold: {minMs:F1}ms, sorted by: {sortBy})");
+
+        return 0;
     }
 
     private static async Task<Dictionary<string, MethodStats>> AggregateAsync(string filePath, string[] filters)

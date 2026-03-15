@@ -153,11 +153,11 @@ metreja check baseline.ndjson compare.ndjson --threshold 10
 # Exit 0 = pass, Exit 1 = regression detected
 ```
 
-**Speedscope export** — Convert traces to [speedscope](https://www.speedscope.app/) format for interactive visualization.
+**Export** — Convert traces to [speedscope](https://www.speedscope.app/) format for visualization, or CSV for spreadsheet analysis.
 
 ```bash
 metreja export trace.ndjson
-metreja export trace.ndjson --output my-trace.speedscope.json
+metreja export trace.ndjson --format csv --output results.csv
 ```
 
 ---
@@ -256,8 +256,10 @@ Configure session settings via subcommands.
 | `set output` | `-s ID "path/pattern.ndjson"` | Set output path (supports `{sessionId}`, `{pid}` tokens) |
 | `set max-events` | `-s ID 50000` | Cap event count (0 = unlimited) |
 | `set compute-deltas` | `-s ID true` | Enable delta timing for performance analysis |
-| `set events` | `-s ID enter leave method_stats` | Set enabled event types |
+| `set events` | `-s ID enter leave method_stats` | Set enabled event types (see below) |
 | `set stats-flush-interval` | `-s ID 30` | Periodic stats flush interval in seconds (0 = disabled, default 30) |
+
+**Valid event types for `set events`:** `enter`, `leave`, `exception`, `gc_start`, `gc_end`, `alloc_by_class`, `method_stats`, `exception_stats`, `contention_start`, `contention_end`
 
 > **Tip:** All subcommands support `--help` for detailed usage (e.g., `metreja set events --help`).
 
@@ -285,6 +287,37 @@ metreja generate-env -s a1b2c3 --format powershell
 metreja generate-env -s a1b2c3 --format shell
 ```
 
+#### `run`
+
+Launch an executable with profiler environment variables attached. The profiled process inherits the current terminal.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `exe-path` | string | — | **Required.** Path to the executable to profile |
+| `extra-args` | string[] | — | Additional arguments passed to the executable |
+| `-s`, `--session` | string | — | **Required.** Session ID |
+| `--detach` | bool | `false` | Launch and return immediately (for GUI/long-running apps) |
+
+```bash
+metreja run -s a1b2c3 ./bin/Release/net10.0/MyApp
+metreja run -s a1b2c3 ./bin/Release/net10.0/MyApp -- --port 5000
+metreja run -s a1b2c3 --detach ./bin/Release/net10.0/MyGuiApp
+```
+
+**Exit codes:** Returns the profiled process's exit code, or `1` on setup failure.
+
+#### `flush`
+
+Trigger a manual stats flush on a running profiled process. Requires `method_stats` or `exception_stats` in the session's enabled events.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `-p`, `--pid` | int | — | **Required.** PID of the profiled process |
+
+```bash
+metreja flush --pid 12345
+```
+
 #### `clear`
 
 Delete profiling sessions.
@@ -295,6 +328,8 @@ metreja clear --all
 ```
 
 ### Analysis Commands
+
+All analysis commands support `--format json` for structured machine-readable output and return exit code `0` on success, `1` on non-success (error or regression detected by `check`).
 
 #### `hotspots`
 
@@ -307,6 +342,7 @@ Per-method timing ranked by self time, inclusive time, call count, or allocation
 | `--min-ms` | double | `0.0` | Minimum time threshold (ms) |
 | `--sort` | string | `self` | `self`, `inclusive`, `calls`, or `allocs` |
 | `--filter` | string[] | — | Filter by method/class/namespace pattern |
+| `--format` | string | `text` | Output format: `text` or `json` |
 
 #### `calltree`
 
@@ -318,6 +354,7 @@ Call tree for a specific method invocation, slowest first.
 | `--method` | string | — | **Required.** Method name or pattern |
 | `--tid` | long | — | Filter by thread ID |
 | `--occurrence` | int | `1` | Which invocation (1 = slowest) |
+| `--format` | string | `text` | Output format: `text` or `json` |
 
 #### `callers`
 
@@ -328,6 +365,7 @@ Who calls a method, with call count and timing per caller.
 | `file` | string | — | **Required.** NDJSON trace file |
 | `--method` | string | — | **Required.** Method name or pattern |
 | `--top` | int | `20` | Number of callers to show |
+| `--format` | string | `text` | Output format: `text` or `json` |
 
 #### `memory`
 
@@ -338,15 +376,17 @@ GC summary (generation counts, pause times) and per-type allocation hotspots.
 | `file` | string | — | **Required.** NDJSON trace file |
 | `--top` | int | `20` | Number of allocation types |
 | `--filter` | string[] | — | Filter by class name pattern |
+| `--format` | string | `text` | Output format: `text` or `json` |
 
 #### `analyze-diff`
 
 Compare two traces. Shows per-method timing delta (base vs. compare).
 
-| Argument | Type | Description |
-|----------|------|-------------|
-| `base` | string | **Required.** Base NDJSON file |
-| `compare` | string | **Required.** Comparison NDJSON file |
+| Argument / Option | Type | Default | Description |
+|-------------------|------|---------|-------------|
+| `base` | string | — | **Required.** Base NDJSON file |
+| `compare` | string | — | **Required.** Comparison NDJSON file |
+| `--format` | string | `text` | Output format: `text` or `json` |
 
 #### `summary`
 
@@ -356,8 +396,13 @@ Trace overview: event counts, wall-clock duration, unique threads, unique method
 |----------|------|-------------|
 | `file` | string | **Required.** NDJSON trace file |
 
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--format` | string | `text` | Output format: `text` or `json` |
+
 ```bash
 metreja summary trace.ndjson
+metreja summary trace.ndjson --format json
 ```
 
 #### `exceptions`
@@ -369,6 +414,7 @@ Rank exception types by frequency with throw-site methods.
 | `file` | string | — | **Required.** NDJSON trace file |
 | `--top` | int | `20` | Number of exception types to show |
 | `--filter` | string[] | — | Filter by exception type name |
+| `--format` | string | `text` | Output format: `text` or `json` |
 
 ```bash
 metreja exceptions trace.ndjson --top 5
@@ -386,6 +432,7 @@ Chronological event listing with filtering by thread, event type, and method.
 | `--event-type` | string | — | Filter by event type (e.g., `enter`, `leave`, `exception`) |
 | `--method` | string | — | Filter by method name or pattern |
 | `--top` | int | `100` | Maximum events to show |
+| `--format` | string | `text` | Output format: `text` or `json` |
 
 ```bash
 metreja timeline trace.ndjson --top 50
@@ -401,6 +448,7 @@ Per-thread breakdown: call counts, root time, activity windows.
 |--------|------|---------|-------------|
 | `file` | string | — | **Required.** NDJSON trace file |
 | `--sort` | string | `calls` | `calls` or `time` |
+| `--format` | string | `text` | Output format: `text` or `json` |
 
 ```bash
 metreja threads trace.ndjson
@@ -415,6 +463,7 @@ Method performance trend across periodic stats flush intervals.
 |--------|------|---------|-------------|
 | `file` | string | — | **Required.** NDJSON trace file |
 | `--method` | string | — | **Required.** Method name or pattern to track |
+| `--format` | string | `text` | Output format: `text` or `json` |
 
 ```bash
 metreja trend trace.ndjson --method "DoWork"
@@ -432,6 +481,7 @@ CI regression gate. Compares method timings between two traces and exits non-zer
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `--threshold` | double | `10.0` | Regression threshold percentage |
+| `--format` | string | `text` | Output format: `text` or `json` |
 
 **Exit codes:** `0` = pass (no regressions), `1` = fail (regression detected)
 
@@ -466,20 +516,22 @@ metreja merge trace1.ndjson trace2.ndjson --output merged.ndjson
 
 #### `export`
 
-Convert NDJSON traces to external visualization formats.
+Convert NDJSON traces to external formats.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `file` | string | — | **Required.** NDJSON trace file |
-| `--format` | string | `speedscope` | Export format (currently: `speedscope`) |
-| `--output` | string | `{file}.speedscope.json` | Output file path |
+| `--format` | string | `speedscope` | Export format: `speedscope` or `csv` |
+| `--output` | string | auto | Output file path (default: `{file}.speedscope.json` or `{file}.csv`) |
 
 ```bash
 metreja export trace.ndjson
+metreja export trace.ndjson --format csv
+metreja export trace.ndjson --format csv --output results.csv
 metreja export trace.ndjson --output my-trace.speedscope.json
 ```
 
-Open the exported file at [speedscope.app](https://www.speedscope.app/) for interactive flame graph visualization.
+Open speedscope files at [speedscope.app](https://www.speedscope.app/) for interactive flame graph visualization. CSV files are directly importable into spreadsheets.
 
 #### `report`
 

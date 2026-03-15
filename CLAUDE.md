@@ -56,10 +56,11 @@ Build outputs:
 Events written by the profiler DLL (controlled by `set events` command):
 
 - `session_metadata` — emitted once at start (scenario, sessionId, pid)
-- `enter` / `leave` — method entry/exit with tsNs, tid, depth, deltaNs (on leave)
+- `enter` / `leave` — method entry/exit with tsNs, tid, depth, deltaNs (on leave). Async method leave events include `wallTimeNs` (wall-clock time including awaits)
 - `exception` — exception thrown (exType, method info)
 - `gc_started` / `gc_finished` — GC events by generation
-- `alloc_by_class` — per-type allocation counts
+- `alloc_by_class` — per-type allocation counts with optional call-site attribution (`allocM`, `allocNs`, `allocCls`)
+- `contention_start` / `contention_end` — lock contention events via EventPipe (tid, tsNs)
 - `method_stats` / `exception_stats` — periodic aggregated statistics
 
 ## Code Style

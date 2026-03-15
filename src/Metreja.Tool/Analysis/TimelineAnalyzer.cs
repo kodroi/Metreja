@@ -4,17 +4,27 @@ namespace Metreja.Tool.Analysis;
 
 public static class TimelineAnalyzer
 {
-    public static async Task AnalyzeAsync(string filePath, long? tidFilter, string? eventTypeFilter, string? methodFilter, int top)
+    private static readonly JsonSerializerOptions s_jsonOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
+    public static async Task<int> AnalyzeAsync(string filePath, long? tidFilter, string? eventTypeFilter, string? methodFilter, int top, string format = "text")
     {
         if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
-            return;
-
-        Console.WriteLine(
-            $"{"Timestamp",-14}  {"Event",-15}  {"TID",-10}  {"Details"}");
-        Console.WriteLine(new string('-', 80));
+            return 1;
 
         long? baselineNs = null;
         var remaining = top;
+        var jsonEvents = format == "json" ? new List<object>() : null;
+
+        if (format != "json")
+        {
+            Console.WriteLine(
+                $"{"Timestamp",-14}  {"Event",-15}  {"TID",-10}  {"Details"}");
+            Console.WriteLine(new string('-', 80));
+        }
 
         await foreach (var (eventType, root) in AnalyzerHelpers.StreamEventsAsync(filePath))
         {
@@ -59,56 +69,115 @@ public static class TimelineAnalyzer
                 baselineNs ??= tsNs.Value;
             }
 
-            var relativeStr = tsNs.HasValue && baselineNs.HasValue
-                ? AnalyzerHelpers.FormatNs(tsNs.Value - baselineNs.Value)
-                : "-";
-            var tidStr = tid.HasValue ? $"tid:{tid.Value}" : "-";
+            var relativeNs = tsNs.HasValue && baselineNs.HasValue
+                ? tsNs.Value - baselineNs.Value
+                : (long?)null;
 
-            switch (eventType)
+            if (format == "json")
             {
-                case "enter":
+                var methodKey = hasMethodInfo ? AnalyzerHelpers.BuildMethodKey(ns, cls, m) : (string?)null;
+                long? deltaNs = eventType == "leave" && root.TryGetProperty("deltaNs", out var dj) ? dj.GetInt64() : null;
+                string? exception = eventType == "exception" && root.TryGetProperty("exType", out var exj) ? exj.GetString() : null;
+
+                // Extract GC-specific fields
+                object? gc = eventType switch
                 {
-                    var methodKey = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
-                    Console.WriteLine(
-                        $"{relativeStr,-14}  {eventType,-15}  {tidStr,-10}  {methodKey}");
-                    break;
-                }
-                case "leave":
+                    "gc_start" => (object)new
+                    {
+                        Gen0 = root.TryGetProperty("gen0", out var g0) && g0.ValueKind == JsonValueKind.True,
+                        Gen1 = root.TryGetProperty("gen1", out var g1) && g1.ValueKind == JsonValueKind.True,
+                        Gen2 = root.TryGetProperty("gen2", out var g2) && g2.ValueKind == JsonValueKind.True,
+                        Reason = root.TryGetProperty("reason", out var r) ? r.GetString() : null
+                    },
+                    "gc_end" => new
+                    {
+                        DurationNs = root.TryGetProperty("durationNs", out var dur) ? dur.GetInt64() : (long?)null
+                    },
+                    _ => null
+                };
+
+                jsonEvents!.Add(new
                 {
-                    var methodKey = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
-                    var deltaNs = root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0;
-                    Console.WriteLine(
-                        $"{relativeStr,-14}  {eventType,-15}  {tidStr,-10}  {methodKey} ({AnalyzerHelpers.FormatNs(deltaNs)})");
-                    break;
-                }
-                case "exception":
+                    RelativeNs = relativeNs,
+                    Event = eventType,
+                    Tid = tid,
+                    Method = methodKey,
+                    DeltaNs = deltaNs,
+                    Exception = exception,
+                    Gc = gc
+                });
+            }
+            else
+            {
+                var relativeStr = relativeNs.HasValue
+                    ? AnalyzerHelpers.FormatNs(relativeNs.Value)
+                    : "-";
+                var tidStr = tid.HasValue ? $"tid:{tid.Value}" : "-";
+
+                switch (eventType)
                 {
-                    var methodKey = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
-                    var exType = root.TryGetProperty("exType", out var ex) ? ex.GetString() ?? "" : "";
-                    Console.WriteLine(
-                        $"{relativeStr,-14}  {"exception",-15}  {tidStr,-10}  {methodKey} [{exType}]");
-                    break;
-                }
-                case "gc_started" or "gc_finished":
-                {
-                    var genInfo = FormatGcGenInfo(root);
-                    Console.WriteLine(
-                        $"{relativeStr,-14}  {eventType,-15}  {"-",-10}  {genInfo}");
-                    break;
-                }
-                default:
-                {
-                    Console.WriteLine(
-                        $"{relativeStr,-14}  {eventType,-15}  {tidStr,-10}");
-                    break;
+                    case "enter":
+                    {
+                        var methodKey = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
+                        Console.WriteLine(
+                            $"{relativeStr,-14}  {eventType,-15}  {tidStr,-10}  {methodKey}");
+                        break;
+                    }
+                    case "leave":
+                    {
+                        var methodKey = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
+                        var deltaNs = root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0;
+                        Console.WriteLine(
+                            $"{relativeStr,-14}  {eventType,-15}  {tidStr,-10}  {methodKey} ({AnalyzerHelpers.FormatNs(deltaNs)})");
+                        break;
+                    }
+                    case "exception":
+                    {
+                        var methodKey = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
+                        var exType = root.TryGetProperty("exType", out var ex) ? ex.GetString() ?? "" : "";
+                        Console.WriteLine(
+                            $"{relativeStr,-14}  {"exception",-15}  {tidStr,-10}  {methodKey} [{exType}]");
+                        break;
+                    }
+                    case "gc_start" or "gc_end":
+                    {
+                        var genInfo = FormatGcGenInfo(root);
+                        Console.WriteLine(
+                            $"{relativeStr,-14}  {eventType,-15}  {"-",-10}  {genInfo}");
+                        break;
+                    }
+                    default:
+                    {
+                        Console.WriteLine(
+                            $"{relativeStr,-14}  {eventType,-15}  {tidStr,-10}");
+                        break;
+                    }
                 }
             }
 
             remaining--;
         }
 
-        Console.WriteLine(new string('-', 80));
-        Console.WriteLine($"Showing {top - remaining} event(s) (limit: {top})");
+        var totalShown = top - remaining;
+
+        if (format == "json")
+        {
+            var output = new
+            {
+                Events = jsonEvents!,
+                TotalShown = totalShown,
+                Limit = top
+            };
+
+            Console.WriteLine(JsonSerializer.Serialize(output, s_jsonOptions));
+        }
+        else
+        {
+            Console.WriteLine(new string('-', 80));
+            Console.WriteLine($"Showing {totalShown} event(s) (limit: {top})");
+        }
+
+        return 0;
     }
 
     private static string FormatGcGenInfo(JsonElement root)
@@ -122,7 +191,7 @@ public static class TimelineAnalyzer
         if (root.TryGetProperty("gen2", out var g2) && g2.ValueKind == JsonValueKind.True)
             parts.Add("gen2");
 
-        if (root.TryGetProperty("deltaNs", out var d))
+        if (root.TryGetProperty("durationNs", out var d))
             parts.Add($"duration: {AnalyzerHelpers.FormatNs(d.GetInt64())}");
 
         return parts.Count > 0 ? string.Join(", ", parts) : "";
