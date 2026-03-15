@@ -5,9 +5,9 @@
 
 #ifdef _WIN32
 
-BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID)
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD reasonForCall, LPVOID)
 {
-    switch (ul_reason_for_call)
+    switch (reasonForCall)
     {
     case DLL_PROCESS_ATTACH: DisableThreadLibraryCalls(hModule); break;
     default: break;

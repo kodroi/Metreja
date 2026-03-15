@@ -1,5 +1,5 @@
 ---
-HeaderFilterRegex: 'src/Metreja\.Profiler/.*'
+HeaderFilterRegex: 'Metreja\.Profiler[/\\](platform[/\\]|[A-Z])'
 
 Checks: >
   -*,

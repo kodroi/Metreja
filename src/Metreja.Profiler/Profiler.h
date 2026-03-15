@@ -40,7 +40,7 @@ public:
     HRESULT STDMETHODCALLTYPE ModuleLoadFinished(ModuleID moduleId, HRESULT hrStatus) override;
     HRESULT STDMETHODCALLTYPE ModuleUnloadStarted(ModuleID moduleId) override;
     HRESULT STDMETHODCALLTYPE ModuleUnloadFinished(ModuleID moduleId, HRESULT hrStatus) override;
-    HRESULT STDMETHODCALLTYPE ModuleAttachedToAssembly(ModuleID moduleId, AssemblyID AssemblyId) override;
+    HRESULT STDMETHODCALLTYPE ModuleAttachedToAssembly(ModuleID moduleId, AssemblyID assemblyId) override;
     HRESULT STDMETHODCALLTYPE ClassLoadStarted(ClassID classId) override;
     HRESULT STDMETHODCALLTYPE ClassLoadFinished(ClassID classId, HRESULT hrStatus) override;
     HRESULT STDMETHODCALLTYPE ClassUnloadStarted(ClassID classId) override;
