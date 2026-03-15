@@ -1,4 +1,6 @@
 ---
+HeaderFilterRegex: 'src/Metreja\.Profiler/.*'
+
 Checks: >
   -*,
   bugprone-*,
@@ -19,11 +21,7 @@ Checks: >
   -readability-uppercase-literal-suffix,
   concurrency-*
 
-WarningsAsErrors: >
-  bugprone-*,
-  modernize-use-override,
-  modernize-use-nullptr,
-  readability-identifier-naming
+WarningsAsErrors: '*'
 
 # Naming conventions matching the existing codebase style
 CheckOptions:
