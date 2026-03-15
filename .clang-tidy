@@ -8,6 +8,8 @@ Checks: >
   -bugprone-narrowing-conversions,
   -bugprone-exception-escape,
   -bugprone-macro-parentheses,
+  -bugprone-reserved-identifier,
+  -bugprone-implicit-widening-of-multiplication-result,
   misc-*,
   -misc-no-recursion,
   -misc-non-private-member-variables-in-classes,
@@ -16,6 +18,7 @@ Checks: >
   -misc-unused-parameters,
   -misc-use-anonymous-namespace,
   -misc-use-internal-linkage,
+  -misc-definitions-in-headers,
   modernize-*,
   -modernize-use-trailing-return-type,
   -modernize-avoid-c-arrays,
@@ -25,8 +28,11 @@ Checks: >
   -modernize-use-auto,
   -modernize-use-equals-default,
   -modernize-use-nodiscard,
+  -modernize-use-using,
+  -modernize-use-default-member-init,
   performance-*,
   -performance-enum-size,
+  -performance-no-int-to-ptr,
   readability-*,
   -readability-magic-numbers,
   -readability-function-cognitive-complexity,
@@ -70,6 +76,11 @@ CheckOptions:
     value: camelBack
   - key: readability-identifier-naming.MemberPrefix
     value: m_
+  # Public member variables: camelCase (no prefix for data structs)
+  - key: readability-identifier-naming.PublicMemberCase
+    value: camelBack
+  - key: readability-identifier-naming.PublicMemberPrefix
+    value: ''
   # Static member variables: camelCase with s_ prefix
   - key: readability-identifier-naming.ClassMemberCase
     value: camelBack
