@@ -98,8 +98,26 @@ metreja calltree .metreja/output/*.ndjson --method "ValidateInventory"
 | `metreja callers` | Find who calls a method and how much time each caller contributes |
 | `metreja memory` | GC counts by generation, pause times, per-type allocation hotspots |
 | `metreja analyze-diff` | Compare two traces to verify a fix actually improved performance |
+| `metreja summary` | Trace overview: event counts, wall-clock duration, threads, methods |
+| `metreja exceptions` | Rank exception types by frequency with throw-site methods |
+| `metreja timeline` | Chronological event listing with tid, event type, and method filtering |
+| `metreja threads` | Per-thread breakdown: call counts, root time, activity windows |
+| `metreja trend` | Method performance trend across periodic stats flush intervals |
+| `metreja check` | CI regression gate: compare two traces, exit non-zero on regression |
+| `metreja list` | List existing profiling sessions |
+| `metreja merge` | Combine multiple trace files into one sorted by timestamp |
+| `metreja export` | Convert traces to speedscope format for visualization |
 
 For the full CLI reference with all options, see [src/Metreja.Tool/README.md](src/Metreja.Tool/README.md).
+
+### CI Integration
+
+Gate performance regressions in your pipeline. `metreja check` compares two traces and exits non-zero when any method exceeds the threshold:
+
+```bash
+metreja check baseline.ndjson pr-build.ndjson --threshold 10
+# Exit 0 = no regressions, Exit 1 = regression detected
+```
 
 ## Design Philosophy
 
@@ -146,7 +164,7 @@ Build outputs:
 
 Metreja is a two-component system:
 
-1. **Metreja.Profiler** — Native C++ library (DLL on Windows, dylib on macOS) implementing `ICorProfilerCallback3` with ELT3 hooks. Attaches to the .NET runtime via `COR_PROFILER` environment variables, hooks method enter/leave, and writes NDJSON traces.
+1. **Metreja.Profiler** — Native C++ library (DLL on Windows, dylib on macOS) implementing `ICorProfilerCallback10` with ELT3 hooks. Attaches to the .NET runtime via `COR_PROFILER` environment variables, hooks method enter/leave, and writes NDJSON traces.
 
 2. **Metreja.Tool** — C# CLI for session management and trace analysis. Creates session configs, generates profiler environment scripts, and provides analysis commands (hotspots, calltree, callers, memory, diff).
 

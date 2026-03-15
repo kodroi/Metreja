@@ -1,5 +1,3 @@
-using System.Text.Json;
-
 namespace Metreja.Tool.Analysis;
 
 public static class DiffAnalyzer
@@ -11,8 +9,8 @@ public static class DiffAnalyzer
         if (!AnalyzerHelpers.ValidateFileExists(comparePath, "Compare file"))
             return;
 
-        var baseTimings = await CollectMethodTimingsAsync(basePath);
-        var compareTimings = await CollectMethodTimingsAsync(comparePath);
+        var baseTimings = await AnalyzerHelpers.CollectMethodTimingsAsync(basePath);
+        var compareTimings = await AnalyzerHelpers.CollectMethodTimingsAsync(comparePath);
 
         Console.WriteLine("Method Timing Diff (base -> compare):");
         Console.WriteLine(new string('-', 100));
@@ -36,33 +34,5 @@ public static class DiffAnalyzer
 
         Console.WriteLine(new string('-', 100));
         Console.WriteLine($"Methods in base: {baseTimings.Count}, in compare: {compareTimings.Count}");
-    }
-
-    private static async Task<Dictionary<string, long>> CollectMethodTimingsAsync(string path)
-    {
-        var timings = new Dictionary<string, long>();
-
-        await foreach (var (eventType, root) in AnalyzerHelpers.StreamEventsAsync(path))
-        {
-            long? timing = eventType switch
-            {
-                "leave" => root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0,
-                "method_stats" => root.TryGetProperty("totalInclusiveNs", out var inc) ? inc.GetInt64() : 0,
-                _ => null
-            };
-
-            if (timing is not null)
-            {
-                var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
-                var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
-
-                // Timings are summed across all invocations. For method_stats events this is correct
-                // as totalInclusiveNs is already an aggregate. For leave events, this gives the total
-                // time across all calls, not per-call average.
-                timings[key] = timings.GetValueOrDefault(key, 0) + timing.Value;
-            }
-        }
-
-        return timings;
     }
 }

@@ -14,6 +14,8 @@ ProfilerContext* g_ctx = nullptr;
 MetrejaProfiler::MetrejaProfiler()
     : m_refCount(1)
     , m_profilerInfo(nullptr)
+    , m_profilerInfo5(nullptr)
+    , m_profilerInfo12(nullptr)
 {
 }
 
@@ -30,9 +32,11 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::QueryInterface(REFIID riid, void** pp
         return E_POINTER;
 
     if (riid == IID_IUnknown || riid == IID_ICorProfilerCallback || riid == IID_ICorProfilerCallback2 ||
-        riid == IID_ICorProfilerCallback3)
+        riid == IID_ICorProfilerCallback3 || riid == IID_ICorProfilerCallback4 || riid == IID_ICorProfilerCallback5 ||
+        riid == IID_ICorProfilerCallback6 || riid == IID_ICorProfilerCallback7 || riid == IID_ICorProfilerCallback8 ||
+        riid == IID_ICorProfilerCallback9 || riid == IID_ICorProfilerCallback10)
     {
-        *ppvObject = static_cast<ICorProfilerCallback3*>(this);
+        *ppvObject = static_cast<ICorProfilerCallback10*>(this);
         AddRef();
         return S_OK;
     }
@@ -59,6 +63,13 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Initialize(IUnknown* pICorProfilerInf
     HRESULT hr = pICorProfilerInfoUnk->QueryInterface(IID_ICorProfilerInfo3, reinterpret_cast<void**>(&m_profilerInfo));
     if (FAILED(hr))
         return E_FAIL;
+
+    // Try QI for ICorProfilerInfo5 (optional — needed for SetEventMask2)
+    pICorProfilerInfoUnk->QueryInterface(IID_ICorProfilerInfo5, reinterpret_cast<void**>(&m_profilerInfo5));
+    // m_profilerInfo5 may be null on older runtimes — that's OK
+
+    // Try QI for ICorProfilerInfo12 (optional — needed for EventPipe)
+    pICorProfilerInfoUnk->QueryInterface(IID_ICorProfilerInfo12, reinterpret_cast<void**>(&m_profilerInfo12));
 
     // Build context
     auto ctx = std::make_unique<ProfilerContext>();
@@ -130,6 +141,30 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Initialize(IUnknown* pICorProfilerInf
             return hr;
     }
 
+    // Start EventPipe session for contention events if enabled and Info12 available
+    if (m_profilerInfo12 != nullptr &&
+        (HasEvent(events, EventType::ContentionStart) || HasEvent(events, EventType::ContentionEnd)))
+    {
+        // Set high monitor flag for EventPipe
+        if (m_profilerInfo5 != nullptr)
+        {
+            DWORD highFlags = COR_PRF_HIGH_MONITOR_EVENT_PIPE;
+            m_profilerInfo5->SetEventMask2(eventMask, highFlags);
+        }
+
+        // Define EventPipe provider: Microsoft-Windows-DotNETRuntime, keyword 0x4000 (Contention)
+        COR_PRF_EVENTPIPE_PROVIDER_CONFIG providerConfig;
+        providerConfig.providerName = reinterpret_cast<const WCHAR*>(u"Microsoft-Windows-DotNETRuntime");
+        providerConfig.keywords = 0x4000; // ContentionKeyword
+        providerConfig.loggingLevel = 4;  // Informational
+        providerConfig.filterData = nullptr;
+
+        EVENTPIPE_SESSION session = 0;
+        HRESULT epHr = m_profilerInfo12->EventPipeStartSession(1, &providerConfig, false, &session);
+        if (SUCCEEDED(epHr))
+            g_ctx->eventPipeSession = session;
+    }
+
     // Create named semaphore for manual flush
     // Placed after all fallible setup so resources aren't leaked on early return.
     if (g_ctx->statsAggregator)
@@ -155,6 +190,12 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Shutdown()
     ProfilerContext* ctx = g_ctx;
     g_ctx = nullptr;
 
+    // Stop EventPipe session before tearing down context
+    if (m_profilerInfo12 != nullptr && ctx != nullptr && ctx->eventPipeSession != 0)
+    {
+        m_profilerInfo12->EventPipeStopSession(ctx->eventPipeSession);
+    }
+
     // Stop flush thread, then do final flush of remaining stats
     if (ctx != nullptr)
     {
@@ -167,6 +208,18 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Shutdown()
         if (ctx->m_manualFlushEvent != PAL_INVALID_SEMAPHORE)
             PalCloseNamedSemaphore(ctx->m_manualFlushEvent);
         delete ctx;
+    }
+
+    if (m_profilerInfo12 != nullptr)
+    {
+        m_profilerInfo12->Release();
+        m_profilerInfo12 = nullptr;
+    }
+
+    if (m_profilerInfo5 != nullptr)
+    {
+        m_profilerInfo5->Release();
+        m_profilerInfo5 = nullptr;
     }
 
     if (m_profilerInfo != nullptr)
@@ -336,6 +389,22 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ObjectsAllocatedByClass(ULONG cClassC
         return S_OK;
 
     long long tsNs = CallStackManager::GetTimestampNs();
+    DWORD tid = PalGetCurrentThreadId();
+
+    // Try to get current method from top of call stack for call-site attribution
+    MethodInfo allocMethod{};
+    bool hasCallSite = false;
+    auto* threadStack = ctx->callStackManager->GetThreadStack();
+    if (threadStack != nullptr && !threadStack->stack.empty())
+    {
+        FunctionID topFunc = static_cast<FunctionID>(threadStack->stack.back().functionId);
+        const MethodInfo* topInfo = ctx->methodCache->Lookup(topFunc);
+        if (topInfo != nullptr)
+        {
+            allocMethod = *topInfo;
+            hasCallSite = true;
+        }
+    }
 
     for (ULONG i = 0; i < cClassCount; i++)
     {
@@ -343,8 +412,11 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ObjectsAllocatedByClass(ULONG cClassC
             continue;
 
         std::string className = ctx->methodCache->ResolveClassName(classIds[i]);
-        DWORD tid = PalGetCurrentThreadId();
-        ctx->ndjsonWriter->WriteAllocByClass(tsNs, tid, className, cObjects[i]);
+
+        if (hasCallSite)
+            ctx->ndjsonWriter->WriteAllocByClassDetailed(tsNs, tid, className, cObjects[i], allocMethod);
+        else
+            ctx->ndjsonWriter->WriteAllocByClass(tsNs, tid, className, cObjects[i]);
     }
 
     return S_OK;
@@ -576,6 +648,107 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::InitializeForAttach(IUnknown* pCorPro
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ProfilerAttachComplete() { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ProfilerDetachSucceeded() { return S_OK; }
 
+// ICorProfilerCallback4 - No-op stubs
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::ReJITCompilationStarted(FunctionID functionId, ReJITID rejitId,
+                                                                    BOOL fIsSafeToBlock)
+{
+    return S_OK;
+}
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::GetReJITParameters(ModuleID moduleId, mdMethodDef methodId,
+                                                               ICorProfilerFunctionControl* pFunctionControl)
+{
+    return S_OK;
+}
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::ReJITCompilationFinished(FunctionID functionId, ReJITID rejitId,
+                                                                     HRESULT hrStatus, BOOL fIsSafeToBlock)
+{
+    return S_OK;
+}
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::ReJITError(ModuleID moduleId, mdMethodDef methodId, FunctionID functionId,
+                                                       HRESULT hrStatus)
+{
+    return S_OK;
+}
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::MovedReferences2(ULONG cMovedObjectIDRanges,
+                                                             ObjectID oldObjectIDRangeStart[],
+                                                             ObjectID newObjectIDRangeStart[],
+                                                             SIZE_T cObjectIDRangeLength[])
+{
+    return S_OK;
+}
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::SurvivingReferences2(ULONG cSurvivingObjectIDRanges,
+                                                                 ObjectID objectIDRangeStart[],
+                                                                 SIZE_T cObjectIDRangeLength[])
+{
+    return S_OK;
+}
+
+// ICorProfilerCallback5 - No-op stub
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::ConditionalWeakTableElementReferences(ULONG cRootRefs,
+                                                                                  ObjectID keyRefIds[],
+                                                                                  ObjectID valueRefIds[],
+                                                                                  GCHandleID rootIds[])
+{
+    return S_OK;
+}
+
+// ICorProfilerCallback6 - No-op stub
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::GetAssemblyReferences(const WCHAR* wszAssemblyPath,
+                                                                  ICorProfilerAssemblyReferenceProvider* pAsmRefProvider)
+{
+    return S_OK;
+}
+
+// ICorProfilerCallback7 - No-op stub
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::ModuleInMemorySymbolsUpdated(ModuleID moduleId) { return S_OK; }
+
+// ICorProfilerCallback8 - No-op stubs
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::DynamicMethodJITCompilationStarted(FunctionID functionId,
+                                                                               BOOL fIsSafeToBlock,
+                                                                               LPCBYTE pILHeader, ULONG cbILHeader)
+{
+    return S_OK;
+}
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::DynamicMethodJITCompilationFinished(FunctionID functionId, HRESULT hrStatus,
+                                                                                BOOL fIsSafeToBlock)
+{
+    return S_OK;
+}
+
+// ICorProfilerCallback9 - No-op stub
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::DynamicMethodUnloaded(FunctionID functionId) { return S_OK; }
+
+// ICorProfilerCallback10 - EventPipe delivery
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::EventPipeEventDelivered(
+    EVENTPIPE_PROVIDER provider, DWORD eventId, DWORD eventVersion, ULONG cbMetadataBlob, LPCBYTE metadataBlob,
+    ULONG cbEventData, LPCBYTE eventData, LPCGUID pActivityId, LPCGUID pRelatedActivityId, ThreadID eventThread,
+    ULONG numStackFrames, UINT_PTR stackFrames[])
+{
+    auto* ctx = g_ctx;
+    if (ctx == nullptr)
+        return S_OK;
+
+    long long tsNs = CallStackManager::GetTimestampNs();
+    DWORD tid = PalGetCurrentThreadId();
+
+    // Event ID 81 = ContentionStart, Event ID 91 = ContentionStop
+    if (eventId == 81 && HasEvent(ctx->config.enabledEvents, EventType::ContentionStart))
+    {
+        ctx->ndjsonWriter->WriteContentionStart(tsNs, tid);
+    }
+    else if (eventId == 91 && HasEvent(ctx->config.enabledEvents, EventType::ContentionEnd))
+    {
+        // ContentionStop payload contains DurationNs as first 8 bytes
+        long long durationNs = 0;
+        if (cbEventData >= 8 && eventData != nullptr)
+            memcpy(&durationNs, eventData, sizeof(long long));
+        ctx->ndjsonWriter->WriteContentionEnd(tsNs, tid, durationNs);
+    }
+
+    return S_OK;
+}
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::EventPipeProviderCreated(EVENTPIPE_PROVIDER provider) { return S_OK; }
+
 // ELT3 C++ Stubs (called from MASM naked hooks)
 
 // Common preamble: validates context, resolves method info, captures timing context.
@@ -610,6 +783,19 @@ extern "C" void STDMETHODCALLTYPE EnterStub(FunctionIDOrClientID functionIDOrCli
     int depth = ctx->callStackManager->GetDepth();
     ctx->callStackManager->Push(funcId, tsNs);
 
+    // Track async wall-time: record first enter timestamp per async method
+    if (info->isAsyncStateMachine)
+    {
+        auto* threadStack = ctx->callStackManager->GetThreadStack();
+        if (threadStack != nullptr)
+        {
+            auto& nestCount = threadStack->m_asyncNestingCount[funcId];
+            nestCount++;
+            if (nestCount == 1)
+                threadStack->m_asyncFirstEnterNs[funcId] = tsNs;
+        }
+    }
+
     if (HasEvent(ctx->config.enabledEvents, EventType::Enter))
         ctx->ndjsonWriter->WriteEnter(tsNs, tid, depth, *info);
 }
@@ -632,13 +818,38 @@ static void ProcessLeave(FunctionIDOrClientID functionIDOrClientID, bool isTailc
     ctx->callStackManager->CreditParent(inclusiveNs);
     int depth = ctx->callStackManager->GetDepth();
 
+    // Compute async wall-time
+    long long wallTimeNs = 0;
+    if (info->isAsyncStateMachine)
+    {
+        auto* threadStack = ctx->callStackManager->GetThreadStack();
+        if (threadStack != nullptr)
+        {
+            auto it = threadStack->m_asyncNestingCount.find(funcId);
+            if (it != threadStack->m_asyncNestingCount.end())
+            {
+                it->second--;
+                if (it->second <= 0)
+                {
+                    auto firstIt = threadStack->m_asyncFirstEnterNs.find(funcId);
+                    if (firstIt != threadStack->m_asyncFirstEnterNs.end())
+                    {
+                        wallTimeNs = tsNs - firstIt->second;
+                        threadStack->m_asyncFirstEnterNs.erase(firstIt);
+                    }
+                    threadStack->m_asyncNestingCount.erase(it);
+                }
+            }
+        }
+    }
+
     if (ctx->statsAggregator && HasEvent(ctx->config.enabledEvents, EventType::MethodStats))
         ctx->statsAggregator->RecordMethod(funcId, inclusiveNs, selfNs);
 
     if (HasEvent(ctx->config.enabledEvents, EventType::Leave))
     {
         long long deltaNs = ctx->config.computeDeltas ? inclusiveNs : 0;
-        ctx->ndjsonWriter->WriteLeave(tsNs, tid, depth, *info, deltaNs, isTailcall);
+        ctx->ndjsonWriter->WriteLeave(tsNs, tid, depth, *info, deltaNs, isTailcall, wallTimeNs);
     }
 }
 

@@ -21,4 +21,5 @@ struct ProfilerContext
     std::unique_ptr<NdjsonWriter> ndjsonWriter;
     std::unique_ptr<StatsAggregator> statsAggregator;
     PalNamedSemaphore m_manualFlushEvent = PAL_INVALID_SEMAPHORE;
+    EVENTPIPE_SESSION eventPipeSession = 0;
 };

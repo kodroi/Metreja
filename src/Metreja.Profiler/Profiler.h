@@ -10,7 +10,7 @@ struct ProfilerContext;
 // Global context pointer (needed because ELT callbacks lack 'this')
 extern ProfilerContext* g_ctx;
 
-class MetrejaProfiler final : public ICorProfilerCallback3
+class MetrejaProfiler final : public ICorProfilerCallback10
 {
 public:
     MetrejaProfiler();
@@ -25,7 +25,7 @@ public:
     ULONG STDMETHODCALLTYPE AddRef() override;
     ULONG STDMETHODCALLTYPE Release() override;
 
-    // ICorProfilerCallback
+    // ICorProfilerCallback (all existing methods stay exactly the same)
     HRESULT STDMETHODCALLTYPE Initialize(IUnknown* pICorProfilerInfoUnk) override;
     HRESULT STDMETHODCALLTYPE Shutdown() override;
     HRESULT STDMETHODCALLTYPE AppDomainCreationStarted(AppDomainID appDomainId) override;
@@ -122,12 +122,57 @@ public:
     HRESULT STDMETHODCALLTYPE ProfilerAttachComplete() override;
     HRESULT STDMETHODCALLTYPE ProfilerDetachSucceeded() override;
 
+    // ICorProfilerCallback4
+    HRESULT STDMETHODCALLTYPE ReJITCompilationStarted(FunctionID functionId, ReJITID rejitId,
+                                                      BOOL fIsSafeToBlock) override;
+    HRESULT STDMETHODCALLTYPE GetReJITParameters(ModuleID moduleId, mdMethodDef methodId,
+                                                 ICorProfilerFunctionControl* pFunctionControl) override;
+    HRESULT STDMETHODCALLTYPE ReJITCompilationFinished(FunctionID functionId, ReJITID rejitId, HRESULT hrStatus,
+                                                       BOOL fIsSafeToBlock) override;
+    HRESULT STDMETHODCALLTYPE ReJITError(ModuleID moduleId, mdMethodDef methodId, FunctionID functionId,
+                                         HRESULT hrStatus) override;
+    HRESULT STDMETHODCALLTYPE MovedReferences2(ULONG cMovedObjectIDRanges, ObjectID oldObjectIDRangeStart[],
+                                               ObjectID newObjectIDRangeStart[], SIZE_T cObjectIDRangeLength[]) override;
+    HRESULT STDMETHODCALLTYPE SurvivingReferences2(ULONG cSurvivingObjectIDRanges, ObjectID objectIDRangeStart[],
+                                                   SIZE_T cObjectIDRangeLength[]) override;
+
+    // ICorProfilerCallback5
+    HRESULT STDMETHODCALLTYPE ConditionalWeakTableElementReferences(ULONG cRootRefs, ObjectID keyRefIds[],
+                                                                    ObjectID valueRefIds[],
+                                                                    GCHandleID rootIds[]) override;
+
+    // ICorProfilerCallback6
+    HRESULT STDMETHODCALLTYPE GetAssemblyReferences(const WCHAR* wszAssemblyPath,
+                                                    ICorProfilerAssemblyReferenceProvider* pAsmRefProvider) override;
+
+    // ICorProfilerCallback7
+    HRESULT STDMETHODCALLTYPE ModuleInMemorySymbolsUpdated(ModuleID moduleId) override;
+
+    // ICorProfilerCallback8
+    HRESULT STDMETHODCALLTYPE DynamicMethodJITCompilationStarted(FunctionID functionId, BOOL fIsSafeToBlock,
+                                                                 LPCBYTE pILHeader, ULONG cbILHeader) override;
+    HRESULT STDMETHODCALLTYPE DynamicMethodJITCompilationFinished(FunctionID functionId, HRESULT hrStatus,
+                                                                  BOOL fIsSafeToBlock) override;
+
+    // ICorProfilerCallback9
+    HRESULT STDMETHODCALLTYPE DynamicMethodUnloaded(FunctionID functionId) override;
+
+    // ICorProfilerCallback10
+    HRESULT STDMETHODCALLTYPE EventPipeEventDelivered(EVENTPIPE_PROVIDER provider, DWORD eventId, DWORD eventVersion,
+                                                      ULONG cbMetadataBlob, LPCBYTE metadataBlob, ULONG cbEventData,
+                                                      LPCBYTE eventData, LPCGUID pActivityId,
+                                                      LPCGUID pRelatedActivityId, ThreadID eventThread,
+                                                      ULONG numStackFrames, UINT_PTR stackFrames[]) override;
+    HRESULT STDMETHODCALLTYPE EventPipeProviderCreated(EVENTPIPE_PROVIDER provider) override;
+
     // Accessor for profiler info
     ICorProfilerInfo3* GetProfilerInfo() const { return m_profilerInfo; }
 
 private:
     std::atomic<LONG> m_refCount;
     ICorProfilerInfo3* m_profilerInfo;
+    ICorProfilerInfo5* m_profilerInfo5;
+    ICorProfilerInfo12* m_profilerInfo12;
 };
 
 // ELT3 C++ stubs (called from assembly naked hooks)

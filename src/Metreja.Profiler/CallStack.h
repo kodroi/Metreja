@@ -5,6 +5,7 @@
 #include "platform/pal_time.h"
 #include <atomic>
 #include <mutex>
+#include <unordered_map>
 #include <vector>
 
 struct CallEntry
@@ -28,6 +29,10 @@ struct ThreadCallStack
     CallEntry m_deferredUnwindEntry = {0, 0, 0};
     UINT_PTR m_deferredUnwindFunctionId = 0;
     long long m_deferredUnwindTsNs = 0;
+
+    // Async wall-time tracking: track first enter and nesting depth per FunctionID
+    std::unordered_map<UINT_PTR, long long> m_asyncFirstEnterNs;
+    std::unordered_map<UINT_PTR, int> m_asyncNestingCount;
 
     ThreadCallStack() { stack.reserve(256); }
 };

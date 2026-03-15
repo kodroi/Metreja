@@ -15,6 +15,8 @@ enum class EventType : uint32_t
     AllocByClass = 1 << 5,
     MethodStats = 1 << 6,
     ExceptionStats = 1 << 7,
+    ContentionStart = 1 << 8,
+    ContentionEnd = 1 << 9,
 };
 
 inline EventType operator|(EventType a, EventType b)

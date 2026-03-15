@@ -27,8 +27,8 @@ public static class HotspotsAnalyzer
         var shown = sorted.Take(top).ToList();
 
         Console.WriteLine(
-            $"{"#",-5} {"Method",-50} {"Calls",7} {"Self Total",12} {"Self Avg",10} {"Incl Total",12} {"Incl Avg",10} {"Allocs",9}");
-        Console.WriteLine(new string('-', 116));
+            $"{"#",-5} {"Method",-50} {"Calls",7} {"Self Total",12} {"Self Avg",10} {"Incl Total",12} {"Incl Avg",10} {"Allocs",9} {"Tailcalls",10} {"Exceptions",11}");
+        Console.WriteLine(new string('-', 138));
 
         for (var i = 0; i < shown.Count; i++)
         {
@@ -37,10 +37,10 @@ public static class HotspotsAnalyzer
             var inclAvg = s.Count > 0 ? s.InclusiveTotal / s.Count : 0;
 
             Console.WriteLine(
-                $"{i + 1,-5} {AnalyzerHelpers.Truncate(method, 50),-50} {s.Count,7} {AnalyzerHelpers.FormatNs(s.SelfTotal),12} {AnalyzerHelpers.FormatNs(selfAvg),10} {AnalyzerHelpers.FormatNs(s.InclusiveTotal),12} {AnalyzerHelpers.FormatNs(inclAvg),10} {s.AllocCount,9}");
+                $"{i + 1,-5} {AnalyzerHelpers.Truncate(method, 50),-50} {s.Count,7} {AnalyzerHelpers.FormatNs(s.SelfTotal),12} {AnalyzerHelpers.FormatNs(selfAvg),10} {AnalyzerHelpers.FormatNs(s.InclusiveTotal),12} {AnalyzerHelpers.FormatNs(inclAvg),10} {s.AllocCount,9} {s.TailcallCount,10} {s.ExceptionCount,11}");
         }
 
-        Console.WriteLine(new string('-', 116));
+        Console.WriteLine(new string('-', 138));
         Console.WriteLine(
             $"Showing top {shown.Count} of {stats.Count} methods (min threshold: {minMs:F1}ms, sorted by: {sortBy})");
     }
@@ -92,6 +92,9 @@ public static class HotspotsAnalyzer
                         ms.SelfTotal += selfNs;
                         if (deltaNs > ms.InclusiveMax) ms.InclusiveMax = deltaNs;
                         if (selfNs > ms.SelfMax) ms.SelfMax = selfNs;
+
+                        if (root.TryGetProperty("tailcall", out var tc) && tc.ValueKind == JsonValueKind.True)
+                            ms.TailcallCount++;
                     }
 
                     if (stack.Count > 0)
@@ -118,6 +121,23 @@ public static class HotspotsAnalyzer
                     ms.SelfMax = Math.Max(ms.SelfMax, root.TryGetProperty("maxSelfNs", out var smx) ? smx.GetInt64() : 0);
                     ms.InclusiveTotal += root.TryGetProperty("totalInclusiveNs", out var inc) ? inc.GetInt64() : 0;
                     ms.InclusiveMax = Math.Max(ms.InclusiveMax, root.TryGetProperty("maxInclusiveNs", out var imx) ? imx.GetInt64() : 0);
+                }
+            }
+            else if (eventType == "exception")
+            {
+                var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
+                var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
+
+                if (!string.IsNullOrEmpty(key) && key != "." &&
+                    (!hasFilters || AnalyzerHelpers.MatchesAnyFilter(filters, ns, cls, m, key)))
+                {
+                    if (!stats.TryGetValue(key, out var ms))
+                    {
+                        ms = new MethodStats();
+                        stats[key] = ms;
+                    }
+
+                    ms.ExceptionCount++;
                 }
             }
             else if (eventType == "alloc_by_class")
@@ -156,5 +176,7 @@ public static class HotspotsAnalyzer
         public long SelfTotal { get; set; }
         public long SelfMax { get; set; }
         public long AllocCount { get; set; }
+        public long TailcallCount { get; set; }
+        public long ExceptionCount { get; set; }
     }
 }

@@ -119,20 +119,21 @@ void NdjsonWriter::WriteEnter(long long tsNs, DWORD tid, int depth, const Method
 }
 
 void NdjsonWriter::WriteLeave(long long tsNs, DWORD tid, int depth, const MethodInfo& info, long long deltaNs,
-                              bool tailcall)
+                              bool tailcall, long long wallTimeNs)
 {
     if (CheckEventLimit())
         return;
 
     char line[2048];
     const char* methodName = info.GetDisplayName();
-    const char* suffix = "";
-    if (info.isAsyncStateMachine && tailcall)
-        suffix = R"(,"async":true,"tailcall":true)";
-    else if (info.isAsyncStateMachine)
-        suffix = R"(,"async":true)";
-    else if (tailcall)
-        suffix = R"(,"tailcall":true)";
+    char suffix[128] = "";
+    int suffixLen = 0;
+    if (info.isAsyncStateMachine)
+        suffixLen += snprintf(suffix + suffixLen, sizeof(suffix) - suffixLen, R"(,"async":true)");
+    if (tailcall)
+        suffixLen += snprintf(suffix + suffixLen, sizeof(suffix) - suffixLen, R"(,"tailcall":true)");
+    if (wallTimeNs > 0)
+        suffixLen += snprintf(suffix + suffixLen, sizeof(suffix) - suffixLen, R"(,"wallTimeNs":%lld)", wallTimeNs);
     int len = snprintf(
         line, sizeof(line),
         R"({"event":"leave","tsNs":%lld,"pid":%lu,"sessionId":"%s","tid":%lu,"depth":%d,"asm":"%s","ns":"%s","cls":"%s","m":"%s","deltaNs":%lld%s})"
@@ -209,6 +210,57 @@ void NdjsonWriter::WriteAllocByClass(long long tsNs, DWORD tid, const std::strin
         "\n",
         tsNs, static_cast<unsigned long>(m_pid), m_sessionId.c_str(), static_cast<unsigned long>(tid),
         className.c_str(), static_cast<unsigned long>(count));
+
+    if (len > 0 && static_cast<size_t>(len) < sizeof(line))
+        WriteLockedEvent(line, static_cast<size_t>(len));
+}
+
+void NdjsonWriter::WriteAllocByClassDetailed(long long tsNs, DWORD tid, const std::string& className, ULONG count,
+                                              const MethodInfo& allocMethod)
+{
+    if (CheckEventLimit())
+        return;
+
+    char line[2048];
+    int len = snprintf(
+        line, sizeof(line),
+        R"({"event":"alloc_by_class","tsNs":%lld,"pid":%lu,"sessionId":"%s","tid":%lu,"className":"%s","count":%lu,"allocAsm":"%s","allocNs":"%s","allocCls":"%s","allocM":"%s"})"
+        "\n",
+        tsNs, static_cast<unsigned long>(m_pid), m_sessionId.c_str(), static_cast<unsigned long>(tid),
+        className.c_str(), static_cast<unsigned long>(count), allocMethod.assemblyName.c_str(),
+        allocMethod.namespaceName.c_str(), allocMethod.className.c_str(), allocMethod.methodName.c_str());
+
+    if (len > 0 && static_cast<size_t>(len) < sizeof(line))
+        WriteLockedEvent(line, static_cast<size_t>(len));
+}
+
+void NdjsonWriter::WriteContentionStart(long long tsNs, DWORD tid)
+{
+    if (CheckEventLimit())
+        return;
+
+    char line[2048];
+    int len = snprintf(
+        line, sizeof(line),
+        R"({"event":"contention_start","tsNs":%lld,"pid":%lu,"sessionId":"%s","tid":%lu})"
+        "\n",
+        tsNs, static_cast<unsigned long>(m_pid), m_sessionId.c_str(), static_cast<unsigned long>(tid));
+
+    if (len > 0 && static_cast<size_t>(len) < sizeof(line))
+        WriteLockedEvent(line, static_cast<size_t>(len));
+}
+
+void NdjsonWriter::WriteContentionEnd(long long tsNs, DWORD tid, long long durationNs)
+{
+    if (CheckEventLimit())
+        return;
+
+    char line[2048];
+    int len = snprintf(
+        line, sizeof(line),
+        R"({"event":"contention_end","tsNs":%lld,"pid":%lu,"sessionId":"%s","tid":%lu,"durationNs":%lld})"
+        "\n",
+        tsNs, static_cast<unsigned long>(m_pid), m_sessionId.c_str(), static_cast<unsigned long>(tid), durationNs);
 
     if (len > 0 && static_cast<size_t>(len) < sizeof(line))
         WriteLockedEvent(line, static_cast<size_t>(len));

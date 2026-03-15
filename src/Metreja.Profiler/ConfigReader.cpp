@@ -117,6 +117,10 @@ ProfilerConfig ConfigReader::Load()
                     mask |= EventType::MethodStats;
                 else if (name == "exception_stats")
                     mask |= EventType::ExceptionStats;
+                else if (name == "contention_start")
+                    mask |= EventType::ContentionStart;
+                else if (name == "contention_end")
+                    mask |= EventType::ContentionEnd;
                 else
                 {
                     char msg[256];

@@ -24,11 +24,15 @@ public:
     void WriteSessionMetadata(const std::string& scenario, long long tsNs);
     void WriteEnter(long long tsNs, DWORD tid, int depth, const MethodInfo& info);
     void WriteLeave(long long tsNs, DWORD tid, int depth, const MethodInfo& info, long long deltaNs,
-                    bool tailcall = false);
+                    bool tailcall = false, long long wallTimeNs = 0);
     void WriteException(long long tsNs, DWORD tid, const MethodInfo& info, const std::string& exType);
     void WriteGcStarted(long long tsNs, bool gen0, bool gen1, bool gen2, const char* reason);
     void WriteGcFinished(long long tsNs, long long durationNs);
     void WriteAllocByClass(long long tsNs, DWORD tid, const std::string& className, ULONG count);
+    void WriteAllocByClassDetailed(long long tsNs, DWORD tid, const std::string& className, ULONG count,
+                                   const MethodInfo& allocMethod);
+    void WriteContentionStart(long long tsNs, DWORD tid);
+    void WriteContentionEnd(long long tsNs, DWORD tid, long long durationNs);
     void WriteMethodStats(const MethodInfo& info, const MethodStatsAccum& accum);
     void WriteExceptionStats(const std::string& exType, const ExceptionStatsAccum& accum);
     void Flush();

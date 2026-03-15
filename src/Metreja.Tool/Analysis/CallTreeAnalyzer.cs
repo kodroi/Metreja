@@ -137,10 +137,20 @@ public static class CallTreeAnalyzer
                     depthStack.Push(entry);
                 }
             }
+            else if (eventType == "exception" && inSubtree)
+            {
+                var exType = root.TryGetProperty("exType", out var ex) ? ex.GetString() ?? "" : "";
+
+                if (depthStack.Count > 0 && !string.IsNullOrEmpty(exType))
+                {
+                    var entry = depthStack.Peek();
+                    entry.IsException = true;
+                    entry.ExceptionType = exType;
+                }
+            }
             else if (eventType == "leave" && inSubtree)
             {
                 var deltaNs = root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0;
-                var exType = root.TryGetProperty("ex", out var ex) ? ex.GetString() ?? "" : "";
                 var depth = root.TryGetProperty("depth", out var dp) ? dp.GetInt32() : 0;
                 var relativeDepth = depth - target.Depth;
 
@@ -148,8 +158,6 @@ public static class CallTreeAnalyzer
                 {
                     var entry = depthStack.Pop();
                     entry.DeltaNs = deltaNs;
-                    entry.IsException = !string.IsNullOrEmpty(exType);
-                    entry.ExceptionType = exType;
                 }
 
                 // If we've popped back to the root of the subtree, we're done
