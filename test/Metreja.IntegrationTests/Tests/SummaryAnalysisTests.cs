@@ -57,7 +57,7 @@ public class SummaryAnalysisTests : IAsyncLifetime
         var output = await TestHelpers.CaptureConsoleOutputAsync(() =>
             SummaryAnalyzer.AnalyzeAsync(_tempFile));
 
-        var expectedDuration = (2450000000L / 1_000_000_000.0).ToString("F2", CultureInfo.CurrentCulture) + "s";
+        var expectedDuration = (2450000000L / 1_000_000_000.0).ToString("F2", CultureInfo.InvariantCulture) + "s";
         Assert.Contains(expectedDuration, output);
     }
 

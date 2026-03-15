@@ -48,9 +48,12 @@ public static class MergeCommand
                     try
                     {
                         using var doc = JsonDocument.Parse(line);
-                        var tsNs = doc.RootElement.TryGetProperty("tsNs", out var ts)
-                            ? ts.GetInt64()
-                            : 0;
+                        long tsNs = 0;
+                        if (doc.RootElement.TryGetProperty("tsNs", out var ts) &&
+                            ts.ValueKind == JsonValueKind.Number)
+                        {
+                            ts.TryGetInt64(out tsNs);
+                        }
                         events.Add((tsNs, line));
                     }
                     catch (JsonException)

@@ -102,7 +102,7 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Initialize(IUnknown* pICorProfilerInf
     // ELT hooks needed whenever we require call-stack context
     bool needElt = HasEvent(events, EventType::Enter) || HasEvent(events, EventType::Leave) ||
                    HasEvent(events, EventType::MethodStats) || HasEvent(events, EventType::ExceptionStats) ||
-                   HasEvent(events, EventType::Exception);
+                   HasEvent(events, EventType::Exception) || HasEvent(events, EventType::AllocByClass);
     if (needElt)
     {
         eventMask |= COR_PRF_MONITOR_ENTERLEAVE | COR_PRF_ENABLE_FRAME_INFO;
@@ -444,17 +444,33 @@ static void FinalizeDeferredUnwind(ProfilerContext* ctx, ThreadCallStack* ts)
     ctx->callStackManager->CreditParent(inclusiveNs);
     int depth = ctx->callStackManager->GetDepth();
 
+    // Clean up async wall-time tracking for finalized deferred entries
+    const MethodInfo* deferredInfo = ctx->methodCache->Lookup(static_cast<FunctionID>(ts->m_deferredUnwindFunctionId));
+    if (deferredInfo != nullptr && deferredInfo->isAsyncStateMachine)
+    {
+        auto it = ts->m_asyncNestingCount.find(ts->m_deferredUnwindFunctionId);
+        if (it != ts->m_asyncNestingCount.end())
+        {
+            it->second--;
+            if (it->second <= 0)
+            {
+                ts->m_asyncFirstEnterNs.erase(ts->m_deferredUnwindFunctionId);
+                ts->m_asyncNestingCount.erase(it);
+            }
+        }
+    }
+
     if (ctx->statsAggregator && HasEvent(ctx->config.enabledEvents, EventType::MethodStats))
         ctx->statsAggregator->RecordMethod(static_cast<FunctionID>(ts->m_deferredUnwindFunctionId), inclusiveNs,
                                            selfNs);
 
     if (HasEvent(ctx->config.enabledEvents, EventType::Leave))
     {
-        const MethodInfo* info = ctx->methodCache->Lookup(static_cast<FunctionID>(ts->m_deferredUnwindFunctionId));
-        if (info != nullptr)
+        if (deferredInfo != nullptr)
         {
             long long deltaNs = ctx->config.computeDeltas ? inclusiveNs : 0;
-            ctx->ndjsonWriter->WriteLeave(ts->m_deferredUnwindTsNs, PalGetCurrentThreadId(), depth, *info, deltaNs);
+            ctx->ndjsonWriter->WriteLeave(ts->m_deferredUnwindTsNs, PalGetCurrentThreadId(), depth, *deferredInfo,
+                                          deltaNs);
         }
     }
 
@@ -512,6 +528,22 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionUnwindFunctionEnter(Function
         // Pop and defer this entry
         CallEntry entry = ctx->callStackManager->Pop();
         long long tsNs = CallStackManager::GetTimestampNs();
+
+        // Clean up async wall-time tracking for unwound methods
+        if (info != nullptr && info->isAsyncStateMachine && threadStack != nullptr)
+        {
+            auto it = threadStack->m_asyncNestingCount.find(functionId);
+            if (it != threadStack->m_asyncNestingCount.end())
+            {
+                it->second--;
+                if (it->second <= 0)
+                {
+                    threadStack->m_asyncFirstEnterNs.erase(functionId);
+                    threadStack->m_asyncNestingCount.erase(it);
+                }
+            }
+        }
+
         threadStack->m_deferredUnwindEntry = entry;
         threadStack->m_deferredUnwindFunctionId = functionId;
         threadStack->m_deferredUnwindTsNs = tsNs;
@@ -522,6 +554,22 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionUnwindFunctionEnter(Function
     // Not the catcher's FunctionID — pop and process normally
     CallEntry entry = ctx->callStackManager->Pop();
     long long tsNs = CallStackManager::GetTimestampNs();
+
+    // Clean up async wall-time tracking for unwound methods
+    if (info != nullptr && info->isAsyncStateMachine && threadStack != nullptr)
+    {
+        auto it = threadStack->m_asyncNestingCount.find(functionId);
+        if (it != threadStack->m_asyncNestingCount.end())
+        {
+            it->second--;
+            if (it->second <= 0)
+            {
+                threadStack->m_asyncFirstEnterNs.erase(functionId);
+                threadStack->m_asyncNestingCount.erase(it);
+            }
+        }
+    }
+
     long long inclusiveNs = (entry.enterTsNs > 0) ? (tsNs - entry.enterTsNs) : 0;
     long long selfNs = inclusiveNs - entry.m_childrenTimeNs;
     if (selfNs < 0)

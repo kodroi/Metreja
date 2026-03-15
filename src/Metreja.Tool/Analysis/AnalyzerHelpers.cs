@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 
 namespace Metreja.Tool.Analysis;
@@ -9,9 +10,9 @@ internal static class AnalyzerHelpers
         return ns switch
         {
             < 1_000 => $"{ns}ns",
-            < 1_000_000 => $"{ns / 1_000.0:F2}us",
-            < 1_000_000_000 => $"{ns / 1_000_000.0:F2}ms",
-            _ => $"{ns / 1_000_000_000.0:F2}s"
+            < 1_000_000 => string.Format(CultureInfo.InvariantCulture, "{0:F2}us", ns / 1_000.0),
+            < 1_000_000_000 => string.Format(CultureInfo.InvariantCulture, "{0:F2}ms", ns / 1_000_000.0),
+            _ => string.Format(CultureInfo.InvariantCulture, "{0:F2}s", ns / 1_000_000_000.0)
         };
     }
 

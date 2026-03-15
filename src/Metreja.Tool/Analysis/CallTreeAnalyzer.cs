@@ -139,7 +139,9 @@ public static class CallTreeAnalyzer
             }
             else if (eventType == "exception" && inSubtree)
             {
-                var exType = root.TryGetProperty("exType", out var ex) ? ex.GetString() ?? "" : "";
+                var exType = (root.TryGetProperty("exType", out var ex) && ex.ValueKind == JsonValueKind.String)
+                    ? ex.GetString() ?? ""
+                    : "";
 
                 if (depthStack.Count > 0 && !string.IsNullOrEmpty(exType))
                 {

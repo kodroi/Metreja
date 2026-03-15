@@ -140,6 +140,24 @@ public static class HotspotsAnalyzer
                     ms.ExceptionCount++;
                 }
             }
+            else if (eventType == "exception_stats")
+            {
+                var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
+                var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
+                var exCount = root.TryGetProperty("count", out var ec) ? ec.GetInt64() : 0;
+
+                if (exCount > 0 && !string.IsNullOrEmpty(key) && key != "." &&
+                    (!hasFilters || AnalyzerHelpers.MatchesAnyFilter(filters, ns, cls, m, key)))
+                {
+                    if (!stats.TryGetValue(key, out var ms))
+                    {
+                        ms = new MethodStats();
+                        stats[key] = ms;
+                    }
+
+                    ms.ExceptionCount += exCount;
+                }
+            }
             else if (eventType == "alloc_by_class")
             {
                 var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;

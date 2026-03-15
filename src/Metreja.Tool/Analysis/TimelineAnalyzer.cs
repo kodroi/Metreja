@@ -53,12 +53,15 @@ public static class TimelineAnalyzer
             }
 
             // Get timestamp and compute relative
-            var tsNs = root.TryGetProperty("tsNs", out var tsProp) ? tsProp.GetInt64() : 0;
-            baselineNs ??= tsNs;
-            var relativeNs = tsNs - baselineNs.Value;
+            long? tsNs = root.TryGetProperty("tsNs", out var tsProp) ? tsProp.GetInt64() : null;
+            if (tsNs.HasValue)
+            {
+                baselineNs ??= tsNs.Value;
+            }
 
-            // Format output based on event type
-            var relativeStr = AnalyzerHelpers.FormatNs(relativeNs);
+            var relativeStr = tsNs.HasValue && baselineNs.HasValue
+                ? AnalyzerHelpers.FormatNs(tsNs.Value - baselineNs.Value)
+                : "-";
             var tidStr = tid.HasValue ? $"tid:{tid.Value}" : "-";
 
             switch (eventType)
