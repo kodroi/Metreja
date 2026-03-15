@@ -104,9 +104,13 @@ metreja calltree .metreja/output/*.ndjson --method "ValidateInventory"
 | `metreja threads` | Per-thread breakdown: call counts, root time, activity windows |
 | `metreja trend` | Method performance trend across periodic stats flush intervals |
 | `metreja check` | CI regression gate: compare two traces, exit non-zero on regression |
+| `metreja run` | Launch an executable with profiler attached (`--detach` for GUI apps) |
+| `metreja flush` | Trigger manual stats flush on a running profiled process |
 | `metreja list` | List existing profiling sessions |
 | `metreja merge` | Combine multiple trace files into one sorted by timestamp |
 | `metreja export` | Convert traces to speedscope or CSV format for visualization/analysis |
+
+All analysis commands support `--format json` for structured machine-readable output and return proper exit codes (0=success, 1=error).
 
 For the full CLI reference with all options, see [src/Metreja.Tool/README.md](src/Metreja.Tool/README.md).
 
@@ -182,7 +186,7 @@ Metreja is a two-component system:
 
 1. **Metreja.Profiler** — Native C++ library (DLL on Windows, dylib on macOS) implementing `ICorProfilerCallback10` with ELT3 hooks. Attaches to the .NET runtime via `COR_PROFILER` environment variables, hooks method enter/leave, and writes NDJSON traces.
 
-2. **Metreja.Tool** — C# CLI for session management and trace analysis. Creates session configs, generates profiler environment scripts, and provides analysis commands (hotspots, calltree, callers, memory, diff).
+2. **Metreja.Tool** — C# CLI for session management and trace analysis. Creates session configs, generates profiler environment scripts, and provides 11 analysis commands (hotspots, calltree, callers, memory, exceptions, timeline, threads, trend, summary, analyze-diff, check) plus utilities (run, flush, list, merge, export). All analysis commands support `--format json`.
 
 **Data flow:** CLI creates session config → `generate-env` sets profiler env vars → profiled app loads the profiler → profiler writes NDJSON → CLI analysis commands read NDJSON.
 

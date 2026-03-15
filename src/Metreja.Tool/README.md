@@ -256,8 +256,10 @@ Configure session settings via subcommands.
 | `set output` | `-s ID "path/pattern.ndjson"` | Set output path (supports `{sessionId}`, `{pid}` tokens) |
 | `set max-events` | `-s ID 50000` | Cap event count (0 = unlimited) |
 | `set compute-deltas` | `-s ID true` | Enable delta timing for performance analysis |
-| `set events` | `-s ID enter leave method_stats` | Set enabled event types |
+| `set events` | `-s ID enter leave method_stats` | Set enabled event types (see below) |
 | `set stats-flush-interval` | `-s ID 30` | Periodic stats flush interval in seconds (0 = disabled, default 30) |
+
+**Valid event types for `set events`:** `enter`, `leave`, `exception`, `gc_start`, `gc_end`, `alloc_by_class`, `method_stats`, `exception_stats`, `contention_start`, `contention_end`
 
 > **Tip:** All subcommands support `--help` for detailed usage (e.g., `metreja set events --help`).
 
@@ -285,6 +287,37 @@ metreja generate-env -s a1b2c3 --format powershell
 metreja generate-env -s a1b2c3 --format shell
 ```
 
+#### `run`
+
+Launch an executable with profiler environment variables attached. The profiled process inherits the current terminal.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `exe-path` | string | — | **Required.** Path to the executable to profile |
+| `extra-args` | string[] | — | Additional arguments passed to the executable |
+| `-s`, `--session` | string | — | **Required.** Session ID |
+| `--detach` | bool | `false` | Launch and return immediately (for GUI/long-running apps) |
+
+```bash
+metreja run -s a1b2c3 ./bin/Release/net10.0/MyApp
+metreja run -s a1b2c3 ./bin/Release/net10.0/MyApp -- --port 5000
+metreja run -s a1b2c3 --detach ./bin/Release/net10.0/MyGuiApp
+```
+
+**Exit codes:** Returns the profiled process's exit code, or `1` on setup failure.
+
+#### `flush`
+
+Trigger a manual stats flush on a running profiled process. Requires `method_stats` or `exception_stats` in the session's enabled events.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `-p`, `--pid` | int | — | **Required.** PID of the profiled process |
+
+```bash
+metreja flush --pid 12345
+```
+
 #### `clear`
 
 Delete profiling sessions.
@@ -295,6 +328,8 @@ metreja clear --all
 ```
 
 ### Analysis Commands
+
+All analysis commands support `--format json` for structured machine-readable output and return exit code `0` on success, `1` on error.
 
 #### `hotspots`
 
@@ -347,10 +382,10 @@ GC summary (generation counts, pause times) and per-type allocation hotspots.
 
 Compare two traces. Shows per-method timing delta (base vs. compare).
 
-| Argument | Type | Description |
-|----------|------|-------------|
-| `base` | string | **Required.** Base NDJSON file |
-| `compare` | string | **Required.** Comparison NDJSON file |
+| Argument / Option | Type | Default | Description |
+|-------------------|------|---------|-------------|
+| `base` | string | — | **Required.** Base NDJSON file |
+| `compare` | string | — | **Required.** Comparison NDJSON file |
 | `--format` | string | `text` | Output format: `text` or `json` |
 
 #### `summary`
