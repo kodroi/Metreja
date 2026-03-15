@@ -1,13 +1,13 @@
 # Metreja
 
-**A .NET profiler built for AI coding agents.** Tell your agent "find why this is slow" or "where am I wasting memory?" and get an answer backed by real profiling data — no detours, no GUIs, no context switching.
+**A .NET call-path profiler for AI agents and scripts.** Measure, analyze, and compare .NET performance — no GUI, no detours, no human in the seat.
 
 [![Build](https://github.com/kodroi/Metreja/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/kodroi/Metreja/actions/workflows/build-and-test.yml)
 [![NuGet](https://img.shields.io/nuget/v/Metreja.Tool)](https://www.nuget.org/packages/Metreja.Tool)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/Metreja.Tool)](https://www.nuget.org/packages/Metreja.Tool)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Every operation is a CLI command. Every output is machine-readable. The full measure-analyze-fix loop runs without human intervention.
+Every operation is a CLI command. Every output is structured for machines. Your agent provides the intelligence — Metreja provides the data.
 
 ```
 You: "This endpoint takes 3 seconds, find out why"
@@ -32,12 +32,20 @@ Agent: Setting up profiling session...
 
 ## Why Metreja
 
-- **Profiling without the detour** — no separate tool, no manual setup. Your agent profiles as part of fixing the problem.
+Existing .NET profilers require a human in the seat — launching GUIs, clicking through views, interpreting results manually. Metreja removes the human from the loop.
+
+- **Data layer for agents** — the CLI captures, aggregates, and surfaces profiling data. Your agent or script decides what it means.
+- **Structured output, not reports** — every command returns machine-readable results that agents consume directly. No screenshots, no interactive sessions.
 - **Finds the real bottleneck** — self-time analysis pinpoints the method that's actually slow, not the one that calls it.
-- **Catches wastefulness** — excessive allocations, GC thrashing, memory pressure. See which types allocate the most and which methods trigger gen2 collections.
-- **Proves the fix worked** — diff two traces. See the numbers. No guessing whether your change helped.
+- **Proves the fix worked** — diff two traces. See the numbers change. No guessing whether your change helped.
+- **Lightweight enough for daily use** — fast to set up, fast to execute, fast to analyze. Profiling becomes as routine as running tests.
 - **Traces only your code** — filter by assembly, namespace, or class. Framework noise stays out, overhead stays low.
-- **Reproducible** — session configs are isolated files. Re-run the same investigation anytime.
+
+## Design Philosophy
+
+Metreja is a data layer, not an intelligence layer. The CLI profiles, captures, and aggregates — it never interprets what the data means for your codebase. That intelligence belongs to the consumer: an AI agent, a skill, or a custom script. Built for machines first, Metreja assumes its caller can parse structured text and make decisions.
+
+Read the full design philosophy in [`docs/design-philosophy.md`](docs/design-philosophy.md).
 
 ## Installation
 
@@ -51,7 +59,7 @@ After installation, the `metreja` command is available globally.
 
 ## Quick Start
 
-Install the [metreja-profiler](https://github.com/kodroi/metreja-profiler) plugin for Claude Code and just ask a question:
+Install the [metreja-profiler](https://github.com/kodroi/metreja-profiler) skill for Claude Code and just ask a question:
 
 ```
 /plugin marketplace add kodroi/metreja-profiler-marketplace
