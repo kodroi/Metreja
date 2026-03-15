@@ -79,6 +79,23 @@ public static class TimelineAnalyzer
                 long? deltaNs = eventType == "leave" && root.TryGetProperty("deltaNs", out var dj) ? dj.GetInt64() : null;
                 string? exception = eventType == "exception" && root.TryGetProperty("exType", out var exj) ? exj.GetString() : null;
 
+                // Extract GC-specific fields
+                object? gc = eventType switch
+                {
+                    "gc_start" => (object)new
+                    {
+                        Gen0 = root.TryGetProperty("gen0", out var g0) && g0.ValueKind == JsonValueKind.True,
+                        Gen1 = root.TryGetProperty("gen1", out var g1) && g1.ValueKind == JsonValueKind.True,
+                        Gen2 = root.TryGetProperty("gen2", out var g2) && g2.ValueKind == JsonValueKind.True,
+                        Reason = root.TryGetProperty("reason", out var r) ? r.GetString() : null
+                    },
+                    "gc_end" => new
+                    {
+                        DurationNs = root.TryGetProperty("durationNs", out var dur) ? dur.GetInt64() : (long?)null
+                    },
+                    _ => null
+                };
+
                 jsonEvents!.Add(new
                 {
                     RelativeNs = relativeNs,
@@ -86,7 +103,8 @@ public static class TimelineAnalyzer
                     Tid = tid,
                     Method = methodKey,
                     DeltaNs = deltaNs,
-                    Exception = exception
+                    Exception = exception,
+                    Gc = gc
                 });
             }
             else
@@ -173,7 +191,7 @@ public static class TimelineAnalyzer
         if (root.TryGetProperty("gen2", out var g2) && g2.ValueKind == JsonValueKind.True)
             parts.Add("gen2");
 
-        if (root.TryGetProperty("deltaNs", out var d))
+        if (root.TryGetProperty("durationNs", out var d))
             parts.Add($"duration: {AnalyzerHelpers.FormatNs(d.GetInt64())}");
 
         return parts.Count > 0 ? string.Join(", ", parts) : "";
