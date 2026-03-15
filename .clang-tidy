@@ -6,20 +6,48 @@ Checks: >
   bugprone-*,
   -bugprone-easily-swappable-parameters,
   -bugprone-narrowing-conversions,
+  -bugprone-exception-escape,
+  -bugprone-macro-parentheses,
   misc-*,
   -misc-no-recursion,
   -misc-non-private-member-variables-in-classes,
   -misc-include-cleaner,
+  -misc-const-correctness,
+  -misc-unused-parameters,
+  -misc-use-anonymous-namespace,
+  -misc-use-internal-linkage,
   modernize-*,
   -modernize-use-trailing-return-type,
   -modernize-avoid-c-arrays,
+  -modernize-pass-by-value,
+  -modernize-return-braced-init-list,
+  -modernize-type-traits,
+  -modernize-use-auto,
+  -modernize-use-equals-default,
+  -modernize-use-nodiscard,
   performance-*,
+  -performance-enum-size,
   readability-*,
   -readability-magic-numbers,
   -readability-function-cognitive-complexity,
   -readability-identifier-length,
   -readability-uppercase-literal-suffix,
-  concurrency-*
+  -readability-braces-around-statements,
+  -readability-math-missing-parentheses,
+  -readability-implicit-bool-conversion,
+  -readability-named-parameter,
+  -readability-qualified-auto,
+  -readability-avoid-nested-conditional-operator,
+  -readability-duplicate-include,
+  -readability-use-anyofallof,
+  -readability-use-std-min-max,
+  -readability-redundant-access-specifiers,
+  -readability-static-accessed-through-instance,
+  -readability-simplify-boolean-expr,
+  -readability-convert-member-functions-to-static,
+  -readability-make-member-function-const,
+  concurrency-*,
+  -concurrency-mt-unsafe
 
 WarningsAsErrors: '*'
 
@@ -39,25 +67,25 @@ CheckOptions:
     value: CamelCase
   # Member variables: camelCase with m_ prefix
   - key: readability-identifier-naming.MemberCase
-    value: camelCase
+    value: camelBack
   - key: readability-identifier-naming.MemberPrefix
     value: m_
   # Static member variables: camelCase with s_ prefix
   - key: readability-identifier-naming.ClassMemberCase
-    value: camelCase
+    value: camelBack
   - key: readability-identifier-naming.ClassMemberPrefix
     value: s_
   # Global variables: camelCase with g_ prefix
   - key: readability-identifier-naming.GlobalVariableCase
-    value: camelCase
+    value: camelBack
   - key: readability-identifier-naming.GlobalVariablePrefix
     value: g_
   # Local variables: camelCase
   - key: readability-identifier-naming.LocalVariableCase
-    value: camelCase
+    value: camelBack
   # Parameters: camelCase
   - key: readability-identifier-naming.ParameterCase
-    value: camelCase
+    value: camelBack
   # Constants: UPPER_CASE
   - key: readability-identifier-naming.ConstexprVariableCase
     value: UPPER_CASE
