@@ -26,7 +26,7 @@ internal static class SpeedscopeExporter
                 continue;
             }
 
-            if (eventType != "enter" && eventType != "leave")
+            if (eventType is not "enter" and not "leave")
                 continue;
 
             var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
