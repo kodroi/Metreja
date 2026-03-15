@@ -31,6 +31,7 @@ public class ContentionEventTests : IAsyncLifetime
 
             // The profiler must emit enter/leave events
             Assert.True(events.OfType<EnterEvent>().Any(), "Expected enter events");
+            Assert.True(events.OfType<LeaveEvent>().Any(), "Expected leave events");
 
             var contentionStarts = events.OfType<ContentionEvent>()
                 .Where(e => e.Event == "contention_start")

@@ -329,7 +329,7 @@ metreja clear --all
 
 ### Analysis Commands
 
-All analysis commands support `--format json` for structured machine-readable output and return exit code `0` on success, `1` on error.
+All analysis commands support `--format json` for structured machine-readable output and return exit code `0` on success, `1` on non-success (error or regression detected by `check`).
 
 #### `hotspots`
 
@@ -395,6 +395,9 @@ Trace overview: event counts, wall-clock duration, unique threads, unique method
 | Argument | Type | Description |
 |----------|------|-------------|
 | `file` | string | **Required.** NDJSON trace file |
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
 | `--format` | string | `text` | Output format: `text` or `json` |
 
 ```bash

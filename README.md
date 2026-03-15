@@ -110,7 +110,7 @@ metreja calltree .metreja/output/*.ndjson --method "ValidateInventory"
 | `metreja merge` | Combine multiple trace files into one sorted by timestamp |
 | `metreja export` | Convert traces to speedscope or CSV format for visualization/analysis |
 
-All analysis commands support `--format json` for structured machine-readable output and return proper exit codes (0=success, 1=error).
+All analysis commands support `--format json` for structured machine-readable output and return proper exit codes (0=success, 1=non-success such as error or regression).
 
 For the full CLI reference with all options, see [src/Metreja.Tool/README.md](src/Metreja.Tool/README.md).
 
