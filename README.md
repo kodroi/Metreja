@@ -106,7 +106,7 @@ metreja calltree .metreja/output/*.ndjson --method "ValidateInventory"
 | `metreja check` | CI regression gate: compare two traces, exit non-zero on regression |
 | `metreja list` | List existing profiling sessions |
 | `metreja merge` | Combine multiple trace files into one sorted by timestamp |
-| `metreja export` | Convert traces to speedscope format for visualization |
+| `metreja export` | Convert traces to speedscope or CSV format for visualization/analysis |
 
 For the full CLI reference with all options, see [src/Metreja.Tool/README.md](src/Metreja.Tool/README.md).
 
@@ -117,6 +117,22 @@ Gate performance regressions in your pipeline. `metreja check` compares two trac
 ```bash
 metreja check baseline.ndjson pr-build.ndjson --threshold 10
 # Exit 0 = no regressions, Exit 1 = regression detected
+```
+
+### Structured Output for Agents
+
+All analysis commands support `--format json` for machine-readable output:
+
+```bash
+metreja hotspots trace.ndjson --format json
+metreja summary trace.ndjson --format json
+metreja check baseline.ndjson compare.ndjson --format json
+```
+
+Export traces to CSV for spreadsheet analysis:
+
+```bash
+metreja export trace.ndjson --format csv
 ```
 
 ## Design Philosophy
