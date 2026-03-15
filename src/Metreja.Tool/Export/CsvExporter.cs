@@ -20,14 +20,14 @@ internal static class CsvExporter
             if (eventType is "enter" or "leave")
             {
                 hasEnterLeave = true;
-                break;
             }
-
-            if (eventType == "method_stats")
+            else if (eventType == "method_stats")
             {
                 hasMethodStats = true;
-                break;
             }
+
+            if (hasEnterLeave && hasMethodStats)
+                break;
         }
 
         if (hasEnterLeave)

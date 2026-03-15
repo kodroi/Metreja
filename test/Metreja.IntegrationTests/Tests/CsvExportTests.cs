@@ -39,8 +39,8 @@ public class CsvExportTests : IAsyncLifetime
         // First line is the header
         Assert.Equal("tsNs,event,tid,depth,ns,cls,method,deltaNs,async", lines[0]);
 
-        // At least one data row exists
-        Assert.True(lines.Length >= 2, "Expected at least one data row after the header.");
+        // Header + enter + leave rows
+        Assert.True(lines.Length >= 3, "Expected header + at least two data rows.");
 
         // Verify enter row
         var enterColumns = lines[1].Split(',');
@@ -80,8 +80,8 @@ public class CsvExportTests : IAsyncLifetime
         // First line is the header
         Assert.Equal("method,callCount,totalSelfNs,maxSelfNs,totalInclusiveNs,maxInclusiveNs", lines[0]);
 
-        // At least one data row exists
-        Assert.True(lines.Length >= 2, "Expected at least one data row after the header.");
+        // Header + at least two data rows
+        Assert.True(lines.Length >= 3, "Expected header + at least two data rows.");
 
         // Columns can be split by comma
         var firstRow = lines[1].Split(',');

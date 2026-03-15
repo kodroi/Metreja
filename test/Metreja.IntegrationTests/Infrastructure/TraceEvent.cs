@@ -50,9 +50,10 @@ public record ContentionEvent : TraceEvent
 
 public record AllocByClassEvent : TraceEvent
 {
-    public required int Tid { get; init; }
+    public int? Tid { get; init; }
     public required string ClassName { get; init; }
     public required long Count { get; init; }
+    public string? AllocAsm { get; init; }
     public string? AllocM { get; init; }
     public string? AllocNs { get; init; }
     public string? AllocCls { get; init; }

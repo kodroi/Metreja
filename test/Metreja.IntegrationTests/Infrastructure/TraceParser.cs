@@ -114,9 +114,10 @@ public static class TraceParser
                     TsNs = root.GetProperty("tsNs").GetInt64(),
                     Pid = root.GetProperty("pid").GetInt32(),
                     SessionId = root.GetProperty("sessionId").GetString()!,
-                    Tid = root.TryGetProperty("tid", out var allocTid) ? allocTid.GetInt32() : 0,
-                    ClassName = root.TryGetProperty("className", out var cn) ? cn.GetString() ?? "" : "",
-                    Count = root.TryGetProperty("count", out var ac) ? ac.GetInt64() : 0,
+                    Tid = root.TryGetProperty("tid", out var allocTid) ? allocTid.GetInt32() : null,
+                    ClassName = root.GetProperty("className").GetString()!,
+                    Count = root.GetProperty("count").GetInt64(),
+                    AllocAsm = root.TryGetProperty("allocAsm", out var aasm) ? aasm.GetString() : null,
                     AllocM = root.TryGetProperty("allocM", out var am) ? am.GetString() : null,
                     AllocNs = root.TryGetProperty("allocNs", out var ans) ? ans.GetString() : null,
                     AllocCls = root.TryGetProperty("allocCls", out var acs) ? acs.GetString() : null

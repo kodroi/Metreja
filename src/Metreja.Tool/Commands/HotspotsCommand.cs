@@ -13,6 +13,7 @@ public static class HotspotsCommand
         var sortOption = new Option<string>("--sort") { Description = "Sort by: self, inclusive, calls, or allocs", DefaultValueFactory = _ => "self" };
         var filterOption = new Option<string[]>("--filter") { Description = "Include only methods matching pattern(s) (method, class, or namespace)", DefaultValueFactory = _ => [] };
         var formatOption = new Option<string>("--format") { Description = "Output format: text or json", DefaultValueFactory = _ => "text" };
+        formatOption.AcceptOnlyFromAmong("text", "json");
 
         var command = new Command("hotspots", "Show per-method timing hotspots with self time");
         command.Arguments.Add(fileArg);

@@ -9,6 +9,7 @@ public static class SummaryCommand
     {
         var fileArg = new Argument<string>("file") { Description = "NDJSON trace file path" };
         var formatOption = new Option<string>("--format") { Description = "Output format: text or json", DefaultValueFactory = _ => "text" };
+        formatOption.AcceptOnlyFromAmong("text", "json");
 
         var command = new Command("summary", "Show trace overview: events, threads, methods, duration");
         command.Arguments.Add(fileArg);

@@ -26,8 +26,8 @@ public class AsyncWallTimeTests
         // wallTimeNs should be >= deltaNs (wall time includes await suspension)
         foreach (var leave in withWallTime)
         {
-            Assert.True(leave.WallTimeNs!.Value >= 0,
-                $"wallTimeNs should be non-negative, got {leave.WallTimeNs} for {leave.M}");
+            Assert.True(leave.WallTimeNs!.Value >= leave.DeltaNs,
+                $"wallTimeNs should be >= deltaNs, got wallTimeNs={leave.WallTimeNs}, deltaNs={leave.DeltaNs} for {leave.M}");
         }
     }
 

@@ -10,6 +10,7 @@ public static class AnalyzeDiffCommand
         var baseArg = new Argument<string>("base") { Description = "Base NDJSON file path" };
         var compareArg = new Argument<string>("compare") { Description = "Comparison NDJSON file path" };
         var formatOption = new Option<string>("--format") { Description = "Output format: text or json", DefaultValueFactory = _ => "text" };
+        formatOption.AcceptOnlyFromAmong("text", "json");
 
         var command = new Command("analyze-diff", "Compare two NDJSON profiling outputs");
         command.Arguments.Add(baseArg);

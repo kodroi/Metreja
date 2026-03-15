@@ -11,6 +11,7 @@ public static class CheckCommand
         var compareArg = new Argument<string>("compare") { Description = "Compare NDJSON trace file path" };
         var thresholdOption = new Option<double>("--threshold") { Description = "Regression threshold percentage", DefaultValueFactory = _ => 10.0 };
         var formatOption = new Option<string>("--format") { Description = "Output format: text or json", DefaultValueFactory = _ => "text" };
+        formatOption.AcceptOnlyFromAmong("text", "json");
 
         var command = new Command("check", "CI regression gate: compare traces, exit non-zero on regression");
         command.Arguments.Add(baseArg);

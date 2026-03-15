@@ -19,7 +19,17 @@ public static class ThreadsAnalyzer
 
         if (threads.Count == 0)
         {
-            Console.WriteLine("No thread activity found.");
+            if (format == "json")
+            {
+                Console.WriteLine(JsonSerializer.Serialize(
+                    new { Threads = Array.Empty<object>(), TotalThreads = 0 },
+                    s_jsonOptions));
+            }
+            else
+            {
+                Console.WriteLine("No thread activity found.");
+            }
+
             return 0;
         }
 

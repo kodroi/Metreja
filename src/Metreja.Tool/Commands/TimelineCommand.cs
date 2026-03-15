@@ -13,6 +13,7 @@ public static class TimelineCommand
         var methodOption = new Option<string?>("--method") { Description = "Filter by method pattern" };
         var topOption = new Option<int>("--top") { Description = "Maximum events to show", DefaultValueFactory = _ => 100 };
         var formatOption = new Option<string>("--format") { Description = "Output format: text or json", DefaultValueFactory = _ => "text" };
+        formatOption.AcceptOnlyFromAmong("text", "json");
 
         var command = new Command("timeline", "Chronological event listing with filtering");
         command.Arguments.Add(fileArg);

@@ -121,7 +121,7 @@ public static class TimelineAnalyzer
                             $"{relativeStr,-14}  {"exception",-15}  {tidStr,-10}  {methodKey} [{exType}]");
                         break;
                     }
-                    case "gc_started" or "gc_finished":
+                    case "gc_start" or "gc_end":
                     {
                         var genInfo = FormatGcGenInfo(root);
                         Console.WriteLine(

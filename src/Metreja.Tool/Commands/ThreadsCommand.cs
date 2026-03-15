@@ -10,6 +10,7 @@ public static class ThreadsCommand
         var fileArg = new Argument<string>("file") { Description = "NDJSON trace file path" };
         var sortOption = new Option<string>("--sort") { Description = "Sort by: calls or time", DefaultValueFactory = _ => "calls" };
         var formatOption = new Option<string>("--format") { Description = "Output format: text or json", DefaultValueFactory = _ => "text" };
+        formatOption.AcceptOnlyFromAmong("text", "json");
 
         var command = new Command("threads", "Per-thread breakdown: call counts, timing, activity windows");
         command.Arguments.Add(fileArg);

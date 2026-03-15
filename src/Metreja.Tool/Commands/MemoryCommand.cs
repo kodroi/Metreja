@@ -11,6 +11,7 @@ public static class MemoryCommand
         var topOption = new Option<int>("--top") { Description = "Number of allocation types to show", DefaultValueFactory = _ => 20 };
         var filterOption = new Option<string[]>("--filter") { Description = "Include only class names matching pattern(s)", DefaultValueFactory = _ => [] };
         var formatOption = new Option<string>("--format") { Description = "Output format: text or json", DefaultValueFactory = _ => "text" };
+        formatOption.AcceptOnlyFromAmong("text", "json");
 
         var command = new Command("memory", "Show GC summary and allocation hotspots by class");
         command.Arguments.Add(fileArg);

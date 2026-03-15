@@ -11,6 +11,7 @@ public static class CallersCommand
         var methodOption = new Option<string>("--method") { Description = "Method name or pattern to match", Required = true };
         var topOption = new Option<int>("--top") { Description = "Number of callers to show", DefaultValueFactory = _ => 20 };
         var formatOption = new Option<string>("--format") { Description = "Output format: text or json", DefaultValueFactory = _ => "text" };
+        formatOption.AcceptOnlyFromAmong("text", "json");
 
         var command = new Command("callers", "Show which methods call a specific method");
         command.Arguments.Add(fileArg);

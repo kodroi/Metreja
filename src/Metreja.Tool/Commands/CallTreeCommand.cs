@@ -12,6 +12,7 @@ public static class CallTreeCommand
         var tidOption = new Option<long?>("--tid") { Description = "Filter by thread ID" };
         var occurrenceOption = new Option<int>("--occurrence") { Description = "Which occurrence to show (1 = slowest)", DefaultValueFactory = _ => 1 };
         var formatOption = new Option<string>("--format") { Description = "Output format: text or json", DefaultValueFactory = _ => "text" };
+        formatOption.AcceptOnlyFromAmong("text", "json");
 
         var command = new Command("calltree", "Show the call tree for a specific method invocation");
         command.Arguments.Add(fileArg);

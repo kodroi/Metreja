@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `run` command: launch an executable with profiler env vars attached (`--detach` for GUI apps)
 - `list` command: list existing profiling sessions
 - `merge` command: combine multiple NDJSON trace files sorted by timestamp
-- `export` command: convert traces to speedscope format for visualization
+- `export` command: convert traces to speedscope or CSV format for visualization and analysis
 - `set events` command: configure which event types to capture
 - `set stats-flush-interval` command: set periodic stats flush interval
 
@@ -44,4 +44,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Assembly-level and namespace-level include/exclude filtering
 - Method-level filters across analysis commands
 - `method_stats` and `exception_stats` periodic aggregated statistics events
+- JSON output: all analysis commands support `--format json` for structured output
 - Snapshot testing with Verify.Xunit for trace validation
