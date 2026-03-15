@@ -52,6 +52,7 @@ Checks: >
   -readability-simplify-boolean-expr,
   -readability-convert-member-functions-to-static,
   -readability-make-member-function-const,
+  -readability-identifier-naming,
   concurrency-*,
   -concurrency-mt-unsafe
 
