@@ -10,19 +10,22 @@ public static class MemoryCommand
         var fileArg = new Argument<string>("file") { Description = "NDJSON trace file path" };
         var topOption = new Option<int>("--top") { Description = "Number of allocation types to show", DefaultValueFactory = _ => 20 };
         var filterOption = new Option<string[]>("--filter") { Description = "Include only class names matching pattern(s)", DefaultValueFactory = _ => [] };
+        var formatOption = new Option<string>("--format") { Description = "Output format: text or json", DefaultValueFactory = _ => "text" };
 
         var command = new Command("memory", "Show GC summary and allocation hotspots by class");
         command.Arguments.Add(fileArg);
         command.Options.Add(topOption);
         command.Options.Add(filterOption);
+        command.Options.Add(formatOption);
 
         command.SetAction(async (parseResult, _) =>
         {
             var file = parseResult.GetValue(fileArg)!;
             var top = parseResult.GetValue(topOption);
             var filters = parseResult.GetValue(filterOption)!;
+            var format = parseResult.GetValue(formatOption)!;
 
-            await MemoryAnalyzer.AnalyzeAsync(file, top, filters);
+            return await MemoryAnalyzer.AnalyzeAsync(file, top, filters, format);
         });
 
         return command;

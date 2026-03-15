@@ -9,16 +9,19 @@ public static class ThreadsCommand
     {
         var fileArg = new Argument<string>("file") { Description = "NDJSON trace file path" };
         var sortOption = new Option<string>("--sort") { Description = "Sort by: calls or time", DefaultValueFactory = _ => "calls" };
+        var formatOption = new Option<string>("--format") { Description = "Output format: text or json", DefaultValueFactory = _ => "text" };
 
         var command = new Command("threads", "Per-thread breakdown: call counts, timing, activity windows");
         command.Arguments.Add(fileArg);
         command.Options.Add(sortOption);
+        command.Options.Add(formatOption);
 
         command.SetAction(async (parseResult, _) =>
         {
             var file = parseResult.GetValue(fileArg)!;
             var sort = parseResult.GetValue(sortOption)!;
-            await ThreadsAnalyzer.AnalyzeAsync(file, sort);
+            var format = parseResult.GetValue(formatOption)!;
+            return await ThreadsAnalyzer.AnalyzeAsync(file, sort, format);
         });
 
         return command;

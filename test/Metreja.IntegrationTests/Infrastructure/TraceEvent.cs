@@ -28,6 +28,7 @@ public record LeaveEvent : EnterEvent
 {
     public required long DeltaNs { get; init; }
     public bool Tailcall { get; init; }
+    public long? WallTimeNs { get; init; }
 }
 
 public record ExceptionEvent : TraceEvent
@@ -41,6 +42,21 @@ public record ExceptionEvent : TraceEvent
 }
 
 public record GcEvent : TraceEvent;
+
+public record ContentionEvent : TraceEvent
+{
+    public required int Tid { get; init; }
+}
+
+public record AllocByClassEvent : TraceEvent
+{
+    public required int Tid { get; init; }
+    public required string ClassName { get; init; }
+    public required long Count { get; init; }
+    public string? AllocM { get; init; }
+    public string? AllocNs { get; init; }
+    public string? AllocCls { get; init; }
+}
 
 public record MethodStatsEvent : TraceEvent
 {

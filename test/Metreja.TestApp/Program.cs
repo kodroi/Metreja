@@ -17,6 +17,8 @@ public static class Program
         RunRecursiveCatchExceptionPaths();
         RunTightLoop();
         RunDeepRecursion(20);
+        RunContentionScenario();
+        RunAllocationScenario();
 
         Console.WriteLine();
         Console.WriteLine("All tests completed.");
@@ -181,6 +183,26 @@ public static class Program
     {
         if (n <= 0) return 1;
         return n + Recurse(n - 1);
+    }
+
+    private static void RunContentionScenario()
+    {
+        Console.WriteLine();
+        Console.WriteLine("[Contention Scenario]");
+        var lockObj = new object();
+        var t1 = Task.Run(() => { lock (lockObj) { Thread.Sleep(10); } });
+        var t2 = Task.Run(() => { lock (lockObj) { Thread.Sleep(10); } });
+        Task.WaitAll(t1, t2);
+        Console.WriteLine("  Contention scenario completed.");
+    }
+
+    private static void RunAllocationScenario()
+    {
+        Console.WriteLine();
+        Console.WriteLine("[Allocation Scenario]");
+        for (var i = 0; i < 100; i++)
+            _ = new string('x', 100);
+        Console.WriteLine("  Allocation scenario completed.");
     }
 
     /// <summary>

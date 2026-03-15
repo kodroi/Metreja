@@ -5,12 +5,43 @@ namespace Metreja.Tool.Analysis;
 
 public static class SummaryAnalyzer
 {
-    public static async Task AnalyzeAsync(string filePath)
+    private static readonly JsonSerializerOptions s_jsonOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
+    public static async Task<int> AnalyzeAsync(string filePath, string format = "text")
     {
         if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
-            return;
+            return 1;
 
         var summary = await AggregateAsync(filePath);
+
+        if (format == "json")
+        {
+            var durationNs = summary.MinTsNs.HasValue && summary.MaxTsNs.HasValue
+                ? summary.MaxTsNs.Value - summary.MinTsNs.Value
+                : 0L;
+
+            var jsonOutput = new
+            {
+                sessionId = summary.SessionId,
+                scenario = summary.Scenario,
+                pid = summary.Pid,
+                durationNs,
+                threadCount = summary.ThreadIds.Count,
+                methodCount = summary.MethodKeys.Count,
+                totalEvents = summary.TotalEvents,
+                eventBreakdown = summary.EventCounts.OrderByDescending(kv => kv.Value)
+                    .ToDictionary(kv => kv.Key, kv => kv.Value),
+                gcCollections = summary.GcCount,
+                exceptionCount = summary.ExceptionCount,
+            };
+
+            Console.WriteLine(JsonSerializer.Serialize(jsonOutput, s_jsonOptions));
+            return 0;
+        }
 
         Console.WriteLine("Trace Summary");
         Console.WriteLine(new string('-', 50));
@@ -36,6 +67,8 @@ public static class SummaryAnalyzer
         Console.WriteLine();
         Console.WriteLine($"  GC collections:  {summary.GcCount}");
         Console.WriteLine($"  Exceptions:     {summary.ExceptionCount}");
+
+        return 0;
     }
 
     private static async Task<TraceSummary> AggregateAsync(string filePath)

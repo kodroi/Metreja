@@ -12,6 +12,7 @@ public static class TimelineCommand
         var eventTypeOption = new Option<string?>("--event-type") { Description = "Filter by event type" };
         var methodOption = new Option<string?>("--method") { Description = "Filter by method pattern" };
         var topOption = new Option<int>("--top") { Description = "Maximum events to show", DefaultValueFactory = _ => 100 };
+        var formatOption = new Option<string>("--format") { Description = "Output format: text or json", DefaultValueFactory = _ => "text" };
 
         var command = new Command("timeline", "Chronological event listing with filtering");
         command.Arguments.Add(fileArg);
@@ -19,6 +20,7 @@ public static class TimelineCommand
         command.Options.Add(eventTypeOption);
         command.Options.Add(methodOption);
         command.Options.Add(topOption);
+        command.Options.Add(formatOption);
 
         command.SetAction(async (parseResult, _) =>
         {
@@ -27,7 +29,8 @@ public static class TimelineCommand
             var eventType = parseResult.GetValue(eventTypeOption);
             var method = parseResult.GetValue(methodOption);
             var top = parseResult.GetValue(topOption);
-            await TimelineAnalyzer.AnalyzeAsync(file, tid, eventType, method, top);
+            var format = parseResult.GetValue(formatOption)!;
+            return await TimelineAnalyzer.AnalyzeAsync(file, tid, eventType, method, top, format);
         });
 
         return command;
