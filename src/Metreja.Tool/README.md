@@ -112,6 +112,54 @@ metreja memory trace.ndjson --filter "System.String"
 metreja analyze-diff baseline.ndjson optimized.ndjson
 ```
 
+**Trace overview** — Get a quick summary of any trace: event counts, duration, threads, methods.
+
+```bash
+metreja summary trace.ndjson
+```
+
+**Exception analysis** — Rank exception types by frequency and see which methods throw them.
+
+```bash
+metreja exceptions trace.ndjson --top 10
+metreja exceptions trace.ndjson --filter "InvalidOperation"
+```
+
+**Timeline** — Walk through events chronologically with flexible filtering.
+
+```bash
+metreja timeline trace.ndjson --top 50
+metreja timeline trace.ndjson --tid 1 --event-type enter
+metreja timeline trace.ndjson --method "ProcessOrder"
+```
+
+**Thread analysis** — See how work distributes across threads.
+
+```bash
+metreja threads trace.ndjson
+metreja threads trace.ndjson --sort time
+```
+
+**Performance trend** — Track a method across periodic stats flushes to see how it changes over time.
+
+```bash
+metreja trend trace.ndjson --method "DoWork"
+```
+
+**CI regression gate** — Compare two traces and fail the build if any method regresses beyond a threshold.
+
+```bash
+metreja check baseline.ndjson compare.ndjson --threshold 10
+# Exit 0 = pass, Exit 1 = regression detected
+```
+
+**Speedscope export** — Convert traces to [speedscope](https://www.speedscope.app/) format for interactive visualization.
+
+```bash
+metreja export trace.ndjson
+metreja export trace.ndjson --output my-trace.speedscope.json
+```
+
 ---
 
 ## CLI Reference
@@ -299,6 +347,139 @@ Compare two traces. Shows per-method timing delta (base vs. compare).
 |----------|------|-------------|
 | `base` | string | **Required.** Base NDJSON file |
 | `compare` | string | **Required.** Comparison NDJSON file |
+
+#### `summary`
+
+Trace overview: event counts, wall-clock duration, unique threads, unique methods, GC collections, exceptions.
+
+| Argument | Type | Description |
+|----------|------|-------------|
+| `file` | string | **Required.** NDJSON trace file |
+
+```bash
+metreja summary trace.ndjson
+```
+
+#### `exceptions`
+
+Rank exception types by frequency with throw-site methods.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `file` | string | — | **Required.** NDJSON trace file |
+| `--top` | int | `20` | Number of exception types to show |
+| `--filter` | string[] | — | Filter by exception type name |
+
+```bash
+metreja exceptions trace.ndjson --top 5
+metreja exceptions trace.ndjson --filter "ArgumentException"
+```
+
+#### `timeline`
+
+Chronological event listing with filtering by thread, event type, and method.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `file` | string | — | **Required.** NDJSON trace file |
+| `--tid` | long | — | Filter by thread ID |
+| `--event-type` | string | — | Filter by event type (e.g., `enter`, `leave`, `exception`) |
+| `--method` | string | — | Filter by method name or pattern |
+| `--top` | int | `100` | Maximum events to show |
+
+```bash
+metreja timeline trace.ndjson --top 50
+metreja timeline trace.ndjson --tid 1 --event-type enter
+metreja timeline trace.ndjson --method "ProcessOrder"
+```
+
+#### `threads`
+
+Per-thread breakdown: call counts, root time, activity windows.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `file` | string | — | **Required.** NDJSON trace file |
+| `--sort` | string | `calls` | `calls` or `time` |
+
+```bash
+metreja threads trace.ndjson
+metreja threads trace.ndjson --sort time
+```
+
+#### `trend`
+
+Method performance trend across periodic stats flush intervals.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `file` | string | — | **Required.** NDJSON trace file |
+| `--method` | string | — | **Required.** Method name or pattern to track |
+
+```bash
+metreja trend trace.ndjson --method "DoWork"
+```
+
+#### `check`
+
+CI regression gate. Compares method timings between two traces and exits non-zero when regressions exceed the threshold.
+
+| Argument | Type | Description |
+|----------|------|-------------|
+| `base` | string | **Required.** Base NDJSON trace file |
+| `compare` | string | **Required.** Comparison NDJSON trace file |
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--threshold` | double | `10.0` | Regression threshold percentage |
+
+**Exit codes:** `0` = pass (no regressions), `1` = fail (regression detected)
+
+```bash
+metreja check baseline.ndjson optimized.ndjson
+metreja check baseline.ndjson pr-build.ndjson --threshold 5
+```
+
+#### `list`
+
+List existing profiling sessions with their scenario, last-modified date, and filter counts.
+
+```bash
+metreja list
+```
+
+#### `merge`
+
+Combine multiple NDJSON trace files into one file sorted by timestamp. Useful for multi-process traces.
+
+| Argument | Type | Description |
+|----------|------|-------------|
+| `files` | string[] | **Required.** One or more NDJSON trace files |
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--output` | string | — | **Required.** Output file path |
+
+```bash
+metreja merge trace1.ndjson trace2.ndjson --output merged.ndjson
+```
+
+#### `export`
+
+Convert NDJSON traces to external visualization formats.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `file` | string | — | **Required.** NDJSON trace file |
+| `--format` | string | `speedscope` | Export format (currently: `speedscope`) |
+| `--output` | string | `{file}.speedscope.json` | Output file path |
+
+```bash
+metreja export trace.ndjson
+metreja export trace.ndjson --output my-trace.speedscope.json
+```
+
+Open the exported file at [speedscope.app](https://www.speedscope.app/) for interactive flame graph visualization.
 
 #### `report`
 

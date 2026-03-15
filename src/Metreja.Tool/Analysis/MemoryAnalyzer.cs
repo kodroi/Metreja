@@ -47,6 +47,17 @@ public static class MemoryAnalyzer
                     var className = root.TryGetProperty("className", out var cn) ? cn.GetString() ?? "Unknown" : "Unknown";
                     var count = root.TryGetProperty("count", out var c) ? c.GetInt64() : 0;
 
+                    // Include allocating method if present
+                    if (root.TryGetProperty("allocM", out var am) && am.ValueKind == JsonValueKind.String)
+                    {
+                        var allocNs = root.TryGetProperty("allocNs", out var ans) ? ans.GetString() ?? "" : "";
+                        var allocCls = root.TryGetProperty("allocCls", out var acs) ? acs.GetString() ?? "" : "";
+                        var allocM = am.GetString() ?? "";
+                        var allocKey = AnalyzerHelpers.BuildMethodKey(allocNs, allocCls, allocM);
+                        if (!string.IsNullOrEmpty(allocKey) && allocKey != ".")
+                            className = $"{className} <- {allocKey}";
+                    }
+
                     if (hasFilters && !AnalyzerHelpers.MatchesAnyFilter(filters, className))
                         break;
 

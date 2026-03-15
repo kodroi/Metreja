@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 
 namespace Metreja.Tool.Analysis;
@@ -9,9 +10,9 @@ internal static class AnalyzerHelpers
         return ns switch
         {
             < 1_000 => $"{ns}ns",
-            < 1_000_000 => $"{ns / 1_000.0:F2}us",
-            < 1_000_000_000 => $"{ns / 1_000_000.0:F2}ms",
-            _ => $"{ns / 1_000_000_000.0:F2}s"
+            < 1_000_000 => string.Format(CultureInfo.InvariantCulture, "{0:F2}us", ns / 1_000.0),
+            < 1_000_000_000 => string.Format(CultureInfo.InvariantCulture, "{0:F2}ms", ns / 1_000_000.0),
+            _ => string.Format(CultureInfo.InvariantCulture, "{0:F2}s", ns / 1_000_000_000.0)
         };
     }
 
@@ -122,5 +123,29 @@ internal static class AnalyzerHelpers
         }
 
         return false;
+    }
+
+    public static async Task<Dictionary<string, long>> CollectMethodTimingsAsync(string path)
+    {
+        var timings = new Dictionary<string, long>();
+
+        await foreach (var (eventType, root) in StreamEventsAsync(path))
+        {
+            long? timing = eventType switch
+            {
+                "leave" => root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0,
+                "method_stats" => root.TryGetProperty("totalInclusiveNs", out var inc) ? inc.GetInt64() : 0,
+                _ => null
+            };
+
+            if (timing is not null)
+            {
+                var (ns, cls, m) = ExtractMethodInfo(root);
+                var key = BuildMethodKey(ns, cls, m);
+                timings[key] = timings.GetValueOrDefault(key, 0) + timing.Value;
+            }
+        }
+
+        return timings;
     }
 }

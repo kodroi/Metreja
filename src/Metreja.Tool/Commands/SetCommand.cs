@@ -110,7 +110,8 @@ public static class SetCommand
 
     private static readonly HashSet<string> ValidEventTypes = new(StringComparer.OrdinalIgnoreCase)
     {
-        "enter", "leave", "exception", "gc_start", "gc_end", "alloc_by_class", "method_stats", "exception_stats"
+        "enter", "leave", "exception", "gc_start", "gc_end", "alloc_by_class", "method_stats", "exception_stats",
+        "contention_start", "contention_end"
     };
 
     private static Command CreateEventsCommand(Option<string> sessionOption)

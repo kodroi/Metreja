@@ -17,6 +17,15 @@ rootCommand.Subcommands.Add(HotspotsCommand.Create());
 rootCommand.Subcommands.Add(CallTreeCommand.Create());
 rootCommand.Subcommands.Add(CallersCommand.Create());
 rootCommand.Subcommands.Add(MemoryCommand.Create());
+rootCommand.Subcommands.Add(SummaryCommand.Create());
+rootCommand.Subcommands.Add(ExceptionsCommand.Create());
+rootCommand.Subcommands.Add(TimelineCommand.Create());
+rootCommand.Subcommands.Add(ThreadsCommand.Create());
+rootCommand.Subcommands.Add(TrendCommand.Create());
+rootCommand.Subcommands.Add(CheckCommand.Create());
+rootCommand.Subcommands.Add(ListCommand.Create());
+rootCommand.Subcommands.Add(MergeCommand.Create());
+rootCommand.Subcommands.Add(ExportCommand.Create());
 rootCommand.Subcommands.Add(ReportCommand.Create());
 rootCommand.Subcommands.Add(FlushCommand.Create());
 
