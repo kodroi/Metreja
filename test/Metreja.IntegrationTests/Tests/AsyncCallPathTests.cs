@@ -34,8 +34,9 @@ public class AsyncCallPathTests
             var leaves = filtered.OfType<LeaveEvent>().Count(e => e.M == method);
 
             Assert.True(enters > 0, $"Expected at least one enter for {method}");
-            Assert.True(leaves > 0, $"Expected at least one leave for {method}");
-            Assert.True(leaves <= enters, $"More leaves ({leaves}) than enters ({enters}) for {method}");
+            Assert.True(enters == leaves,
+                $"Enter/leave mismatch for {method}: {enters} enters, {leaves} leaves. " +
+                $"Events: [{string.Join(", ", filtered.Where(e => (e is EnterEvent enter && enter.M == method)).Select(e => e is LeaveEvent ? "leave" : "enter"))}]");
         }
     }
 
