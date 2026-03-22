@@ -1,3 +1,4 @@
+using System.Reflection;
 using PostHog;
 
 namespace Metreja.Tool.Analytics;
@@ -17,9 +18,16 @@ internal static class TelemetryService
         if (!IsEnabled)
             return;
 
+        var apiKey = Assembly.GetExecutingAssembly()
+            .GetCustomAttributes<AssemblyMetadataAttribute>()
+            .FirstOrDefault(a => a.Key == "PostHogApiKey")?.Value;
+
+        if (string.IsNullOrEmpty(apiKey))
+            return;
+
         s_client = new PostHogClient(new PostHogOptions
         {
-            ProjectApiKey = PostHogConfig.ApiKey,
+            ProjectApiKey = apiKey,
             FlushAt = 1,
             FlushInterval = TimeSpan.FromSeconds(1),
         });

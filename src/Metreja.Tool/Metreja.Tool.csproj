@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Metreja.IntegrationTests" />
+    <AssemblyMetadata Include="PostHogApiKey" Value="$(PostHogApiKey)" />
   </ItemGroup>
 
   <ItemGroup>
@@ -53,25 +54,6 @@
              Link="libMetreja.Profiler.dylib"
              Condition="Exists('$(ProfilerDylibPath)')" />
   </ItemGroup>
-
-  <Target Name="GeneratePostHogConfig" BeforeTargets="CoreCompile">
-    <PropertyGroup>
-      <PostHogConfigContent>// Auto-generated at build time — do not edit
-namespace Metreja.Tool.Analytics%3B
-
-internal static class PostHogConfig
-{
-    internal const string ApiKey = "$(PostHogApiKey)"%3B
-}
-</PostHogConfigContent>
-    </PropertyGroup>
-    <WriteLinesToFile File="$(IntermediateOutputPath)PostHogConfig.g.cs"
-                     Lines="$(PostHogConfigContent)"
-                     Overwrite="true" />
-    <ItemGroup>
-      <Compile Include="$(IntermediateOutputPath)PostHogConfig.g.cs" />
-    </ItemGroup>
-  </Target>
 
   <Target Name="IncludeNativeProfilerInToolPackage" BeforeTargets="GenerateNuspec">
     <ItemGroup>
