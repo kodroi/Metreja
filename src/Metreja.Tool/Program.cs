@@ -33,11 +33,10 @@ rootCommand.Subcommands.Add(FlushCommand.Create());
 TelemetryService.Initialize();
 
 var parseResult = rootCommand.Parse(args);
+var exitCode = await parseResult.InvokeAsync();
 
 var commandName = parseResult.CommandResult.Command.Name;
-TelemetryService.TrackCommand(commandName);
-
-var exitCode = await parseResult.InvokeAsync();
+TelemetryService.TrackCommand(commandName, args, exitCode);
 
 await Metreja.Tool.UpdateChecker.CheckForUpdateAsync();
 await TelemetryService.FlushAndDisposeAsync();

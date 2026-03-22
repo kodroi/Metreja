@@ -26,7 +26,7 @@ internal static class TelemetryService
         });
     }
 
-    public static void TrackCommand(string commandName)
+    public static void TrackCommand(string commandName, string[] arguments, int exitCode)
     {
         if (s_client is null)
             return;
@@ -36,6 +36,8 @@ internal static class TelemetryService
             s_client.Capture(s_distinctId.Value, "cli_command_executed", new Dictionary<string, object>
             {
                 ["command"] = commandName,
+                ["arguments"] = string.Join(" ", arguments),
+                ["exit_code"] = exitCode,
                 ["os"] = GetOsName(),
                 ["cli_version"] = GitVersionInformation.MajorMinorPatch,
             });
