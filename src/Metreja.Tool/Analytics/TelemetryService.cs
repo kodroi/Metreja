@@ -8,7 +8,7 @@ internal static class TelemetryService
     private const string OptOutEnvVar = "METREJA_TELEMETRY_OPT_OUT";
 
     private static PostHogClient? s_client;
-    private static string? s_distinctId;
+    private static readonly Lazy<string> s_distinctId = new(GetOrCreateDistinctId);
 
     public static bool IsEnabled =>
         string.IsNullOrEmpty(Environment.GetEnvironmentVariable(OptOutEnvVar));
@@ -17,8 +17,6 @@ internal static class TelemetryService
     {
         if (!IsEnabled)
             return;
-
-        s_distinctId = GetOrCreateDistinctId();
 
         s_client = new PostHogClient(new PostHogOptions
         {
@@ -30,12 +28,12 @@ internal static class TelemetryService
 
     public static void TrackCommand(string commandName)
     {
-        if (s_client is null || s_distinctId is null)
+        if (s_client is null)
             return;
 
         try
         {
-            s_client.Capture(s_distinctId, "cli_command_executed", new Dictionary<string, object>
+            s_client.Capture(s_distinctId.Value, "cli_command_executed", new Dictionary<string, object>
             {
                 ["command"] = commandName,
                 ["os"] = GetOsName(),
