@@ -4,7 +4,6 @@ namespace Metreja.Tool.Analytics;
 
 internal static class TelemetryService
 {
-    private const string PostHogApiKey = "phc_PLACEHOLDER_KEY";
     private const string OptOutEnvVar = "METREJA_TELEMETRY_OPT_OUT";
 
     private static PostHogClient? s_client;
@@ -20,7 +19,7 @@ internal static class TelemetryService
 
         s_client = new PostHogClient(new PostHogOptions
         {
-            ProjectApiKey = PostHogApiKey,
+            ProjectApiKey = PostHogConfig.ApiKey,
             FlushAt = 1,
             FlushInterval = TimeSpan.FromSeconds(1),
         });

@@ -18,6 +18,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageProjectUrl>https://github.com/kodroi/Metreja</PackageProjectUrl>
     <RepositoryUrl>https://github.com/kodroi/Metreja</RepositoryUrl>
+    <PostHogApiKey Condition="'$(PostHogApiKey)' == ''">phc_PLACEHOLDER_KEY</PostHogApiKey>
     <ProfilerDllPath>$(MSBuildThisFileDirectory)..\..\bin\Release\Metreja.Profiler.dll</ProfilerDllPath>
     <ProfilerDylibPath>$(MSBuildThisFileDirectory)../../bin/Release/libMetreja.Profiler.dylib</ProfilerDylibPath>
   </PropertyGroup>
@@ -52,6 +53,25 @@
              Link="libMetreja.Profiler.dylib"
              Condition="Exists('$(ProfilerDylibPath)')" />
   </ItemGroup>
+
+  <Target Name="GeneratePostHogConfig" BeforeTargets="CoreCompile">
+    <PropertyGroup>
+      <PostHogConfigContent>// Auto-generated at build time — do not edit
+namespace Metreja.Tool.Analytics%3B
+
+internal static class PostHogConfig
+{
+    internal const string ApiKey = "$(PostHogApiKey)"%3B
+}
+</PostHogConfigContent>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(IntermediateOutputPath)PostHogConfig.g.cs"
+                     Lines="$(PostHogConfigContent)"
+                     Overwrite="true" />
+    <ItemGroup>
+      <Compile Include="$(IntermediateOutputPath)PostHogConfig.g.cs" />
+    </ItemGroup>
+  </Target>
 
   <Target Name="IncludeNativeProfilerInToolPackage" BeforeTargets="GenerateNuspec">
     <ItemGroup>
