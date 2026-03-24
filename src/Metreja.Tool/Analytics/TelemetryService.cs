@@ -50,7 +50,7 @@ internal static class TelemetryService
             s_client.Capture(s_distinctId.Value, "cli_command_executed", new Dictionary<string, object>
             {
                 ["command"] = commandName,
-                ["arguments"] = string.Join(" ", arguments),
+                ["argument_count"] = arguments.Length,
                 ["exit_code"] = exitCode,
                 ["os"] = GetOsName(),
                 ["cli_version"] = GitVersionInformation.MajorMinorPatch,

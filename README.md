@@ -210,7 +210,7 @@ Open an issue manually at [kodroi/Metreja/issues](https://github.com/kodroi/Metr
 
 Metreja collects anonymous usage analytics to help us understand which commands are used and improve the tool. The data collected includes:
 
-- Command name and arguments
+- Command name and argument count
 - Exit code
 - Operating system
 - CLI version
