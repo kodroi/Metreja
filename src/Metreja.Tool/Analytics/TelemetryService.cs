@@ -18,19 +18,26 @@ internal static class TelemetryService
         if (!IsEnabled)
             return;
 
-        var apiKey = Assembly.GetExecutingAssembly()
-            .GetCustomAttributes<AssemblyMetadataAttribute>()
-            .FirstOrDefault(a => a.Key == "PostHogApiKey")?.Value;
-
-        if (string.IsNullOrEmpty(apiKey))
-            return;
-
-        s_client = new PostHogClient(new PostHogOptions
+        try
         {
-            ProjectApiKey = apiKey,
-            FlushAt = 1,
-            FlushInterval = TimeSpan.FromSeconds(1),
-        });
+            var apiKey = Assembly.GetExecutingAssembly()
+                .GetCustomAttributes<AssemblyMetadataAttribute>()
+                .FirstOrDefault(a => a.Key == "PostHogApiKey")?.Value;
+
+            if (string.IsNullOrEmpty(apiKey))
+                return;
+
+            s_client = new PostHogClient(new PostHogOptions
+            {
+                ProjectApiKey = apiKey,
+                FlushAt = 1,
+                FlushInterval = TimeSpan.FromSeconds(1),
+            });
+        }
+        catch
+        {
+            // Never affect the user's command
+        }
     }
 
     public static void TrackCommand(string commandName, string[] arguments, int exitCode)
@@ -62,8 +69,8 @@ internal static class TelemetryService
 
         try
         {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-            await s_client.DisposeAsync();
+            var disposeTask = s_client.DisposeAsync().AsTask();
+            await Task.WhenAny(disposeTask, Task.Delay(TimeSpan.FromSeconds(2)));
         }
         catch
         {
