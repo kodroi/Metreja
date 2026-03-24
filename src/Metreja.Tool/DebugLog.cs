@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+
 namespace Metreja.Tool;
 
 internal static class DebugLog
@@ -27,5 +29,23 @@ internal static class DebugLog
             return;
 
         Console.Error.WriteLine($"[metreja-debug:{category}] {message}");
+    }
+}
+
+internal sealed class DebugLogProvider : ILoggerProvider
+{
+    public ILogger CreateLogger(string categoryName) => new DebugLogger(categoryName);
+    public void Dispose() { }
+
+    private sealed class DebugLogger(string category) : ILogger
+    {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => DebugLog.IsEnabled;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (!DebugLog.IsEnabled) return;
+            var shortCategory = category.Contains('.') ? category[(category.LastIndexOf('.') + 1)..] : category;
+            DebugLog.Write("posthog", $"[{logLevel}] {shortCategory}: {formatter(state, exception)}");
+        }
     }
 }

@@ -1,5 +1,6 @@
 using System.Reflection;
 using Metreja.Tool;
+using Microsoft.Extensions.Logging;
 using PostHog;
 
 namespace Metreja.Tool.Analytics;
@@ -43,7 +44,15 @@ internal static class TelemetryService
 
             DebugLog.Write("telemetry", $"host: {options.HostUrl}");
 
-            s_client = new PostHogClient(options);
+            if (DebugLog.IsEnabled)
+            {
+                var loggerFactory = LoggerFactory.Create(b => b.AddProvider(new DebugLogProvider()).SetMinimumLevel(LogLevel.Trace));
+                s_client = new PostHogClient(options, loggerFactory: loggerFactory);
+            }
+            else
+            {
+                s_client = new PostHogClient(options);
+            }
 
             if (DebugLog.IsEnabled)
                 DebugLog.Write("telemetry", $"initialized (distinctId={s_distinctId.Value[..8]}...)");
