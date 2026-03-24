@@ -56,7 +56,7 @@ public static class RunCommand
             }
 
             var config = await manager.LoadConfigAsync(session);
-            if (!Path.IsPathRooted(config.Output.Path))
+            if (!Path.IsPathFullyQualified(config.Output.Path))
             {
                 var absoluteOutputPath = Path.GetFullPath(config.Output.Path);
                 config = config with { Output = config.Output with { Path = absoluteOutputPath } };

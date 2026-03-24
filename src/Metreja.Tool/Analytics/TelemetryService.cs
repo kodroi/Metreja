@@ -31,7 +31,7 @@ internal static class TelemetryService
                 return;
             }
 
-            DebugLog.Write("telemetry", $"initializing PostHog (key={apiKey[..8]}...)");
+            DebugLog.Write("telemetry", "initializing PostHog");
 
             s_client = new PostHogClient(new PostHogOptions
             {
@@ -40,7 +40,8 @@ internal static class TelemetryService
                 FlushInterval = TimeSpan.FromSeconds(1),
             });
 
-            DebugLog.Write("telemetry", $"initialized (distinctId={s_distinctId.Value})");
+            if (DebugLog.IsEnabled)
+                DebugLog.Write("telemetry", $"initialized (distinctId={s_distinctId.Value[..8]}...)");
         }
         catch (Exception ex)
         {
