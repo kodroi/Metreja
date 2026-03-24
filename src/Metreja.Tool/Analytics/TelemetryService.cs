@@ -66,16 +66,16 @@ internal static class TelemetryService
         {
             var properties = new Dictionary<string, object>
             {
-                ["command"] = commandName,
                 ["argument_count"] = arguments.Length,
                 ["exit_code"] = exitCode,
                 ["os"] = GetOsName(),
                 ["cli_version"] = GitVersionInformation.MajorMinorPatch,
             };
 
-            DebugLog.Write("telemetry", $"capture cli_command_executed: command={commandName} exit_code={exitCode}");
+            DebugLog.Write("telemetry", $"capture {commandName}: exit_code={exitCode}");
 
-            s_client.Capture(s_distinctId.Value, "cli_command_executed", properties);
+            var queued = s_client.Capture(s_distinctId.Value, commandName, properties);
+            DebugLog.Write("telemetry", $"capture queued: {queued}");
         }
         catch (Exception ex)
         {
