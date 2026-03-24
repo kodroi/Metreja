@@ -40,6 +40,7 @@ internal static class TelemetryService
                 HostUrl = new Uri("https://eu.i.posthog.com"),
                 FlushAt = 20,
                 FlushInterval = TimeSpan.FromSeconds(30),
+                EnableCompression = false,
             };
 
             DebugLog.Write("telemetry", $"host: {options.HostUrl}");
