@@ -90,7 +90,9 @@ internal static class TelemetryService
 
         try
         {
-            DebugLog.Write("telemetry", "flushing and disposing...");
+            DebugLog.Write("telemetry", "flushing...");
+            await s_client.FlushAsync();
+            DebugLog.Write("telemetry", "flushed, disposing...");
             var disposeTask = s_client.DisposeAsync().AsTask();
             var completed = await Task.WhenAny(disposeTask, Task.Delay(TimeSpan.FromSeconds(2)));
             if (completed == disposeTask)
