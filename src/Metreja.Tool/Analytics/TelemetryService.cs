@@ -37,8 +37,8 @@ internal static class TelemetryService
             {
                 ProjectApiKey = apiKey,
                 HostUrl = new Uri("https://eu.i.posthog.com"),
-                FlushAt = 1,
-                FlushInterval = TimeSpan.FromSeconds(1),
+                FlushAt = 20,
+                FlushInterval = TimeSpan.FromSeconds(30),
             };
 
             DebugLog.Write("telemetry", $"host: {options.HostUrl}");
