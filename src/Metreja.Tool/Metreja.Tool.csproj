@@ -16,7 +16,7 @@
     <PackageTags>profiler;dotnet;performance;tracing;instrumentation;diagnostics;elt3;ndjson</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageProjectUrl>https://github.com/kodroi/Metreja</PackageProjectUrl>
+    <PackageProjectUrl>https://metreja.io</PackageProjectUrl>
     <RepositoryUrl>https://github.com/kodroi/Metreja</RepositoryUrl>
     <PostHogApiKey Condition="'$(PostHogApiKey)' == ''"></PostHogApiKey>
     <ProfilerDllPath>$(MSBuildThisFileDirectory)..\..\bin\Release\Metreja.Profiler.dll</ProfilerDllPath>
@@ -39,30 +39,18 @@
 
   <!-- Windows: include the DLL -->
   <ItemGroup>
-    <Content Include="$(ProfilerDllPath)"
-             Pack="false"
-             CopyToOutputDirectory="PreserveNewest"
-             Link="Metreja.Profiler.dll"
-             Condition="Exists('$(ProfilerDllPath)')" />
+    <Content Include="$(ProfilerDllPath)" Pack="false" CopyToOutputDirectory="PreserveNewest" Link="Metreja.Profiler.dll" Condition="Exists('$(ProfilerDllPath)')" />
   </ItemGroup>
 
   <!-- macOS: include the dylib -->
   <ItemGroup>
-    <Content Include="$(ProfilerDylibPath)"
-             Pack="false"
-             CopyToOutputDirectory="PreserveNewest"
-             Link="libMetreja.Profiler.dylib"
-             Condition="Exists('$(ProfilerDylibPath)')" />
+    <Content Include="$(ProfilerDylibPath)" Pack="false" CopyToOutputDirectory="PreserveNewest" Link="libMetreja.Profiler.dylib" Condition="Exists('$(ProfilerDylibPath)')" />
   </ItemGroup>
 
   <Target Name="IncludeNativeProfilerInToolPackage" BeforeTargets="GenerateNuspec">
     <ItemGroup>
-      <_PackageFiles Include="$(ProfilerDllPath)"
-                     PackagePath="tools/$(TargetFramework)/any/"
-                     Condition="Exists('$(ProfilerDllPath)')" />
-      <_PackageFiles Include="$(ProfilerDylibPath)"
-                     PackagePath="tools/$(TargetFramework)/any/"
-                     Condition="Exists('$(ProfilerDylibPath)')" />
+      <_PackageFiles Include="$(ProfilerDllPath)" PackagePath="tools/$(TargetFramework)/any/" Condition="Exists('$(ProfilerDllPath)')" />
+      <_PackageFiles Include="$(ProfilerDylibPath)" PackagePath="tools/$(TargetFramework)/any/" Condition="Exists('$(ProfilerDylibPath)')" />
     </ItemGroup>
   </Target>
 

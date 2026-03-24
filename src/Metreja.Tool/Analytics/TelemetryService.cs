@@ -33,12 +33,17 @@ internal static class TelemetryService
 
             DebugLog.Write("telemetry", "initializing PostHog");
 
-            s_client = new PostHogClient(new PostHogOptions
+            var options = new PostHogOptions
             {
                 ProjectApiKey = apiKey,
+                HostUrl = new Uri("https://eu.i.posthog.com"),
                 FlushAt = 1,
                 FlushInterval = TimeSpan.FromSeconds(1),
-            });
+            };
+
+            DebugLog.Write("telemetry", $"host: {options.HostUrl}");
+
+            s_client = new PostHogClient(options);
 
             if (DebugLog.IsEnabled)
                 DebugLog.Write("telemetry", $"initialized (distinctId={s_distinctId.Value[..8]}...)");
