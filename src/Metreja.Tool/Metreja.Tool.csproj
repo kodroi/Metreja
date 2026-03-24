@@ -18,15 +18,18 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageProjectUrl>https://github.com/kodroi/Metreja</PackageProjectUrl>
     <RepositoryUrl>https://github.com/kodroi/Metreja</RepositoryUrl>
+    <PostHogApiKey Condition="'$(PostHogApiKey)' == ''"></PostHogApiKey>
     <ProfilerDllPath>$(MSBuildThisFileDirectory)..\..\bin\Release\Metreja.Profiler.dll</ProfilerDllPath>
     <ProfilerDylibPath>$(MSBuildThisFileDirectory)../../bin/Release/libMetreja.Profiler.dylib</ProfilerDylibPath>
   </PropertyGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="Metreja.IntegrationTests" />
+    <AssemblyMetadata Include="PostHogApiKey" Value="$(PostHogApiKey)" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="PostHog" Version="1.0.7" />
     <PackageReference Include="System.CommandLine" Version="2.0.5" />
   </ItemGroup>
 

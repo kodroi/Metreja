@@ -206,6 +206,23 @@ Requires the [GitHub CLI (`gh`)](https://cli.github.com/) to be installed and au
 
 Open an issue manually at [kodroi/Metreja/issues](https://github.com/kodroi/Metreja/issues).
 
+## Analytics
+
+Metreja collects anonymous usage analytics to help us understand which commands are used and improve the tool. The data collected includes:
+
+- Command name and argument count
+- Exit code
+- Operating system
+- CLI version
+
+No personally identifiable information is collected. Each installation generates a random anonymous ID stored locally in `~/.metreja/anonymous-id`.
+
+To disable analytics, set the `METREJA_TELEMETRY_OPT_OUT` environment variable to any value:
+
+```bash
+export METREJA_TELEMETRY_OPT_OUT=1
+```
+
 ## License
 
 [MIT](LICENSE) — Copyright (c) 2026 Iiro Rahkonen
