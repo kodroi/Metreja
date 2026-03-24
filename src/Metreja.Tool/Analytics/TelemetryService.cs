@@ -88,20 +88,13 @@ internal static class TelemetryService
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".metreja");
         var idFile = Path.Combine(dir, "anonymous-id");
 
-        try
-        {
-            if (File.Exists(idFile))
-                return File.ReadAllText(idFile).Trim();
+        if (File.Exists(idFile))
+            return File.ReadAllText(idFile).Trim();
 
-            Directory.CreateDirectory(dir);
-            var id = Guid.NewGuid().ToString();
-            File.WriteAllText(idFile, id);
-            return id;
-        }
-        catch
-        {
-            return "unknown";
-        }
+        Directory.CreateDirectory(dir);
+        var id = Guid.NewGuid().ToString();
+        File.WriteAllText(idFile, id);
+        return id;
     }
 
     private static string GetOsName()

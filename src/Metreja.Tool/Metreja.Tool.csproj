@@ -18,7 +18,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageProjectUrl>https://github.com/kodroi/Metreja</PackageProjectUrl>
     <RepositoryUrl>https://github.com/kodroi/Metreja</RepositoryUrl>
-    <PostHogApiKey Condition="'$(PostHogApiKey)' == ''">phc_PLACEHOLDER_KEY</PostHogApiKey>
+    <PostHogApiKey Condition="'$(PostHogApiKey)' == ''"></PostHogApiKey>
     <ProfilerDllPath>$(MSBuildThisFileDirectory)..\..\bin\Release\Metreja.Profiler.dll</ProfilerDllPath>
     <ProfilerDylibPath>$(MSBuildThisFileDirectory)../../bin/Release/libMetreja.Profiler.dylib</ProfilerDylibPath>
   </PropertyGroup>
