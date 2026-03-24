@@ -175,8 +175,8 @@ bool ConfigReader::SimpleGlobMatch(const std::string& pattern, const std::string
     if (pattern == "*")
         return true;
 
-    // Check for trailing wildcard: "Prefix.*" matches "Prefix.Anything"
-    if (pattern.size() >= 2 && pattern.back() == '*' && pattern[pattern.size() - 2] == '.')
+    // Check for trailing wildcard: "Prefix*" or "Prefix.*" matches anything starting with prefix
+    if (pattern.size() >= 2 && pattern.back() == '*')
     {
         std::string prefix = pattern.substr(0, pattern.size() - 1);
         return value.substr(0, prefix.size()) == prefix;

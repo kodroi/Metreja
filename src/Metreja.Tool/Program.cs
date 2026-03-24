@@ -1,8 +1,12 @@
 using System.CommandLine;
+using Metreja.Tool;
 using Metreja.Tool.Analytics;
 using Metreja.Tool.Commands;
 
 var rootCommand = new RootCommand("Metreja - .NET Call-Path Profiler CLI");
+
+var debugOption = new Option<bool>("--debug") { Description = "Enable debug logging to stderr" };
+rootCommand.Options.Add(debugOption);
 
 rootCommand.Subcommands.Add(InitCommand.Create());
 rootCommand.Subcommands.Add(AddCommand.Create());
@@ -30,12 +34,19 @@ rootCommand.Subcommands.Add(ExportCommand.Create());
 rootCommand.Subcommands.Add(ReportCommand.Create());
 rootCommand.Subcommands.Add(FlushCommand.Create());
 
+var parseResult = rootCommand.Parse(args);
+
+if (parseResult.GetValue(debugOption))
+    DebugLog.Enable();
+
+DebugLog.Write("cli", $"version={GitVersionInformation.MajorMinorPatch} args=[{string.Join(", ", args)}]");
+
 TelemetryService.Initialize();
 
-var parseResult = rootCommand.Parse(args);
 var exitCode = await parseResult.InvokeAsync();
 
 var commandName = parseResult.CommandResult.Command.Name;
+DebugLog.Write("cli", $"command={commandName} exitCode={exitCode}");
 TelemetryService.TrackCommand(commandName, args, exitCode);
 
 await Metreja.Tool.UpdateChecker.CheckForUpdateAsync();

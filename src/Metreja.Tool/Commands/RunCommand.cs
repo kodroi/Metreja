@@ -44,7 +44,9 @@ public static class RunCommand
             if (absoluteDllPath is null)
                 return 1;
 
-            // 2. Resolve session config
+            DebugLog.Write("run", $"profiler: {absoluteDllPath}");
+
+            // 2. Resolve session config and make output path absolute
             var manager = ConfigManager.Default;
             var configPath = manager.GetSessionPath(session);
             if (!File.Exists(configPath))
@@ -52,7 +54,21 @@ public static class RunCommand
                 Console.Error.WriteLine($"Error: Session '{session}' not found at {configPath}");
                 return 1;
             }
+
+            var config = await manager.LoadConfigAsync(session);
+            if (!Path.IsPathFullyQualified(config.Output.Path))
+            {
+                var absoluteOutputPath = Path.GetFullPath(config.Output.Path);
+                config = config with { Output = config.Output with { Path = absoluteOutputPath } };
+                await manager.SaveConfigAsync(session, config);
+            }
+
             var absoluteConfigPath = Path.GetFullPath(configPath);
+
+            DebugLog.Write("run", $"config: {absoluteConfigPath}");
+            DebugLog.Write("run", $"output: {config.Output.Path}");
+            DebugLog.Write("run", $"events: [{string.Join(", ", config.Instrumentation.Events ?? [])}]");
+            DebugLog.Write("run", $"includes: {config.Instrumentation.Includes.Count} rules, excludes: {config.Instrumentation.Excludes.Count} rules");
 
             // 3. Resolve exe path
             var absoluteExePath = Path.GetFullPath(exePath);
@@ -75,6 +91,7 @@ public static class RunCommand
             psi.Environment["METREJA_CONFIG"] = absoluteConfigPath;
 
             // 5. Launch
+            DebugLog.Write("run", $"launching: {absoluteExePath} {string.Join(' ', extraArgs)}");
             var process = Process.Start(psi);
             if (process == null)
             {
@@ -88,7 +105,9 @@ public static class RunCommand
                 return 0;
             }
 
+            DebugLog.Write("run", $"PID {process.Id} started, waiting for exit...");
             await process.WaitForExitAsync(cancellationToken);
+            DebugLog.Write("run", $"PID {process.Id} exited with code {process.ExitCode}");
             return process.ExitCode;
         });
 

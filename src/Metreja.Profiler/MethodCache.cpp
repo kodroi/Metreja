@@ -125,6 +125,7 @@ void MethodCache::ResolveAndCache(FunctionID functionId)
     // Step 7: Evaluate include/exclude filters
     info->isIncluded = EvaluateFilters(info->assemblyName, info->namespaceName, info->className, info->methodName);
 
+
     // Insert under exclusive lock (double-check: another thread may have inserted)
     std::unique_lock lock(m_cacheMutex);
     m_cache.try_emplace(functionId, std::move(info));
