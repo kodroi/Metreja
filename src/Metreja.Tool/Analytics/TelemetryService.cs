@@ -15,7 +15,7 @@ internal static class TelemetryService
 
     public static void Initialize()
     {
-        if (!IsEnabled)
+        if (!IsEnabled || s_client is not null)
             return;
 
         try
@@ -89,7 +89,11 @@ internal static class TelemetryService
         var idFile = Path.Combine(dir, "anonymous-id");
 
         if (File.Exists(idFile))
-            return File.ReadAllText(idFile).Trim();
+        {
+            var existing = File.ReadAllText(idFile).Trim();
+            if (!string.IsNullOrWhiteSpace(existing))
+                return existing;
+        }
 
         Directory.CreateDirectory(dir);
         var id = Guid.NewGuid().ToString();
