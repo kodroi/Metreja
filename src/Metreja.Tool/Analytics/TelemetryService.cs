@@ -92,6 +92,26 @@ internal static class TelemetryService
         }
     }
 
+    public static void TrackException(Exception exception)
+    {
+        if (s_client is null)
+            return;
+
+        try
+        {
+            DebugLog.Write("telemetry", $"capture exception: {exception.GetType().Name}: {exception.Message}");
+            s_client.CaptureException(exception, s_distinctId.Value, new Dictionary<string, object>
+            {
+                ["os"] = GetOsName(),
+                ["cli_version"] = GitVersionInformation.MajorMinorPatch,
+            });
+        }
+        catch
+        {
+            // Never affect the user's command
+        }
+    }
+
     public static async Task FlushAndDisposeAsync()
     {
         if (s_client is null)

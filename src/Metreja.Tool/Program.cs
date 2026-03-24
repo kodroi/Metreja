@@ -43,7 +43,17 @@ DebugLog.Write("cli", $"version={GitVersionInformation.MajorMinorPatch} args=[{s
 
 TelemetryService.Initialize();
 
-var exitCode = await parseResult.InvokeAsync();
+int exitCode;
+try
+{
+    exitCode = await parseResult.InvokeAsync();
+}
+catch (Exception ex)
+{
+    TelemetryService.TrackException(ex);
+    await TelemetryService.FlushAndDisposeAsync();
+    throw;
+}
 
 var commandName = parseResult.CommandResult.Command.Name;
 DebugLog.Write("cli", $"command={commandName} exitCode={exitCode}");
