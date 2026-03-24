@@ -1,4 +1,5 @@
 using System.Reflection;
+using Metreja.Tool;
 using PostHog;
 
 namespace Metreja.Tool.Analytics;
@@ -25,7 +26,12 @@ internal static class TelemetryService
                 .FirstOrDefault(a => a.Key == "PostHogApiKey")?.Value;
 
             if (string.IsNullOrEmpty(apiKey))
+            {
+                DebugLog.Write("telemetry", "skipped: no API key found in assembly metadata");
                 return;
+            }
+
+            DebugLog.Write("telemetry", $"initializing PostHog (key={apiKey[..8]}...)");
 
             s_client = new PostHogClient(new PostHogOptions
             {
@@ -33,32 +39,41 @@ internal static class TelemetryService
                 FlushAt = 1,
                 FlushInterval = TimeSpan.FromSeconds(1),
             });
+
+            DebugLog.Write("telemetry", $"initialized (distinctId={s_distinctId.Value})");
         }
-        catch
+        catch (Exception ex)
         {
-            // Never affect the user's command
+            DebugLog.Write("telemetry", $"initialize failed: {ex.Message}");
         }
     }
 
     public static void TrackCommand(string commandName, string[] arguments, int exitCode)
     {
         if (s_client is null)
+        {
+            DebugLog.Write("telemetry", "track skipped: client not initialized");
             return;
+        }
 
         try
         {
-            s_client.Capture(s_distinctId.Value, "cli_command_executed", new Dictionary<string, object>
+            var properties = new Dictionary<string, object>
             {
                 ["command"] = commandName,
                 ["argument_count"] = arguments.Length,
                 ["exit_code"] = exitCode,
                 ["os"] = GetOsName(),
                 ["cli_version"] = GitVersionInformation.MajorMinorPatch,
-            });
+            };
+
+            DebugLog.Write("telemetry", $"capture cli_command_executed: command={commandName} exit_code={exitCode}");
+
+            s_client.Capture(s_distinctId.Value, "cli_command_executed", properties);
         }
-        catch
+        catch (Exception ex)
         {
-            // Never affect the user's command
+            DebugLog.Write("telemetry", $"capture failed: {ex.Message}");
         }
     }
 
@@ -69,12 +84,14 @@ internal static class TelemetryService
 
         try
         {
+            DebugLog.Write("telemetry", "flushing and disposing...");
             var disposeTask = s_client.DisposeAsync().AsTask();
-            await Task.WhenAny(disposeTask, Task.Delay(TimeSpan.FromSeconds(2)));
+            var completed = await Task.WhenAny(disposeTask, Task.Delay(TimeSpan.FromSeconds(2)));
+            DebugLog.Write("telemetry", completed == disposeTask ? "disposed" : "dispose timed out after 2s");
         }
-        catch
+        catch (Exception ex)
         {
-            // Never affect the user's command
+            DebugLog.Write("telemetry", $"dispose failed: {ex.Message}");
         }
         finally
         {

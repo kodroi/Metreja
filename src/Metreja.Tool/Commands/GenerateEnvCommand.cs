@@ -36,6 +36,14 @@ public static class GenerateEnvCommand
             var manager = ConfigManager.Default;
             var configPath = Path.GetFullPath(manager.GetSessionPath(session));
 
+            var config = await manager.LoadConfigAsync(session);
+            if (!Path.IsPathRooted(config.Output.Path))
+            {
+                var absoluteOutputPath = Path.GetFullPath(config.Output.Path);
+                config = config with { Output = config.Output with { Path = absoluteOutputPath } };
+                await manager.SaveConfigAsync(session, config);
+            }
+
             var absoluteDllPath = ProfilerLocator.ResolveProfilerPath();
             if (absoluteDllPath is null)
             {
