@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.9] — 2026-03-24
+
+### Added
+- Anonymous usage analytics with PostHog (opt-out via `METREJA_TELEMETRY_OPT_OUT` env var)
+
+### Dependencies
+- Bump `microsoft/setup-msbuild` from 2 to 3
+- Bump `dawidd6/action-download-artifact` from 18 to 19
+- Bump `gittools/actions` from 4.3.3 to 4.4.2
+- Bump `GitVersion.MsBuild` from 6.6.1 to 6.6.2
+
+## [1.0.6] — 2026-03-16
+
+### Fixed
+- Async enter/leave test made resilient to non-deterministic continuations
+
+## [1.0.1] — 2026-03-15
+
+### Added
+- JSON output format (`--format json`) for all analysis commands
+- CSV export via `export` command
+- Explicit exit codes from command handlers
+- Comprehensive README with run, flush, event types, and JSON format docs
+
+### Fixed
+- Preserve GC gen/duration in timeline JSON output
+- Fix `durationNs` field name in timeline events
+- Make `ContentionEvent` and `AllocCallSite` tests resilient when no events are emitted
+
 ## [1.0.0] — 2026-03-15
 
 ### Added
@@ -46,3 +75,88 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `method_stats` and `exception_stats` periodic aggregated statistics events
 - JSON output: all analysis commands support `--format json` for structured output
 - Snapshot testing with Verify.Xunit for trace validation
+
+## [0.3.10] — 2026-03-13
+
+### Added
+- macOS ARM64 platform support via CMake and GAS assembly
+- Cross-platform manual flush via POSIX named semaphores
+
+## [0.3.9] — 2026-03-13
+
+### Added
+- `flush` CLI command for manual stats flush via named event IPC
+
+## [0.3.8] — 2026-03-13
+
+### Added
+- Periodic stats flush to prevent data loss on force-kill
+
+## [0.3.7] — 2026-03-11
+
+### Added
+- `report` command for creating GitHub issues via `gh` CLI
+
+## [0.3.6] — 2026-03-09
+
+### Fixed
+- Exception-unwind double-pop: use deferred-pop strategy for catcher identification
+
+## [0.3.5] — 2026-03-08
+
+### Added
+- `method_stats` event support in `hotspots` and `analyze-diff` commands
+
+## [0.3.4] — 2026-03-08
+
+### Added
+- Shell format for `generate-env` command
+- Explicit exit codes from command handlers
+
+## [0.3.3] — 2026-03-05
+
+### Added
+- Event type system with `set events` command and in-profiler aggregation
+
+### Removed
+- `trackMemory` field (replaced by `events`)
+
+## [0.3.1] — 2026-03-02
+
+### Changed
+- Simplified filter rules to single-level model with default framework excludes
+
+## [0.3.0] — 2026-03-02
+
+### Added
+- `run` command to launch profiled executables with env vars attached
+
+## [0.2.4] — 2026-03-01
+
+### Removed
+- Dead CLI flags (`--log-lines`, `set mode`, `output.format`)
+
+## [0.2.3] — 2026-03-01
+
+### Removed
+- `--dll-path` option (profiler DLL auto-discovered from NuGet package)
+
+## [0.2.2] — 2026-03-01
+
+### Fixed
+- Native profiler DLL missing from NuGet tool package
+
+## [0.2.0] — 2026-02-28
+
+### Changed
+- Multi-target net8.0/net9.0/net10.0
+
+## [0.1.0] — 2026-02-28
+
+### Added
+- Initial release — .NET call-path profiler with ELT3 hooks
+- C# CLI for session management (`init`, `add`, `set`, `validate`, `generate-env`, `clear`)
+- GC events and allocation-by-class memory profiling
+- Analysis commands (`hotspots`, `calltree`, `callers`, `memory`, `diff`)
+- NDJSON output format
+- NuGet packaging as .NET global tool
