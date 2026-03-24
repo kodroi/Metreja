@@ -46,7 +46,7 @@ jobs:
         run: dotnet restore
 
       - name: Build Metreja.Tool
-        run: dotnet build src/Metreja.Tool/Metreja.Tool.csproj -c Release --no-restore /p:PostHogApiKey=${{ secrets.POSTHOG_API_KEY }}
+        run: dotnet build src/Metreja.Tool/Metreja.Tool.csproj -c Release --no-restore
 
       - name: Build Metreja.Profiler (C++ DLL)
         run: msbuild src/Metreja.Profiler/Metreja.Profiler.vcxproj /p:Configuration=Release /p:Platform=x64 "/p:SolutionDir=${{ github.workspace }}/"
@@ -132,7 +132,7 @@ jobs:
         run: dotnet restore
 
       - name: Build Metreja.Tool
-        run: dotnet build src/Metreja.Tool/Metreja.Tool.csproj -c Release --no-restore /p:PostHogApiKey=${{ secrets.POSTHOG_API_KEY }}
+        run: dotnet build src/Metreja.Tool/Metreja.Tool.csproj -c Release --no-restore
 
       - name: Build Metreja.TestApp
         run: dotnet build test/Metreja.TestApp/Metreja.TestApp.csproj -c Release --no-restore

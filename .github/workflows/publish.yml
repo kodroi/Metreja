@@ -65,7 +65,7 @@ jobs:
         run: dotnet restore
 
       - name: Build Metreja.Tool
-        run: dotnet build src/Metreja.Tool/Metreja.Tool.csproj -c Release --no-restore
+        run: dotnet build src/Metreja.Tool/Metreja.Tool.csproj -c Release --no-restore /p:PostHogApiKey=${{ secrets.POSTHOG_API_KEY }}
 
       - name: Pack NuGet package
         run: dotnet pack src/Metreja.Tool/Metreja.Tool.csproj -c Release --no-build -o artifacts /p:PackageVersion=${{ steps.gitversion.outputs.semVer }}
