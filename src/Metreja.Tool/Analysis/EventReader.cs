@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Metreja.Tool;
 
 namespace Metreja.Tool.Analysis;
 
@@ -6,6 +7,8 @@ internal static class EventReader
 {
     public static async IAsyncEnumerable<(string EventType, JsonElement Root)> StreamEventsAsync(string path)
     {
+        var skippedLines = 0;
+
         await foreach (var line in File.ReadLinesAsync(path))
         {
             if (string.IsNullOrWhiteSpace(line)) continue;
@@ -17,6 +20,7 @@ internal static class EventReader
             }
             catch (JsonException)
             {
+                skippedLines++;
                 continue;
             }
 
@@ -26,15 +30,24 @@ internal static class EventReader
                     !doc.RootElement.TryGetProperty("event", out var eventProp) ||
                     eventProp.ValueKind != JsonValueKind.String)
                 {
+                    skippedLines++;
                     continue;
                 }
 
                 var eventType = eventProp.GetString();
                 if (string.IsNullOrWhiteSpace(eventType))
+                {
+                    skippedLines++;
                     continue;
+                }
 
                 yield return (eventType, doc.RootElement.Clone());
             }
+        }
+
+        if (skippedLines > 0)
+        {
+            DebugLog.Write("reader", $"Skipped {skippedLines} malformed or non-event line(s) in {Path.GetFileName(path)}");
         }
     }
 

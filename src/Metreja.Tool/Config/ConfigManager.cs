@@ -11,7 +11,8 @@ public class ConfigManager
         WriteIndented = true
     };
 
-    public static ConfigManager Default => new();
+    private static readonly Lazy<ConfigManager> s_default = new(() => new ConfigManager());
+    public static ConfigManager Default => s_default.Value;
 
     private readonly string _sessionsDir;
 

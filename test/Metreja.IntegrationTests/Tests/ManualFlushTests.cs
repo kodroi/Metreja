@@ -5,19 +5,10 @@ namespace Metreja.IntegrationTests.Tests;
 
 public class ManualFlushTests
 {
-    private static string GetSolutionRoot()
-    {
-        var root = ProfilerPrerequisites.FindSolutionRoot();
-        var skipReason = ProfilerPrerequisites.GetSkipReason(root);
-        if (skipReason is not null)
-            throw new InvalidOperationException(skipReason);
-        return root;
-    }
-
     [Fact]
     public async Task ManualFlush_WritesStatsBeforeShutdown()
     {
-        var root = GetSolutionRoot();
+        var root = TestHelpers.GetSolutionRoot();
         await using var session = await ProfilerRunner.RunInteractiveAsync(
             root, events: ["method_stats"], statsFlushIntervalSeconds: 0);
 
@@ -52,7 +43,7 @@ public class ManualFlushTests
     [Fact]
     public async Task ManualFlush_CanFlushMultipleTimes()
     {
-        var root = GetSolutionRoot();
+        var root = TestHelpers.GetSolutionRoot();
         await using var session = await ProfilerRunner.RunInteractiveAsync(
             root, events: ["method_stats"], statsFlushIntervalSeconds: 0);
 
