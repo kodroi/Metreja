@@ -4,12 +4,6 @@ namespace Metreja.Tool.Analysis;
 
 public static class TimelineAnalyzer
 {
-    private static readonly JsonSerializerOptions s_jsonOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
-
     public static async Task<int> AnalyzeAsync(string filePath, long? tidFilter, string? eventTypeFilter, string? methodFilter, int top, string format = "text")
     {
         if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
@@ -169,7 +163,7 @@ public static class TimelineAnalyzer
                 Limit = top
             };
 
-            Console.WriteLine(JsonSerializer.Serialize(output, s_jsonOptions));
+            Console.WriteLine(JsonSerializer.Serialize(output, JsonOutputOptions.Default));
         }
         else
         {

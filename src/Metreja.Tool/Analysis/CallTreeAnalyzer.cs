@@ -4,12 +4,6 @@ namespace Metreja.Tool.Analysis;
 
 public static class CallTreeAnalyzer
 {
-    private static readonly JsonSerializerOptions s_jsonOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
-
     public static async Task<int> AnalyzeAsync(string filePath, string methodPattern, long? tidFilter, int occurrence, string format = "text")
     {
         if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
@@ -58,7 +52,7 @@ public static class CallTreeAnalyzer
                 }).ToArray()
             };
 
-            Console.WriteLine(JsonSerializer.Serialize(jsonOutput, s_jsonOptions));
+            Console.WriteLine(JsonSerializer.Serialize(jsonOutput, JsonOutputOptions.Default));
         }
         else
         {

@@ -5,12 +5,6 @@ namespace Metreja.Tool.Analysis;
 
 public static class SummaryAnalyzer
 {
-    private static readonly JsonSerializerOptions s_jsonOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
-
     public static async Task<int> AnalyzeAsync(string filePath, string format = "text")
     {
         if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
@@ -39,7 +33,7 @@ public static class SummaryAnalyzer
                 exceptionCount = summary.ExceptionCount,
             };
 
-            Console.WriteLine(JsonSerializer.Serialize(jsonOutput, s_jsonOptions));
+            Console.WriteLine(JsonSerializer.Serialize(jsonOutput, JsonOutputOptions.Default));
             return 0;
         }
 

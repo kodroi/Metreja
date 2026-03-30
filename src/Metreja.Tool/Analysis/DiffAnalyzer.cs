@@ -4,12 +4,6 @@ namespace Metreja.Tool.Analysis;
 
 public static class DiffAnalyzer
 {
-    private static readonly JsonSerializerOptions s_jsonOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
-
     public static async Task<int> AnalyzeAsync(string basePath, string comparePath, string format = "text")
     {
         if (!AnalyzerHelpers.ValidateFileExists(basePath, "Base file"))
@@ -41,7 +35,7 @@ public static class DiffAnalyzer
                 compareMethodCount = compareTimings.Count
             };
 
-            Console.WriteLine(JsonSerializer.Serialize(result, s_jsonOptions));
+            Console.WriteLine(JsonSerializer.Serialize(result, JsonOutputOptions.Default));
             return 0;
         }
 

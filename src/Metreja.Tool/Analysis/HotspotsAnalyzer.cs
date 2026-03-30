@@ -4,12 +4,6 @@ namespace Metreja.Tool.Analysis;
 
 public static class HotspotsAnalyzer
 {
-    private static readonly JsonSerializerOptions s_jsonOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
-
     public static async Task<int> AnalyzeAsync(string filePath, int top, double minMs, string sortBy, string[] filters, string format = "text")
     {
         if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
@@ -59,7 +53,7 @@ public static class HotspotsAnalyzer
                 MinThresholdMs = minMs
             };
 
-            Console.WriteLine(JsonSerializer.Serialize(output, s_jsonOptions));
+            Console.WriteLine(JsonSerializer.Serialize(output, JsonOutputOptions.Default));
             return 0;
         }
 

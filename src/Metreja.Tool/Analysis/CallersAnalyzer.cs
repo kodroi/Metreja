@@ -4,12 +4,6 @@ namespace Metreja.Tool.Analysis;
 
 public static class CallersAnalyzer
 {
-    private static readonly JsonSerializerOptions s_jsonOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
-
     public static async Task<int> AnalyzeAsync(string filePath, string methodPattern, int top, string format = "text")
     {
         if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
@@ -48,7 +42,7 @@ public static class CallersAnalyzer
                 }).ToArray()
             };
 
-            Console.WriteLine(JsonSerializer.Serialize(jsonOutput, s_jsonOptions));
+            Console.WriteLine(JsonSerializer.Serialize(jsonOutput, JsonOutputOptions.Default));
         }
         else
         {

@@ -4,12 +4,6 @@ namespace Metreja.Tool.Analysis;
 
 public static class ThreadsAnalyzer
 {
-    private static readonly JsonSerializerOptions s_jsonOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
-
     public static async Task<int> AnalyzeAsync(string filePath, string sortBy, string format = "text")
     {
         if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
@@ -23,7 +17,7 @@ public static class ThreadsAnalyzer
             {
                 Console.WriteLine(JsonSerializer.Serialize(
                     new { Threads = Array.Empty<object>(), TotalThreads = 0 },
-                    s_jsonOptions));
+                    JsonOutputOptions.Default));
             }
             else
             {
@@ -64,7 +58,7 @@ public static class ThreadsAnalyzer
                 TotalThreads = threads.Count
             };
 
-            Console.WriteLine(JsonSerializer.Serialize(output, s_jsonOptions));
+            Console.WriteLine(JsonSerializer.Serialize(output, JsonOutputOptions.Default));
             return 0;
         }
 

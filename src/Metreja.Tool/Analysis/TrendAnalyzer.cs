@@ -4,12 +4,6 @@ namespace Metreja.Tool.Analysis;
 
 public static class TrendAnalyzer
 {
-    private static readonly JsonSerializerOptions s_jsonOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
-
     public static async Task<int> AnalyzeAsync(string filePath, string methodPattern, string format = "text")
     {
         if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
@@ -50,7 +44,7 @@ public static class TrendAnalyzer
                 TotalIntervals = intervals.Count
             };
 
-            Console.WriteLine(JsonSerializer.Serialize(output, s_jsonOptions));
+            Console.WriteLine(JsonSerializer.Serialize(output, JsonOutputOptions.Default));
             return 0;
         }
 
