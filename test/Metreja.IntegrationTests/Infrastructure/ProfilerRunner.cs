@@ -32,41 +32,9 @@ public sealed class ProfilerRunner : IAsyncDisposable
 
         try
         {
-            var outputPath = Path.Combine(tempDir, OutputFileName);
-
-            // Create session config using ConfigManager
-            var configManager = new ConfigManager(tempDir);
-            var sessionId = await configManager.CreateSessionAsync(scenario ?? "integration-test");
-            var config = await configManager.LoadConfigAsync(sessionId);
-
-            // Update config with our test settings
-            var instrumentation = config.Instrumentation with
-            {
-                Includes =
-                [
-                    new FilterRule { Level = "assembly", Pattern = "Metreja.TestApp" }
-                ],
-                Excludes =
-                [
-                    new FilterRule { Level = "assembly", Pattern = "System.*" },
-                    new FilterRule { Level = "assembly", Pattern = "Microsoft.*" }
-                ]
-            };
-            instrumentation = instrumentation with { Events = events ?? ["enter", "leave", "exception"] };
-            if (statsFlushIntervalSeconds.HasValue)
-                instrumentation = instrumentation with { StatsFlushIntervalSeconds = statsFlushIntervalSeconds.Value };
-
-            config = config with
-            {
-                Instrumentation = instrumentation,
-                Output = config.Output with
-                {
-                    Path = outputPath
-                }
-            };
-
-            await configManager.SaveConfigAsync(sessionId, config);
-            var configPath = configManager.GetSessionPath(sessionId);
+            var (configPath, outputPath) = await CreateTestConfigAsync(
+                tempDir, scenario ?? "integration-test", events,
+                ["enter", "leave", "exception"], statsFlushIntervalSeconds);
 
             // Launch TestApp with profiler environment
             var psi = new ProcessStartInfo
@@ -129,36 +97,9 @@ public sealed class ProfilerRunner : IAsyncDisposable
 
         try
         {
-            var outputPath = Path.Combine(tempDir, OutputFileName);
-
-            var configManager = new ConfigManager(tempDir);
-            var sessionId = await configManager.CreateSessionAsync("interactive-test");
-            var config = await configManager.LoadConfigAsync(sessionId);
-
-            var instrumentation = config.Instrumentation with
-            {
-                Includes =
-                [
-                    new FilterRule { Level = "assembly", Pattern = "Metreja.TestApp" }
-                ],
-                Excludes =
-                [
-                    new FilterRule { Level = "assembly", Pattern = "System.*" },
-                    new FilterRule { Level = "assembly", Pattern = "Microsoft.*" }
-                ]
-            };
-            instrumentation = instrumentation with { Events = events ?? ["method_stats"] };
-            if (statsFlushIntervalSeconds.HasValue)
-                instrumentation = instrumentation with { StatsFlushIntervalSeconds = statsFlushIntervalSeconds.Value };
-
-            config = config with
-            {
-                Instrumentation = instrumentation,
-                Output = config.Output with { Path = outputPath }
-            };
-
-            await configManager.SaveConfigAsync(sessionId, config);
-            var configPath = configManager.GetSessionPath(sessionId);
+            var (configPath, outputPath) = await CreateTestConfigAsync(
+                tempDir, "interactive-test", events,
+                ["method_stats"], statsFlushIntervalSeconds);
 
             var psi = new ProcessStartInfo
             {
@@ -216,6 +157,47 @@ public sealed class ProfilerRunner : IAsyncDisposable
             await runner.DisposeAsync();
             throw;
         }
+    }
+
+    private static async Task<(string ConfigPath, string OutputPath)> CreateTestConfigAsync(
+        string tempDir,
+        string scenario,
+        List<string>? events,
+        List<string> defaultEvents,
+        int? statsFlushIntervalSeconds)
+    {
+        var outputPath = Path.Combine(tempDir, OutputFileName);
+
+        var configManager = new ConfigManager(tempDir);
+        var sessionId = await configManager.CreateSessionAsync(scenario);
+        var config = await configManager.LoadConfigAsync(sessionId);
+
+        var instrumentation = config.Instrumentation with
+        {
+            Includes =
+            [
+                new FilterRule { Level = "assembly", Pattern = "Metreja.TestApp" }
+            ],
+            Excludes =
+            [
+                new FilterRule { Level = "assembly", Pattern = "System.*" },
+                new FilterRule { Level = "assembly", Pattern = "Microsoft.*" }
+            ]
+        };
+        instrumentation = instrumentation with { Events = events ?? defaultEvents };
+        if (statsFlushIntervalSeconds.HasValue)
+            instrumentation = instrumentation with { StatsFlushIntervalSeconds = statsFlushIntervalSeconds.Value };
+
+        config = config with
+        {
+            Instrumentation = instrumentation,
+            Output = config.Output with { Path = outputPath }
+        };
+
+        await configManager.SaveConfigAsync(sessionId, config);
+        var configPath = configManager.GetSessionPath(sessionId);
+
+        return (configPath, outputPath);
     }
 
     public ValueTask DisposeAsync()
