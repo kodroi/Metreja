@@ -27,10 +27,14 @@ public:
                     bool tailcall = false, long long wallTimeNs = 0);
     void WriteException(long long tsNs, DWORD tid, const MethodInfo& info, const std::string& exType);
     void WriteGcStarted(long long tsNs, bool gen0, bool gen1, bool gen2, const char* reason);
-    void WriteGcFinished(long long tsNs, long long durationNs);
+    void WriteGcFinished(long long tsNs, long long durationNs, long long heapSizeBytes = 0);
     void WriteAllocByClass(long long tsNs, DWORD tid, const std::string& className, ULONG count);
     void WriteAllocByClassDetailed(long long tsNs, DWORD tid, const std::string& className, ULONG count,
                                    const MethodInfo& allocMethod);
+    void WriteGcHeapStats(long long tsNs, uint64_t gen0Size, uint64_t gen0Promoted, uint64_t gen1Size,
+                          uint64_t gen1Promoted, uint64_t gen2Size, uint64_t gen2Promoted, uint64_t lohSize,
+                          uint64_t lohPromoted, uint64_t pohSize, uint64_t pohPromoted,
+                          long long finalizationQueueLength, int pinnedObjectCount);
     void WriteContentionStart(long long tsNs, DWORD tid);
     void WriteContentionEnd(long long tsNs, DWORD tid, long long durationNs);
     void WriteMethodStats(const MethodInfo& info, const MethodStatsAccum& accum);

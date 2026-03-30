@@ -25,10 +25,7 @@ inline void PalQueryPerformanceFrequency(long long& freq)
 #include <mach/mach_time.h>
 #include <cstdint>
 
-inline void PalQueryPerformanceCounter(long long& ticks)
-{
-    ticks = static_cast<long long>(mach_absolute_time());
-}
+inline void PalQueryPerformanceCounter(long long& ticks) { ticks = static_cast<long long>(mach_absolute_time()); }
 
 inline void PalQueryPerformanceFrequency(long long& freq)
 {

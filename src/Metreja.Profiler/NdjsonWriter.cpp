@@ -139,8 +139,7 @@ void NdjsonWriter::WriteLeave(long long tsNs, DWORD tid, int depth, const Method
         R"({"event":"leave","tsNs":%lld,"pid":%lu,"sessionId":"%s","tid":%lu,"depth":%d,"asm":"%s","ns":"%s","cls":"%s","m":"%s","deltaNs":%lld%s})"
         "\n",
         tsNs, static_cast<unsigned long>(m_pid), m_sessionId.c_str(), static_cast<unsigned long>(tid), depth,
-        info.assemblyName.c_str(), info.namespaceName.c_str(), info.className.c_str(), methodName,
-        deltaNs, suffix);
+        info.assemblyName.c_str(), info.namespaceName.c_str(), info.className.c_str(), methodName, deltaNs, suffix);
 
     if (len > 0 && static_cast<size_t>(len) < sizeof(line))
         WriteLockedEvent(line, static_cast<size_t>(len));
@@ -171,8 +170,8 @@ void NdjsonWriter::WriteGcStarted(long long tsNs, bool gen0, bool gen1, bool gen
         line, sizeof(line),
         R"({"event":"gc_start","tsNs":%lld,"pid":%lu,"sessionId":"%s","gen0":%s,"gen1":%s,"gen2":%s,"reason":"%s"})"
         "\n",
-        tsNs, static_cast<unsigned long>(m_pid), m_sessionId.c_str(), gen0 ? "true" : "false",
-        gen1 ? "true" : "false", gen2 ? "true" : "false", reason);
+        tsNs, static_cast<unsigned long>(m_pid), m_sessionId.c_str(), gen0 ? "true" : "false", gen1 ? "true" : "false",
+        gen2 ? "true" : "false", reason);
 
     if (len > 0 && static_cast<size_t>(len) < sizeof(line))
     {
@@ -182,19 +181,54 @@ void NdjsonWriter::WriteGcStarted(long long tsNs, bool gen0, bool gen1, bool gen
     }
 }
 
-void NdjsonWriter::WriteGcFinished(long long tsNs, long long durationNs)
+void NdjsonWriter::WriteGcFinished(long long tsNs, long long durationNs, long long heapSizeBytes)
 {
     char line[2048];
+    char heapPart[64] = "";
+    if (heapSizeBytes > 0)
+        snprintf(heapPart, sizeof(heapPart), R"(,"heapSizeBytes":%lld)", heapSizeBytes);
+
     int len = snprintf(line, sizeof(line),
-                       R"({"event":"gc_end","tsNs":%lld,"pid":%lu,"sessionId":"%s","durationNs":%lld})"
+                       R"({"event":"gc_end","tsNs":%lld,"pid":%lu,"sessionId":"%s","durationNs":%lld%s})"
                        "\n",
-                       tsNs, static_cast<unsigned long>(m_pid), m_sessionId.c_str(), durationNs);
+                       tsNs, static_cast<unsigned long>(m_pid), m_sessionId.c_str(), durationNs, heapPart);
 
     if (len > 0 && static_cast<size_t>(len) < sizeof(line))
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         AppendToBuffer(line, static_cast<size_t>(len));
         // GC events don't count against m_maxEvents
+    }
+}
+
+void NdjsonWriter::WriteGcHeapStats(long long tsNs, uint64_t gen0Size, uint64_t gen0Promoted, uint64_t gen1Size,
+                                    uint64_t gen1Promoted, uint64_t gen2Size, uint64_t gen2Promoted, uint64_t lohSize,
+                                    uint64_t lohPromoted, uint64_t pohSize, uint64_t pohPromoted,
+                                    long long finalizationQueueLength, int pinnedObjectCount)
+{
+    char line[2048];
+    int len = snprintf(line, sizeof(line),
+                       R"({"event":"gc_heap_stats","tsNs":%lld,"pid":%lu,"sessionId":"%s",)"
+                       R"("gen0SizeBytes":%llu,"gen0PromotedBytes":%llu,)"
+                       R"("gen1SizeBytes":%llu,"gen1PromotedBytes":%llu,)"
+                       R"("gen2SizeBytes":%llu,"gen2PromotedBytes":%llu,)"
+                       R"("lohSizeBytes":%llu,"lohPromotedBytes":%llu,)"
+                       R"("pohSizeBytes":%llu,"pohPromotedBytes":%llu,)"
+                       R"("finalizationQueueLength":%lld,"pinnedObjectCount":%d})"
+                       "\n",
+                       tsNs, static_cast<unsigned long>(m_pid), m_sessionId.c_str(),
+                       static_cast<unsigned long long>(gen0Size), static_cast<unsigned long long>(gen0Promoted),
+                       static_cast<unsigned long long>(gen1Size), static_cast<unsigned long long>(gen1Promoted),
+                       static_cast<unsigned long long>(gen2Size), static_cast<unsigned long long>(gen2Promoted),
+                       static_cast<unsigned long long>(lohSize), static_cast<unsigned long long>(lohPromoted),
+                       static_cast<unsigned long long>(pohSize), static_cast<unsigned long long>(pohPromoted),
+                       finalizationQueueLength, pinnedObjectCount);
+
+    if (len > 0 && static_cast<size_t>(len) < sizeof(line))
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        AppendToBuffer(line, static_cast<size_t>(len));
+        // GC heap stats events don't count against m_maxEvents
     }
 }
 
@@ -216,7 +250,7 @@ void NdjsonWriter::WriteAllocByClass(long long tsNs, DWORD tid, const std::strin
 }
 
 void NdjsonWriter::WriteAllocByClassDetailed(long long tsNs, DWORD tid, const std::string& className, ULONG count,
-                                              const MethodInfo& allocMethod)
+                                             const MethodInfo& allocMethod)
 {
     if (CheckEventLimit())
         return;
@@ -240,11 +274,10 @@ void NdjsonWriter::WriteContentionStart(long long tsNs, DWORD tid)
         return;
 
     char line[2048];
-    int len = snprintf(
-        line, sizeof(line),
-        R"({"event":"contention_start","tsNs":%lld,"pid":%lu,"sessionId":"%s","tid":%lu})"
-        "\n",
-        tsNs, static_cast<unsigned long>(m_pid), m_sessionId.c_str(), static_cast<unsigned long>(tid));
+    int len = snprintf(line, sizeof(line),
+                       R"({"event":"contention_start","tsNs":%lld,"pid":%lu,"sessionId":"%s","tid":%lu})"
+                       "\n",
+                       tsNs, static_cast<unsigned long>(m_pid), m_sessionId.c_str(), static_cast<unsigned long>(tid));
 
     if (len > 0 && static_cast<size_t>(len) < sizeof(line))
         WriteLockedEvent(line, static_cast<size_t>(len));
@@ -274,9 +307,9 @@ void NdjsonWriter::WriteMethodStats(const MethodInfo& info, const MethodStatsAcc
         line, sizeof(line),
         R"({"event":"method_stats","tsNs":0,"pid":%lu,"sessionId":"%s","asm":"%s","ns":"%s","cls":"%s","m":"%s","callCount":%lld,"totalSelfNs":%lld,"maxSelfNs":%lld,"totalInclusiveNs":%lld,"maxInclusiveNs":%lld})"
         "\n",
-        static_cast<unsigned long>(m_pid), m_sessionId.c_str(), info.assemblyName.c_str(),
-        info.namespaceName.c_str(), info.className.c_str(), methodName, accum.callCount, accum.totalSelfNs,
-        accum.maxSelfNs, accum.totalInclusiveNs, accum.maxInclusiveNs);
+        static_cast<unsigned long>(m_pid), m_sessionId.c_str(), info.assemblyName.c_str(), info.namespaceName.c_str(),
+        info.className.c_str(), methodName, accum.callCount, accum.totalSelfNs, accum.maxSelfNs, accum.totalInclusiveNs,
+        accum.maxInclusiveNs);
 
     if (len > 0 && static_cast<size_t>(len) < sizeof(line))
     {

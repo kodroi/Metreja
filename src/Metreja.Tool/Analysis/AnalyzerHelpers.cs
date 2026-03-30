@@ -6,6 +6,8 @@ internal static class AnalyzerHelpers
 {
     public static string FormatNs(long ns) => FormatUtils.FormatNs(ns);
 
+    public static string FormatBytes(long bytes) => FormatUtils.FormatBytes(bytes);
+
     public static string Truncate(string value, int maxLength) => FormatUtils.Truncate(value, maxLength);
 
     public static bool MatchesPattern(string pattern, string ns, string cls, string m) =>

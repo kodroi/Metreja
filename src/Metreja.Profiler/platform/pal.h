@@ -63,20 +63,20 @@ typedef void* HINSTANCE;
 
 // ─── HRESULT constants ───────────────────────────────────────────────────────
 
-#define S_OK        ((HRESULT)0)
-#define S_FALSE     ((HRESULT)1)
-#define E_FAIL      ((HRESULT)0x80004005L)
-#define E_POINTER   ((HRESULT)0x80004003L)
-#define E_OUTOFMEMORY   ((HRESULT)0x8007000EL)
-#define E_NOINTERFACE   ((HRESULT)0x80004002L)
-#define E_NOTIMPL       ((HRESULT)0x80004001L)
-#define E_INVALIDARG    ((HRESULT)0x80070057L)
+#define S_OK ((HRESULT)0)
+#define S_FALSE ((HRESULT)1)
+#define E_FAIL ((HRESULT)0x80004005L)
+#define E_POINTER ((HRESULT)0x80004003L)
+#define E_OUTOFMEMORY ((HRESULT)0x8007000EL)
+#define E_NOINTERFACE ((HRESULT)0x80004002L)
+#define E_NOTIMPL ((HRESULT)0x80004001L)
+#define E_INVALIDARG ((HRESULT)0x80070057L)
 
 #define CLASS_E_CLASSNOTAVAILABLE ((HRESULT)0x80040111L)
-#define CLASS_E_NOAGGREGATION    ((HRESULT)0x80040110L)
+#define CLASS_E_NOAGGREGATION ((HRESULT)0x80040110L)
 
 #define SEVERITY_SUCCESS 0
-#define SEVERITY_ERROR   1
+#define SEVERITY_ERROR 1
 
 #define FACILITY_URT 0x13
 #define FACILITY_NULL 0
@@ -84,12 +84,12 @@ typedef void* HINSTANCE;
 #define FACILITY_WIN32 7
 
 #define SUCCEEDED(hr) (((HRESULT)(hr)) >= 0)
-#define FAILED(hr)    (((HRESULT)(hr)) < 0)
+#define FAILED(hr) (((HRESULT)(hr)) < 0)
 
-#define MAKE_HRESULT(sev, fac, code) \
+#define MAKE_HRESULT(sev, fac, code)                                                                                   \
     ((HRESULT)(((unsigned long)(sev) << 31) | ((unsigned long)(fac) << 16) | ((unsigned long)(code))))
 
-#define HRESULT_FROM_WIN32(x) \
+#define HRESULT_FROM_WIN32(x)                                                                                          \
     ((HRESULT)(x) <= 0 ? ((HRESULT)(x)) : ((HRESULT)(((x) & 0x0000FFFF) | (FACILITY_WIN32 << 16) | 0x80000000)))
 
 // winerror.h constants used by corerror.h
@@ -118,33 +118,25 @@ typedef const GUID& REFGUID;
 typedef const IID& REFIID;
 typedef const CLSID& REFCLSID;
 
-inline bool operator==(const GUID& a, const GUID& b)
-{
-    return memcmp(&a, &b, sizeof(GUID)) == 0;
-}
+inline bool operator==(const GUID& a, const GUID& b) { return memcmp(&a, &b, sizeof(GUID)) == 0; }
 
-inline bool operator!=(const GUID& a, const GUID& b)
-{
-    return !(a == b);
-}
+inline bool operator!=(const GUID& a, const GUID& b) { return !(a == b); }
 
 #ifndef DEFINE_GUID
 #ifdef INITGUID
-#define DEFINE_GUID(name, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8) \
+#define DEFINE_GUID(name, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8)                                                   \
     extern const GUID name = {l, w1, w2, {b1, b2, b3, b4, b5, b6, b7, b8}}
 #else
-#define DEFINE_GUID(name, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8) \
-    extern const GUID name
+#define DEFINE_GUID(name, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8) extern const GUID name
 #endif
 #endif
 
 #ifndef EXTERN_GUID
 #ifdef INITGUID
-#define EXTERN_GUID(name, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8) \
+#define EXTERN_GUID(name, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8)                                                   \
     extern const GUID name = {l, w1, w2, {b1, b2, b3, b4, b5, b6, b7, b8}}
 #else
-#define EXTERN_GUID(name, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8) \
-    extern const GUID name
+#define EXTERN_GUID(name, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8) extern const GUID name
 #endif
 #endif
 
@@ -154,7 +146,9 @@ inline bool operator!=(const GUID& a, const GUID& b)
 #define EXTERN_C extern
 #endif
 
-#define EXTERN_C_START extern "C" {
+#define EXTERN_C_START                                                                                                 \
+    extern "C"                                                                                                         \
+    {
 #define EXTERN_C_END }
 
 // ─── COM interfaces ──────────────────────────────────────────────────────────
@@ -232,7 +226,7 @@ struct IClassFactory : public IUnknown
 // ─── Misc Windows macros/types ───────────────────────────────────────────────
 
 #define GENERIC_WRITE 0x40000000
-#define GENERIC_READ  0x80000000
+#define GENERIC_READ 0x80000000
 #define FILE_SHARE_READ 0x00000001
 #define CREATE_ALWAYS 2
 #define FILE_ATTRIBUTE_NORMAL 0x00000080
@@ -241,8 +235,8 @@ struct IClassFactory : public IUnknown
 
 #define INFINITE 0xFFFFFFFF
 #define WAIT_OBJECT_0 0
-#define WAIT_TIMEOUT  258
-#define WAIT_FAILED   0xFFFFFFFF
+#define WAIT_TIMEOUT 258
+#define WAIT_FAILED 0xFFFFFFFF
 
 typedef int64_t LARGE_INTEGER_QUADPART;
 typedef union _LARGE_INTEGER
@@ -322,7 +316,10 @@ typedef GUID* LPGUID;
 
 // Additional types referenced by cor.h metadata interfaces
 typedef const void* LPCVOID;
-typedef struct _VARIANT { int vt; /* stub */ } VARIANT;
+typedef struct _VARIANT
+{
+    int vt; /* stub */
+} VARIANT;
 
 // IStream / ITypeInfo stubs — metadata interfaces reference these
 #ifndef __IStream_FWD_DEFINED__

@@ -17,6 +17,7 @@ enum class EventType : uint32_t
     ExceptionStats = 1 << 7,
     ContentionStart = 1 << 8,
     ContentionEnd = 1 << 9,
+    GcHeapStats = 1 << 10,
 };
 
 inline EventType operator|(EventType a, EventType b)

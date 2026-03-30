@@ -33,8 +33,9 @@ public class JsonFormatTests : IAsyncLifetime
         """{"event":"leave","tsNs":2000,"pid":1,"sessionId":"s1","tid":1,"depth":0,"asm":"App","ns":"N","cls":"C","m":"DoWork","async":false,"deltaNs":1000}""",
         """{"event":"method_stats","tsNs":3000,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"DoWork","callCount":10,"totalSelfNs":10000,"maxSelfNs":1000,"totalInclusiveNs":15000,"maxInclusiveNs":1500}""",
         """{"event":"exception","tsNs":4000,"pid":1,"sessionId":"s1","tid":1,"asm":"App","ns":"N","cls":"C","m":"DoWork","exType":"System.InvalidOperationException"}""",
-        """{"event":"gc_start","tsNs":5000,"pid":1,"sessionId":"s1","gen0":true,"gen1":false,"gen2":false}""",
-        """{"event":"gc_end","tsNs":6000,"pid":1,"sessionId":"s1","durationNs":1000}""",
+        """{"event":"gc_start","tsNs":5000,"pid":1,"sessionId":"s1","gen0":true,"gen1":false,"gen2":false,"reason":"other"}""",
+        """{"event":"gc_end","tsNs":6000,"pid":1,"sessionId":"s1","durationNs":1000,"heapSizeBytes":2097152}""",
+        """{"event":"gc_heap_stats","tsNs":6001,"pid":1,"sessionId":"s1","gen0SizeBytes":524288,"gen0PromotedBytes":65536,"gen1SizeBytes":1048576,"gen1PromotedBytes":131072,"gen2SizeBytes":2097152,"gen2PromotedBytes":0,"lohSizeBytes":524288,"lohPromotedBytes":0,"pohSizeBytes":0,"pohPromotedBytes":0,"finalizationQueueLength":5,"pinnedObjectCount":3}""",
         """{"event":"alloc_by_class","tsNs":7000,"pid":1,"sessionId":"s1","tid":1,"className":"System.String","count":50}"""
     ];
 
@@ -145,6 +146,15 @@ public class JsonFormatTests : IAsyncLifetime
         Assert.True(gc.TryGetProperty("gen2Count", out _));
         Assert.True(gc.TryGetProperty("totalPauseNs", out _));
         Assert.True(gc.TryGetProperty("maxPauseNs", out _));
+        Assert.True(gc.TryGetProperty("peakHeapSizeBytes", out _));
+        Assert.True(gc.TryGetProperty("lastHeapSizeBytes", out _));
+        Assert.True(gc.TryGetProperty("gen0SizeBytes", out _));
+        Assert.True(gc.TryGetProperty("gen1SizeBytes", out _));
+        Assert.True(gc.TryGetProperty("gen2SizeBytes", out _));
+        Assert.True(gc.TryGetProperty("lohSizeBytes", out _));
+        Assert.True(gc.TryGetProperty("totalPromotedBytes", out _));
+        Assert.True(gc.TryGetProperty("finalizationQueueLength", out _));
+        Assert.True(gc.TryGetProperty("pinnedObjectCount", out _));
         Assert.True(root.TryGetProperty("allocations", out _));
         Assert.True(root.TryGetProperty("totalTypes", out _));
     }

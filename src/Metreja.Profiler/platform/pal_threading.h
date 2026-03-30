@@ -174,7 +174,7 @@ inline PalWaitResult PalWaitMultiple(const PalWaitSet& ws)
 
 // ─── TLS ──────────────────────────────────────────────────────────────────────
 typedef pthread_key_t PalTlsIndex;
-#define PAL_TLS_INVALID ((pthread_key_t)-1)
+#define PAL_TLS_INVALID ((pthread_key_t) - 1)
 
 inline PalTlsIndex PalTlsAlloc()
 {

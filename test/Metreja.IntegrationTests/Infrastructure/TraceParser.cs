@@ -106,7 +106,32 @@ public static class TraceParser
                     Event = eventType,
                     TsNs = root.GetProperty("tsNs").GetInt64(),
                     Pid = root.GetProperty("pid").GetInt32(),
-                    SessionId = root.GetProperty("sessionId").GetString()!
+                    SessionId = root.GetProperty("sessionId").GetString()!,
+                    Gen0 = root.TryGetProperty("gen0", out var gcg0) ? gcg0.GetBoolean() : null,
+                    Gen1 = root.TryGetProperty("gen1", out var gcg1) ? gcg1.GetBoolean() : null,
+                    Gen2 = root.TryGetProperty("gen2", out var gcg2) ? gcg2.GetBoolean() : null,
+                    Reason = root.TryGetProperty("reason", out var gcr) ? gcr.GetString() : null,
+                    DurationNs = root.TryGetProperty("durationNs", out var gcd) ? gcd.GetInt64() : null,
+                    HeapSizeBytes = root.TryGetProperty("heapSizeBytes", out var gchs) ? gchs.GetInt64() : null
+                },
+                "gc_heap_stats" => new GcHeapStatsEvent
+                {
+                    Event = eventType,
+                    TsNs = root.GetProperty("tsNs").GetInt64(),
+                    Pid = root.GetProperty("pid").GetInt32(),
+                    SessionId = root.GetProperty("sessionId").GetString()!,
+                    Gen0SizeBytes = root.GetProperty("gen0SizeBytes").GetInt64(),
+                    Gen0PromotedBytes = root.GetProperty("gen0PromotedBytes").GetInt64(),
+                    Gen1SizeBytes = root.GetProperty("gen1SizeBytes").GetInt64(),
+                    Gen1PromotedBytes = root.GetProperty("gen1PromotedBytes").GetInt64(),
+                    Gen2SizeBytes = root.GetProperty("gen2SizeBytes").GetInt64(),
+                    Gen2PromotedBytes = root.GetProperty("gen2PromotedBytes").GetInt64(),
+                    LohSizeBytes = root.GetProperty("lohSizeBytes").GetInt64(),
+                    LohPromotedBytes = root.GetProperty("lohPromotedBytes").GetInt64(),
+                    PohSizeBytes = root.GetProperty("pohSizeBytes").GetInt64(),
+                    PohPromotedBytes = root.GetProperty("pohPromotedBytes").GetInt64(),
+                    FinalizationQueueLength = root.GetProperty("finalizationQueueLength").GetInt64(),
+                    PinnedObjectCount = root.GetProperty("pinnedObjectCount").GetInt32()
                 },
                 "alloc_by_class" => new AllocByClassEvent
                 {

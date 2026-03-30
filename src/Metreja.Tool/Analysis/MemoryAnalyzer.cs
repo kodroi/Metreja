@@ -29,6 +29,16 @@ public static class MemoryAnalyzer
                     gen2Count = gcEvents.Gen2Count,
                     totalPauseNs = gcEvents.TotalPauseNs,
                     maxPauseNs = gcEvents.MaxPauseNs,
+                    peakHeapSizeBytes = gcEvents.PeakHeapSizeBytes,
+                    lastHeapSizeBytes = gcEvents.LastHeapSizeBytes,
+                    gen0SizeBytes = gcEvents.HasHeapStats ? gcEvents.LastGen0SizeBytes : (long?)null,
+                    gen1SizeBytes = gcEvents.HasHeapStats ? gcEvents.LastGen1SizeBytes : (long?)null,
+                    gen2SizeBytes = gcEvents.HasHeapStats ? gcEvents.LastGen2SizeBytes : (long?)null,
+                    lohSizeBytes = gcEvents.HasHeapStats ? gcEvents.LastLohSizeBytes : (long?)null,
+                    pohSizeBytes = gcEvents.HasHeapStats ? gcEvents.LastPohSizeBytes : (long?)null,
+                    totalPromotedBytes = gcEvents.TotalPromotedBytes,
+                    finalizationQueueLength = gcEvents.HasHeapStats ? gcEvents.LastFinalizationQueueLength : (long?)null,
+                    pinnedObjectCount = gcEvents.HasHeapStats ? (int?)gcEvents.LastPinnedObjectCount : null,
                 },
                 allocations = sorted,
                 totalTypes = allocations.Count,
@@ -69,6 +79,31 @@ public static class MemoryAnalyzer
                     var durationNs = root.TryGetProperty("durationNs", out var d) ? d.GetInt64() : 0;
                     gc.TotalPauseNs += durationNs;
                     if (durationNs > gc.MaxPauseNs) gc.MaxPauseNs = durationNs;
+                    if (root.TryGetProperty("heapSizeBytes", out var hs))
+                    {
+                        var heapSize = hs.GetInt64();
+                        gc.LastHeapSizeBytes = heapSize;
+                        if (heapSize > gc.PeakHeapSizeBytes) gc.PeakHeapSizeBytes = heapSize;
+                    }
+                    break;
+                }
+                case "gc_heap_stats":
+                {
+                    gc.HasHeapStats = true;
+                    gc.LastGen0SizeBytes = root.TryGetProperty("gen0SizeBytes", out var g0s) ? g0s.GetInt64() : 0;
+                    gc.LastGen1SizeBytes = root.TryGetProperty("gen1SizeBytes", out var g1s) ? g1s.GetInt64() : 0;
+                    gc.LastGen2SizeBytes = root.TryGetProperty("gen2SizeBytes", out var g2s) ? g2s.GetInt64() : 0;
+                    gc.LastLohSizeBytes = root.TryGetProperty("lohSizeBytes", out var lohs) ? lohs.GetInt64() : 0;
+                    gc.LastPohSizeBytes = root.TryGetProperty("pohSizeBytes", out var pohs) ? pohs.GetInt64() : 0;
+                    gc.LastGen0PromotedBytes = root.TryGetProperty("gen0PromotedBytes", out var p0) ? p0.GetInt64() : 0;
+                    gc.LastGen1PromotedBytes = root.TryGetProperty("gen1PromotedBytes", out var p1) ? p1.GetInt64() : 0;
+                    gc.LastGen2PromotedBytes = root.TryGetProperty("gen2PromotedBytes", out var p2) ? p2.GetInt64() : 0;
+                    gc.LastLohPromotedBytes = root.TryGetProperty("lohPromotedBytes", out var pl) ? pl.GetInt64() : 0;
+                    gc.LastPohPromotedBytes = root.TryGetProperty("pohPromotedBytes", out var pp) ? pp.GetInt64() : 0;
+                    gc.TotalPromotedBytes += gc.LastGen0PromotedBytes + gc.LastGen1PromotedBytes
+                        + gc.LastGen2PromotedBytes + gc.LastLohPromotedBytes + gc.LastPohPromotedBytes;
+                    gc.LastFinalizationQueueLength = root.TryGetProperty("finalizationQueueLength", out var fq) ? fq.GetInt64() : 0;
+                    gc.LastPinnedObjectCount = root.TryGetProperty("pinnedObjectCount", out var po) ? po.GetInt32() : 0;
                     break;
                 }
                 case "alloc_by_class":
@@ -123,6 +158,29 @@ public static class MemoryAnalyzer
         Console.WriteLine($"  {"Total pause:",-15} {AnalyzerHelpers.FormatNs(gc.TotalPauseNs)}");
         Console.WriteLine($"  {"Avg pause:",-15} {AnalyzerHelpers.FormatNs(avgPauseNs)}");
         Console.WriteLine($"  {"Max pause:",-15} {AnalyzerHelpers.FormatNs(gc.MaxPauseNs)}");
+
+        if (gc.PeakHeapSizeBytes > 0)
+        {
+            Console.WriteLine();
+            Console.WriteLine($"  {"Peak heap:",-15} {FormatBytes(gc.PeakHeapSizeBytes)}");
+            Console.WriteLine($"  {"Last heap:",-15} {FormatBytes(gc.LastHeapSizeBytes)}");
+        }
+
+        if (gc.HasHeapStats)
+        {
+            Console.WriteLine();
+            Console.WriteLine($"  {"Heap",-15} {"Size",12} {"Promoted",12}");
+            Console.WriteLine($"  {"Gen 0",-15} {FormatBytes(gc.LastGen0SizeBytes),12} {FormatBytes(gc.LastGen0PromotedBytes),12}");
+            Console.WriteLine($"  {"Gen 1",-15} {FormatBytes(gc.LastGen1SizeBytes),12} {FormatBytes(gc.LastGen1PromotedBytes),12}");
+            Console.WriteLine($"  {"Gen 2",-15} {FormatBytes(gc.LastGen2SizeBytes),12} {FormatBytes(gc.LastGen2PromotedBytes),12}");
+            Console.WriteLine($"  {"LOH",-15} {FormatBytes(gc.LastLohSizeBytes),12} {FormatBytes(gc.LastLohPromotedBytes),12}");
+            if (gc.LastPohSizeBytes > 0)
+                Console.WriteLine($"  {"POH",-15} {FormatBytes(gc.LastPohSizeBytes),12} {FormatBytes(gc.LastPohPromotedBytes),12}");
+            Console.WriteLine();
+            Console.WriteLine($"  {"Total promoted:",-15} {FormatBytes(gc.TotalPromotedBytes)}");
+            Console.WriteLine($"  {"Finalization:",-15} {gc.LastFinalizationQueueLength}");
+            Console.WriteLine($"  {"Pinned objects:",-15} {gc.LastPinnedObjectCount}");
+        }
     }
 
     private static void PrintAllocationTable(Dictionary<string, long> allocations, int top)
@@ -154,6 +212,8 @@ public static class MemoryAnalyzer
         Console.WriteLine($"  Showing top {sorted.Count} of {allocations.Count} types");
     }
 
+    private static string FormatBytes(long bytes) => AnalyzerHelpers.FormatBytes(bytes);
+
     private sealed class GcSummary
     {
         public int TotalCount { get; set; }
@@ -162,5 +222,21 @@ public static class MemoryAnalyzer
         public int Gen2Count { get; set; }
         public long TotalPauseNs { get; set; }
         public long MaxPauseNs { get; set; }
+        public long PeakHeapSizeBytes { get; set; }
+        public long LastHeapSizeBytes { get; set; }
+        public long LastGen0SizeBytes { get; set; }
+        public long LastGen1SizeBytes { get; set; }
+        public long LastGen2SizeBytes { get; set; }
+        public long LastLohSizeBytes { get; set; }
+        public long LastPohSizeBytes { get; set; }
+        public long LastGen0PromotedBytes { get; set; }
+        public long LastGen1PromotedBytes { get; set; }
+        public long LastGen2PromotedBytes { get; set; }
+        public long LastLohPromotedBytes { get; set; }
+        public long LastPohPromotedBytes { get; set; }
+        public long TotalPromotedBytes { get; set; }
+        public long LastFinalizationQueueLength { get; set; }
+        public int LastPinnedObjectCount { get; set; }
+        public bool HasHeapStats { get; set; }
     }
 }

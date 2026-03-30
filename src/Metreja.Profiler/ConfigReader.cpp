@@ -121,6 +121,8 @@ ProfilerConfig ConfigReader::Load()
                     mask |= EventType::ContentionStart;
                 else if (name == "contention_end")
                     mask |= EventType::ContentionEnd;
+                else if (name == "gc_heap_stats")
+                    mask |= EventType::GcHeapStats;
                 else
                 {
                     char msg[256];

@@ -112,16 +112,59 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Initialize(IUnknown* pICorProfilerInf
     if (HasEvent(events, EventType::Exception) || HasEvent(events, EventType::ExceptionStats))
         eventMask |= COR_PRF_MONITOR_EXCEPTIONS;
 
-    // GC monitoring
-    if (HasEvent(events, EventType::GcStart) || HasEvent(events, EventType::GcEnd) ||
-        HasEvent(events, EventType::AllocByClass))
+    // GC monitoring: use COR_PRF_HIGH_BASIC_GC to avoid disabling concurrent GC.
+    // AllocByClass requires the full COR_PRF_MONITOR_GC (which does disable concurrent GC).
+    DWORD highFlags = 0;
+    bool needGcCallbacks = HasEvent(events, EventType::GcStart) || HasEvent(events, EventType::GcEnd) ||
+                           HasEvent(events, EventType::GcHeapStats);
+    bool needAllocByClass = HasEvent(events, EventType::AllocByClass);
+
+    if (needAllocByClass)
     {
+        // AllocByClass requires COR_PRF_MONITOR_GC (disables concurrent GC — unavoidable)
+        eventMask |= COR_PRF_MONITOR_GC;
+    }
+    else if (needGcCallbacks && m_profilerInfo5 != nullptr)
+    {
+        // Use COR_PRF_HIGH_BASIC_GC: GC callbacks without disabling concurrent GC
+        highFlags |= COR_PRF_HIGH_BASIC_GC;
+    }
+    else if (needGcCallbacks)
+    {
+        // Fallback for old runtimes without ICorProfilerInfo5
         eventMask |= COR_PRF_MONITOR_GC;
     }
 
+    // Build EventPipe keyword mask for combined subscription
+    UINT64 epKeywords = 0;
+    bool needEventPipe = false;
+
+    if (HasEvent(events, EventType::ContentionStart) || HasEvent(events, EventType::ContentionEnd))
+    {
+        epKeywords |= 0x4000; // ContentionKeyword
+        needEventPipe = true;
+    }
+    if (HasEvent(events, EventType::GcHeapStats))
+    {
+        epKeywords |= 0x1; // GCKeyword
+        needEventPipe = true;
+    }
+
+    if (m_profilerInfo12 != nullptr && needEventPipe)
+        highFlags |= COR_PRF_HIGH_MONITOR_EVENT_PIPE;
+
     if (g_ctx->config.disableInlining)
         eventMask |= COR_PRF_DISABLE_INLINING;
-    hr = m_profilerInfo->SetEventMask(eventMask);
+
+    // Single consolidated SetEventMask call
+    if (m_profilerInfo5 != nullptr && highFlags != 0)
+    {
+        hr = m_profilerInfo5->SetEventMask2(eventMask, highFlags);
+    }
+    else
+    {
+        hr = m_profilerInfo->SetEventMask(eventMask);
+    }
     if (FAILED(hr))
         return hr;
 
@@ -141,22 +184,13 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Initialize(IUnknown* pICorProfilerInf
             return hr;
     }
 
-    // Start EventPipe session for contention events if enabled and Info12 available
-    if (m_profilerInfo12 != nullptr &&
-        (HasEvent(events, EventType::ContentionStart) || HasEvent(events, EventType::ContentionEnd)))
+    // Start EventPipe session with combined keywords (contention + GC)
+    if (m_profilerInfo12 != nullptr && needEventPipe)
     {
-        // Set high monitor flag for EventPipe
-        if (m_profilerInfo5 != nullptr)
-        {
-            DWORD highFlags = COR_PRF_HIGH_MONITOR_EVENT_PIPE;
-            m_profilerInfo5->SetEventMask2(eventMask, highFlags);
-        }
-
-        // Define EventPipe provider: Microsoft-Windows-DotNETRuntime, keyword 0x4000 (Contention)
         COR_PRF_EVENTPIPE_PROVIDER_CONFIG providerConfig;
         providerConfig.providerName = reinterpret_cast<const WCHAR*>(u"Microsoft-Windows-DotNETRuntime");
-        providerConfig.keywords = 0x4000; // ContentionKeyword
-        providerConfig.loggingLevel = 4;  // Informational
+        providerConfig.keywords = epKeywords;
+        providerConfig.loggingLevel = 4; // Informational
         providerConfig.filterData = nullptr;
 
         EVENTPIPE_SESSION session = 0;
@@ -634,11 +668,16 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::GarbageCollectionStarted(int cGenerat
                                                                     COR_PRF_GC_REASON reason)
 {
     auto* ctx = g_ctx;
-    if (ctx == nullptr || !HasEvent(ctx->config.enabledEvents, EventType::GcStart))
+    if (ctx == nullptr)
         return S_OK;
 
+    // Always record start timestamp so GarbageCollectionFinished can compute durationNs
+    // even when gc_start event is disabled but gc_end is enabled.
     long long startNs = CallStackManager::GetTimestampNs();
     ctx->gcStartNs.store(startNs, std::memory_order_relaxed);
+
+    if (!HasEvent(ctx->config.enabledEvents, EventType::GcStart))
+        return S_OK;
 
     bool gen0 = cGenerations > 0 && generationCollected[0];
     bool gen1 = cGenerations > 1 && generationCollected[1];
@@ -671,7 +710,18 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::GarbageCollectionFinished()
     long long startNs = ctx->gcStartNs.load(std::memory_order_relaxed);
     long long durationNs = (startNs > 0) ? (nowNs - startNs) : 0;
 
-    ctx->ndjsonWriter->WriteGcFinished(nowNs, durationNs);
+    // Get heap size via GetGenerationBounds (available on ICorProfilerInfo2+)
+    long long heapSizeBytes = 0;
+    COR_PRF_GC_GENERATION_RANGE ranges[16];
+    ULONG rangeCount = 0;
+    HRESULT hr = m_profilerInfo->GetGenerationBounds(16, &rangeCount, ranges);
+    if (SUCCEEDED(hr))
+    {
+        for (ULONG i = 0; i < rangeCount; i++)
+            heapSizeBytes += static_cast<long long>(ranges[i].rangeLength);
+    }
+
+    ctx->ndjsonWriter->WriteGcFinished(nowNs, durationNs, heapSizeBytes);
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::FinalizeableObjectQueued(DWORD finalizerFlags, ObjectID objectID)
@@ -698,51 +748,50 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ProfilerDetachSucceeded() { return S_
 
 // ICorProfilerCallback4 - No-op stubs
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ReJITCompilationStarted(FunctionID functionId, ReJITID rejitId,
-                                                                    BOOL fIsSafeToBlock)
+                                                                   BOOL fIsSafeToBlock)
 {
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::GetReJITParameters(ModuleID moduleId, mdMethodDef methodId,
-                                                               ICorProfilerFunctionControl* pFunctionControl)
+                                                              ICorProfilerFunctionControl* pFunctionControl)
 {
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ReJITCompilationFinished(FunctionID functionId, ReJITID rejitId,
-                                                                     HRESULT hrStatus, BOOL fIsSafeToBlock)
+                                                                    HRESULT hrStatus, BOOL fIsSafeToBlock)
 {
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ReJITError(ModuleID moduleId, mdMethodDef methodId, FunctionID functionId,
-                                                       HRESULT hrStatus)
+                                                      HRESULT hrStatus)
 {
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::MovedReferences2(ULONG cMovedObjectIDRanges,
-                                                             ObjectID oldObjectIDRangeStart[],
-                                                             ObjectID newObjectIDRangeStart[],
-                                                             SIZE_T cObjectIDRangeLength[])
+                                                            ObjectID oldObjectIDRangeStart[],
+                                                            ObjectID newObjectIDRangeStart[],
+                                                            SIZE_T cObjectIDRangeLength[])
 {
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::SurvivingReferences2(ULONG cSurvivingObjectIDRanges,
-                                                                 ObjectID objectIDRangeStart[],
-                                                                 SIZE_T cObjectIDRangeLength[])
+                                                                ObjectID objectIDRangeStart[],
+                                                                SIZE_T cObjectIDRangeLength[])
 {
     return S_OK;
 }
 
 // ICorProfilerCallback5 - No-op stub
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::ConditionalWeakTableElementReferences(ULONG cRootRefs,
-                                                                                  ObjectID keyRefIds[],
-                                                                                  ObjectID valueRefIds[],
-                                                                                  GCHandleID rootIds[])
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::ConditionalWeakTableElementReferences(ULONG cRootRefs, ObjectID keyRefIds[],
+                                                                                 ObjectID valueRefIds[],
+                                                                                 GCHandleID rootIds[])
 {
     return S_OK;
 }
 
 // ICorProfilerCallback6 - No-op stub
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::GetAssemblyReferences(const WCHAR* wszAssemblyPath,
-                                                                  ICorProfilerAssemblyReferenceProvider* pAsmRefProvider)
+                                                                 ICorProfilerAssemblyReferenceProvider* pAsmRefProvider)
 {
     return S_OK;
 }
@@ -752,13 +801,13 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ModuleInMemorySymbolsUpdated(ModuleID
 
 // ICorProfilerCallback8 - No-op stubs
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::DynamicMethodJITCompilationStarted(FunctionID functionId,
-                                                                               BOOL fIsSafeToBlock,
-                                                                               LPCBYTE pILHeader, ULONG cbILHeader)
+                                                                              BOOL fIsSafeToBlock, LPCBYTE pILHeader,
+                                                                              ULONG cbILHeader)
 {
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::DynamicMethodJITCompilationFinished(FunctionID functionId, HRESULT hrStatus,
-                                                                                BOOL fIsSafeToBlock)
+                                                                               BOOL fIsSafeToBlock)
 {
     return S_OK;
 }
@@ -767,10 +816,12 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::DynamicMethodJITCompilationFinished(F
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::DynamicMethodUnloaded(FunctionID functionId) { return S_OK; }
 
 // ICorProfilerCallback10 - EventPipe delivery
-HRESULT STDMETHODCALLTYPE MetrejaProfiler::EventPipeEventDelivered(
-    EVENTPIPE_PROVIDER provider, DWORD eventId, DWORD eventVersion, ULONG cbMetadataBlob, LPCBYTE metadataBlob,
-    ULONG cbEventData, LPCBYTE eventData, LPCGUID pActivityId, LPCGUID pRelatedActivityId, ThreadID eventThread,
-    ULONG numStackFrames, UINT_PTR stackFrames[])
+HRESULT STDMETHODCALLTYPE MetrejaProfiler::EventPipeEventDelivered(EVENTPIPE_PROVIDER provider, DWORD eventId,
+                                                                   DWORD eventVersion, ULONG cbMetadataBlob,
+                                                                   LPCBYTE metadataBlob, ULONG cbEventData,
+                                                                   LPCBYTE eventData, LPCGUID pActivityId,
+                                                                   LPCGUID pRelatedActivityId, ThreadID eventThread,
+                                                                   ULONG numStackFrames, UINT_PTR stackFrames[])
 {
     auto* ctx = g_ctx;
     if (ctx == nullptr)
@@ -791,6 +842,44 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::EventPipeEventDelivered(
         if (cbEventData >= 8 && eventData != nullptr)
             memcpy(&durationNs, eventData, sizeof(long long));
         ctx->ndjsonWriter->WriteContentionEnd(tsNs, tid, durationNs);
+    }
+    // Event ID 4 = GCHeapStats (V1/V2)
+    else if (eventId == 4 && HasEvent(ctx->config.enabledEvents, EventType::GcHeapStats))
+    {
+        // GCHeapStats payload: per-generation sizes and promoted bytes
+        // Minimum V1 payload: 92 bytes (gen0-LOH + finalization + pinned + sink + handle counts)
+        if (cbEventData >= 92 && eventData != nullptr)
+        {
+            uint64_t gen0Size, gen0Promoted, gen1Size, gen1Promoted;
+            uint64_t gen2Size, gen2Promoted, lohSize, lohPromoted;
+            uint64_t finalizationPromotedCount;
+            uint32_t pinnedObjectCount;
+
+            memcpy(&gen0Size, eventData + 0, 8);
+            memcpy(&gen0Promoted, eventData + 8, 8);
+            memcpy(&gen1Size, eventData + 16, 8);
+            memcpy(&gen1Promoted, eventData + 24, 8);
+            memcpy(&gen2Size, eventData + 32, 8);
+            memcpy(&gen2Promoted, eventData + 40, 8);
+            memcpy(&lohSize, eventData + 48, 8);
+            memcpy(&lohPromoted, eventData + 56, 8);
+            // Offset 64: FinalizationPromotedSize (8), Offset 72: FinalizationPromotedCount (8)
+            memcpy(&finalizationPromotedCount, eventData + 72, 8);
+            memcpy(&pinnedObjectCount, eventData + 80, 4);
+
+            // V2 adds POH (Pinned Object Heap) after ClrInstanceID (uint16 at offset 92)
+            uint64_t pohSize = 0, pohPromoted = 0;
+            if (cbEventData >= 110)
+            {
+                memcpy(&pohSize, eventData + 94, 8);
+                memcpy(&pohPromoted, eventData + 102, 8);
+            }
+
+            ctx->ndjsonWriter->WriteGcHeapStats(tsNs, gen0Size, gen0Promoted, gen1Size, gen1Promoted, gen2Size,
+                                                gen2Promoted, lohSize, lohPromoted, pohSize, pohPromoted,
+                                                static_cast<long long>(finalizationPromotedCount),
+                                                static_cast<int>(pinnedObjectCount));
+        }
     }
 
     return S_OK;

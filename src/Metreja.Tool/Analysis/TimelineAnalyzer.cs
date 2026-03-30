@@ -85,7 +85,17 @@ public static class TimelineAnalyzer
                     },
                     "gc_end" => new
                     {
-                        DurationNs = root.TryGetProperty("durationNs", out var dur) ? dur.GetInt64() : (long?)null
+                        DurationNs = root.TryGetProperty("durationNs", out var dur) ? dur.GetInt64() : (long?)null,
+                        HeapSizeBytes = root.TryGetProperty("heapSizeBytes", out var hs) ? hs.GetInt64() : (long?)null
+                    },
+                    "gc_heap_stats" => (object)new
+                    {
+                        Gen0SizeBytes = root.TryGetProperty("gen0SizeBytes", out var gs0) ? gs0.GetInt64() : 0,
+                        Gen1SizeBytes = root.TryGetProperty("gen1SizeBytes", out var gs1) ? gs1.GetInt64() : 0,
+                        Gen2SizeBytes = root.TryGetProperty("gen2SizeBytes", out var gs2) ? gs2.GetInt64() : 0,
+                        LohSizeBytes = root.TryGetProperty("lohSizeBytes", out var gsl) ? gsl.GetInt64() : 0,
+                        PohSizeBytes = root.TryGetProperty("pohSizeBytes", out var gsp) ? gsp.GetInt64() : 0,
+                        PinnedObjectCount = root.TryGetProperty("pinnedObjectCount", out var poc) ? poc.GetInt32() : 0
                     },
                     _ => null
                 };
@@ -140,6 +150,18 @@ public static class TimelineAnalyzer
                             $"{relativeStr,-14}  {eventType,-15}  {"-",-10}  {genInfo}");
                         break;
                     }
+                    case "gc_heap_stats":
+                    {
+                        var gen0 = root.TryGetProperty("gen0SizeBytes", out var s0) ? s0.GetInt64() : 0;
+                        var gen1 = root.TryGetProperty("gen1SizeBytes", out var s1) ? s1.GetInt64() : 0;
+                        var gen2 = root.TryGetProperty("gen2SizeBytes", out var s2) ? s2.GetInt64() : 0;
+                        var loh = root.TryGetProperty("lohSizeBytes", out var sl) ? sl.GetInt64() : 0;
+                        var poh = root.TryGetProperty("pohSizeBytes", out var sp) ? sp.GetInt64() : 0;
+                        var total = gen0 + gen1 + gen2 + loh + poh;
+                        Console.WriteLine(
+                            $"{relativeStr,-14}  {"gc_heap_stats",-15}  {"-",-10}  heap: {AnalyzerHelpers.FormatBytes(total)}");
+                        break;
+                    }
                     default:
                     {
                         Console.WriteLine(
@@ -187,6 +209,9 @@ public static class TimelineAnalyzer
 
         if (root.TryGetProperty("durationNs", out var d))
             parts.Add($"duration: {AnalyzerHelpers.FormatNs(d.GetInt64())}");
+
+        if (root.TryGetProperty("heapSizeBytes", out var hs))
+            parts.Add($"heap: {AnalyzerHelpers.FormatBytes(hs.GetInt64())}");
 
         return parts.Count > 0 ? string.Join(", ", parts) : "";
     }

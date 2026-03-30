@@ -22,9 +22,7 @@ struct MethodInfo
 
     const char* GetDisplayName() const
     {
-        return isAsyncStateMachine && !originalMethodName.empty()
-                   ? originalMethodName.c_str()
-                   : methodName.c_str();
+        return isAsyncStateMachine && !originalMethodName.empty() ? originalMethodName.c_str() : methodName.c_str();
     }
 };
 

@@ -132,7 +132,8 @@ public:
     HRESULT STDMETHODCALLTYPE ReJITError(ModuleID moduleId, mdMethodDef methodId, FunctionID functionId,
                                          HRESULT hrStatus) override;
     HRESULT STDMETHODCALLTYPE MovedReferences2(ULONG cMovedObjectIDRanges, ObjectID oldObjectIDRangeStart[],
-                                               ObjectID newObjectIDRangeStart[], SIZE_T cObjectIDRangeLength[]) override;
+                                               ObjectID newObjectIDRangeStart[],
+                                               SIZE_T cObjectIDRangeLength[]) override;
     HRESULT STDMETHODCALLTYPE SurvivingReferences2(ULONG cSurvivingObjectIDRanges, ObjectID objectIDRangeStart[],
                                                    SIZE_T cObjectIDRangeLength[]) override;
 

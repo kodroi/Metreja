@@ -19,6 +19,7 @@ public static class Program
         RunDeepRecursion(20);
         RunContentionScenario();
         RunAllocationScenario();
+        RunGcScenario();
 
         Console.WriteLine();
         Console.WriteLine("All tests completed.");
@@ -203,6 +204,21 @@ public static class Program
         for (var i = 0; i < 100; i++)
             _ = new string('x', 100);
         Console.WriteLine("  Allocation scenario completed.");
+    }
+
+    private static void RunGcScenario()
+    {
+        Console.WriteLine();
+        Console.WriteLine("[GC Scenario]");
+        // Force GC collections to generate gc_start/gc_end/gc_heap_stats events
+        var list = new List<byte[]>();
+        for (var i = 0; i < 1000; i++)
+            list.Add(new byte[1024]);
+        list.Clear();
+        GC.Collect(2, GCCollectionMode.Forced, true);
+        GC.WaitForPendingFinalizers();
+        GC.Collect(0, GCCollectionMode.Forced, true);
+        Console.WriteLine("  GC scenario completed.");
     }
 
     /// <summary>
