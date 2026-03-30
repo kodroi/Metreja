@@ -4,19 +4,10 @@ namespace Metreja.IntegrationTests.Tests;
 
 public class MethodStatsTests
 {
-    private static string GetSolutionRoot()
-    {
-        var root = ProfilerPrerequisites.FindSolutionRoot();
-        var skipReason = ProfilerPrerequisites.GetSkipReason(root);
-        if (skipReason is not null)
-            throw new InvalidOperationException(skipReason);
-        return root;
-    }
-
     [Fact]
     public async Task MethodStatsOnly_EmitsStatsAndNoEnterLeave()
     {
-        var root = GetSolutionRoot();
+        var root = TestHelpers.GetSolutionRoot();
         var (outputPath, runner) = await ProfilerRunner.RunAsync(
             root, events: ["method_stats"]);
         await using (runner)
@@ -39,7 +30,7 @@ public class MethodStatsTests
     [Fact]
     public async Task MethodStats_CallCountMatchesExpected()
     {
-        var root = GetSolutionRoot();
+        var root = TestHelpers.GetSolutionRoot();
         var (outputPath, runner) = await ProfilerRunner.RunAsync(
             root, events: ["method_stats"]);
         await using (runner)
@@ -62,7 +53,7 @@ public class MethodStatsTests
     [Fact]
     public async Task MethodStats_SelfTimeLessOrEqualInclusive()
     {
-        var root = GetSolutionRoot();
+        var root = TestHelpers.GetSolutionRoot();
         var (outputPath, runner) = await ProfilerRunner.RunAsync(
             root, events: ["method_stats"]);
         await using (runner)
@@ -83,7 +74,7 @@ public class MethodStatsTests
     [Fact]
     public async Task ExceptionStatsOnly_EmitsStatsEvents()
     {
-        var root = GetSolutionRoot();
+        var root = TestHelpers.GetSolutionRoot();
         var (outputPath, runner) = await ProfilerRunner.RunAsync(
             root, events: ["exception_stats"]);
         await using (runner)
@@ -112,7 +103,7 @@ public class MethodStatsTests
     [Fact]
     public async Task MethodStatsWithExceptionStats_SelfCatchDoesNotCorruptCallStack()
     {
-        var root = GetSolutionRoot();
+        var root = TestHelpers.GetSolutionRoot();
         var (outputPath, runner) = await ProfilerRunner.RunAsync(
             root, events: ["method_stats", "exception_stats"]);
         await using (runner)
@@ -155,7 +146,7 @@ public class MethodStatsTests
     [Fact]
     public async Task MethodStatsWithExceptionStats_RecursiveCatchPreservesCorrectFrame()
     {
-        var root = GetSolutionRoot();
+        var root = TestHelpers.GetSolutionRoot();
         var (outputPath, runner) = await ProfilerRunner.RunAsync(
             root, events: ["method_stats", "exception_stats"]);
         await using (runner)
@@ -192,7 +183,7 @@ public class MethodStatsTests
     [Fact]
     public async Task EnterLeaveExplicit_BehavesLikeDefault()
     {
-        var root = GetSolutionRoot();
+        var root = TestHelpers.GetSolutionRoot();
         var (outputPath, runner) = await ProfilerRunner.RunAsync(
             root, events: ["enter", "leave", "exception"]);
         await using (runner)

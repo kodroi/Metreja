@@ -4,19 +4,10 @@ namespace Metreja.IntegrationTests.Tests;
 
 public class PeriodicFlushTests
 {
-    private static string GetSolutionRoot()
-    {
-        var root = ProfilerPrerequisites.FindSolutionRoot();
-        var skipReason = ProfilerPrerequisites.GetSkipReason(root);
-        if (skipReason is not null)
-            throw new InvalidOperationException(skipReason);
-        return root;
-    }
-
     [Fact]
     public async Task MethodStats_WithFlushDisabled_StillEmitsStatsAtShutdown()
     {
-        var root = GetSolutionRoot();
+        var root = TestHelpers.GetSolutionRoot();
         var (outputPath, runner) = await ProfilerRunner.RunAsync(
             root, events: ["method_stats"], statsFlushIntervalSeconds: 0);
         await using (runner)
@@ -41,7 +32,7 @@ public class PeriodicFlushTests
     [Fact]
     public async Task MethodStats_WithFlushEnabled_StillProducesCorrectTotals()
     {
-        var root = GetSolutionRoot();
+        var root = TestHelpers.GetSolutionRoot();
         // Use default interval (30s) — TestApp finishes in < 1s so periodic flush
         // won't fire, but this validates the code path doesn't break anything
         var (outputPath, runner) = await ProfilerRunner.RunAsync(
@@ -70,7 +61,7 @@ public class PeriodicFlushTests
     [Fact]
     public async Task ExceptionStats_WithFlushDisabled_StillEmitsStatsAtShutdown()
     {
-        var root = GetSolutionRoot();
+        var root = TestHelpers.GetSolutionRoot();
         var (outputPath, runner) = await ProfilerRunner.RunAsync(
             root, events: ["exception_stats"], statsFlushIntervalSeconds: 0);
         await using (runner)
