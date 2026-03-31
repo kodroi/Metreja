@@ -671,8 +671,8 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::GarbageCollectionStarted(int cGenerat
 
     // Always record start timestamp so GarbageCollectionFinished can compute durationNs
     // even when gc_start event is disabled but gc_end is enabled.
-    long long startNs = CallStackManager::GetTimestampNs();
-    ctx->gcStartNs.store(startNs, std::memory_order_relaxed);
+    long long startTsNs = CallStackManager::GetTimestampNs();
+    ctx->gcStartNs.store(startTsNs, std::memory_order_relaxed);
 
     if (!HasEvent(ctx->config.enabledEvents, EventType::GcStart))
         return S_OK;
@@ -689,7 +689,7 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::GarbageCollectionStarted(int cGenerat
     default: reasonStr = "unknown"; break;
     }
 
-    ctx->ndjsonWriter->WriteGcStart(startNs, gen0, gen1, gen2, reasonStr);
+    ctx->ndjsonWriter->WriteGcStart(startTsNs, gen0, gen1, gen2, reasonStr);
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::SurvivingReferences(ULONG cSurvivingObjectIDRanges,
@@ -704,9 +704,9 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::GarbageCollectionFinished()
     if (ctx == nullptr || !HasEvent(ctx->config.enabledEvents, EventType::GcEnd))
         return S_OK;
 
-    long long nowNs = CallStackManager::GetTimestampNs();
-    long long startNs = ctx->gcStartNs.load(std::memory_order_relaxed);
-    long long durationNs = (startNs > 0) ? (nowNs - startNs) : 0;
+    long long nowTsNs = CallStackManager::GetTimestampNs();
+    long long startTsNs = ctx->gcStartNs.load(std::memory_order_relaxed);
+    long long durationNs = (startTsNs > 0) ? (nowTsNs - startTsNs) : 0;
 
     // Get heap size via GetGenerationBounds (available on ICorProfilerInfo2+)
     long long heapSizeBytes = 0;
@@ -722,7 +722,7 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::GarbageCollectionFinished()
             heapSizeBytes += static_cast<long long>(ranges[i].rangeLength);
     }
 
-    ctx->ndjsonWriter->WriteGcEnd(nowNs, durationNs, heapSizeBytes);
+    ctx->ndjsonWriter->WriteGcEnd(nowTsNs, durationNs, heapSizeBytes);
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::FinalizeableObjectQueued(DWORD finalizerFlags, ObjectID objectID)
