@@ -29,14 +29,14 @@ public static class MemoryAnalyzer
                     gen2Count = gcEvents.Gen2Count,
                     totalPauseNs = gcEvents.TotalPauseNs,
                     maxPauseNs = gcEvents.MaxPauseNs,
-                    peakHeapSizeBytes = gcEvents.PeakHeapSizeBytes,
-                    lastHeapSizeBytes = gcEvents.LastHeapSizeBytes,
+                    peakHeapSizeBytes = gcEvents.HasHeapSize ? gcEvents.PeakHeapSizeBytes : (long?)null,
+                    lastHeapSizeBytes = gcEvents.HasHeapSize ? gcEvents.LastHeapSizeBytes : (long?)null,
                     gen0SizeBytes = gcEvents.HasHeapStats ? gcEvents.LastGen0SizeBytes : (long?)null,
                     gen1SizeBytes = gcEvents.HasHeapStats ? gcEvents.LastGen1SizeBytes : (long?)null,
                     gen2SizeBytes = gcEvents.HasHeapStats ? gcEvents.LastGen2SizeBytes : (long?)null,
                     lohSizeBytes = gcEvents.HasHeapStats ? gcEvents.LastLohSizeBytes : (long?)null,
                     pohSizeBytes = gcEvents.HasHeapStats ? gcEvents.LastPohSizeBytes : (long?)null,
-                    totalPromotedBytes = gcEvents.TotalPromotedBytes,
+                    totalPromotedBytes = gcEvents.HasHeapStats ? gcEvents.TotalPromotedBytes : (long?)null,
                     finalizationQueueLength = gcEvents.HasHeapStats ? gcEvents.LastFinalizationQueueLength : (long?)null,
                     pinnedObjectCount = gcEvents.HasHeapStats ? (int?)gcEvents.LastPinnedObjectCount : null,
                 },
@@ -81,6 +81,7 @@ public static class MemoryAnalyzer
                     if (durationNs > gc.MaxPauseNs) gc.MaxPauseNs = durationNs;
                     if (root.TryGetProperty("heapSizeBytes", out var hs))
                     {
+                        gc.HasHeapSize = true;
                         var heapSize = hs.GetInt64();
                         gc.LastHeapSizeBytes = heapSize;
                         if (heapSize > gc.PeakHeapSizeBytes) gc.PeakHeapSizeBytes = heapSize;
@@ -222,6 +223,7 @@ public static class MemoryAnalyzer
         public int Gen2Count { get; set; }
         public long TotalPauseNs { get; set; }
         public long MaxPauseNs { get; set; }
+        public bool HasHeapSize { get; set; }
         public long PeakHeapSizeBytes { get; set; }
         public long LastHeapSizeBytes { get; set; }
         public long LastGen0SizeBytes { get; set; }

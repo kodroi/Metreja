@@ -152,6 +152,7 @@ public class JsonFormatTests : IAsyncLifetime
         Assert.True(gc.TryGetProperty("gen1SizeBytes", out _));
         Assert.True(gc.TryGetProperty("gen2SizeBytes", out _));
         Assert.True(gc.TryGetProperty("lohSizeBytes", out _));
+        Assert.True(gc.TryGetProperty("pohSizeBytes", out _));
         Assert.True(gc.TryGetProperty("totalPromotedBytes", out _));
         Assert.True(gc.TryGetProperty("finalizationQueueLength", out _));
         Assert.True(gc.TryGetProperty("pinnedObjectCount", out _));

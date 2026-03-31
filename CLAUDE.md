@@ -58,7 +58,7 @@ Events written by the profiler DLL (controlled by `set events` command):
 - `session_metadata` — emitted once at start (scenario, sessionId, pid)
 - `enter` / `leave` — method entry/exit with tsNs, tid, depth, deltaNs (on leave). Async method leave events include `wallTimeNs` (wall-clock time including awaits)
 - `exception` — exception thrown (exType, method info)
-- `gc_start` / `gc_end` — GC lifecycle events by generation. `gc_end` includes `durationNs` and `heapSizeBytes` (from GetGenerationBounds)
+- `gc_start` / `gc_end` — GC lifecycle events by generation. `gc_end` includes `durationNs` and may include `heapSizeBytes` when available (from GetGenerationBounds)
 - `gc_heap_stats` — per-generation heap sizes, promoted bytes, finalization queue, pinned objects (via EventPipe GCHeapStats_V2, .NET 5+)
 - `alloc_by_class` — per-type allocation counts with optional call-site attribution (`allocM`, `allocNs`, `allocCls`)
 - `contention_start` / `contention_end` — lock contention events via EventPipe (tid, tsNs)

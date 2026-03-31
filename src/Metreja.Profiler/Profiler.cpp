@@ -115,8 +115,8 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Initialize(IUnknown* pICorProfilerInf
     // GC monitoring: use COR_PRF_HIGH_BASIC_GC to avoid disabling concurrent GC.
     // AllocByClass requires the full COR_PRF_MONITOR_GC (which does disable concurrent GC).
     DWORD highFlags = 0;
-    bool needGcCallbacks = HasEvent(events, EventType::GcStart) || HasEvent(events, EventType::GcEnd) ||
-                           HasEvent(events, EventType::GcHeapStats);
+    bool needGcCallbacks = HasEvent(events, EventType::GcStart) || HasEvent(events, EventType::GcEnd);
+    bool needGcHeapStats = HasEvent(events, EventType::GcHeapStats) && m_profilerInfo12 != nullptr;
     bool needAllocByClass = HasEvent(events, EventType::AllocByClass);
 
     if (needAllocByClass)
@@ -144,7 +144,7 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Initialize(IUnknown* pICorProfilerInf
         epKeywords |= 0x4000; // ContentionKeyword
         needEventPipe = true;
     }
-    if (HasEvent(events, EventType::GcHeapStats))
+    if (needGcHeapStats)
     {
         epKeywords |= 0x1; // GCKeyword
         needEventPipe = true;
@@ -712,12 +712,15 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::GarbageCollectionFinished()
 
     // Get heap size via GetGenerationBounds (available on ICorProfilerInfo2+)
     long long heapSizeBytes = 0;
-    COR_PRF_GC_GENERATION_RANGE ranges[16];
+    constexpr ULONG kMaxRanges = 16;
+    COR_PRF_GC_GENERATION_RANGE ranges[kMaxRanges];
     ULONG rangeCount = 0;
-    HRESULT hr = m_profilerInfo->GetGenerationBounds(16, &rangeCount, ranges);
+    HRESULT hr = m_profilerInfo->GetGenerationBounds(kMaxRanges, &rangeCount, ranges);
     if (SUCCEEDED(hr))
     {
-        for (ULONG i = 0; i < rangeCount; i++)
+        // rangeCount is the total available; cap to buffer size to avoid overread
+        ULONG count = rangeCount < kMaxRanges ? rangeCount : kMaxRanges;
+        for (ULONG i = 0; i < count; i++)
             heapSizeBytes += static_cast<long long>(ranges[i].rangeLength);
     }
 

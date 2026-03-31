@@ -68,6 +68,14 @@ public class GcHeapStatsTests : IAsyncLifetime
                 Assert.True(ev.Gen1SizeBytes >= 0, "gen1SizeBytes should be non-negative");
                 Assert.True(ev.Gen2SizeBytes >= 0, "gen2SizeBytes should be non-negative");
                 Assert.True(ev.LohSizeBytes >= 0, "lohSizeBytes should be non-negative");
+                Assert.True(ev.PohSizeBytes >= 0, "pohSizeBytes should be non-negative");
+                Assert.True(ev.Gen0PromotedBytes >= 0, "gen0PromotedBytes should be non-negative");
+                Assert.True(ev.Gen1PromotedBytes >= 0, "gen1PromotedBytes should be non-negative");
+                Assert.True(ev.Gen2PromotedBytes >= 0, "gen2PromotedBytes should be non-negative");
+                Assert.True(ev.LohPromotedBytes >= 0, "lohPromotedBytes should be non-negative");
+                Assert.True(ev.PohPromotedBytes >= 0, "pohPromotedBytes should be non-negative");
+                Assert.True(ev.FinalizationQueueLength >= 0, "finalizationQueueLength should be non-negative");
+                Assert.True(ev.PinnedObjectCount >= 0, "pinnedObjectCount should be non-negative");
             }
         }
     }
