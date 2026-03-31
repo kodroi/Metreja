@@ -319,7 +319,7 @@ public class SessionManagementTests : IAsyncLifetime
         manager.DeleteSession(sessionId);
 
         // Verify session is gone
-        sessions = manager.ListSessions().ToList();
+        sessions = [.. manager.ListSessions()];
         Assert.DoesNotContain(sessionId, sessions);
 
         // Verify loading throws
