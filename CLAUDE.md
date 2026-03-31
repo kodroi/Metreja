@@ -129,6 +129,13 @@ When changing user-facing features (new commands, new event types, changed CLI o
 
 When all changes are complete, verify tests pass before committing.
 
+## Pull Request Reviews
+
+Always respond to every review comment on PRs with an inline reply:
+- **Fixed items:** State what was fixed and in which commit (e.g., "Fixed in abc1234 — added braces.")
+- **Won't fix items:** Explain why with technical reasoning (e.g., clang-format output, verified correct behavior)
+- Never leave review comments without a response
+
 ## Prerequisites
 
 **Windows:**
