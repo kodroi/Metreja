@@ -84,7 +84,7 @@ public class TimelineAnalysisTests : IAsyncLifetime
         [
             """{"event":"enter","tsNs":1000,"pid":1,"sessionId":"s1","tid":1,"depth":0,"asm":"App","ns":"MyNs","cls":"MyClass","m":"DoWork","async":false}""",
             """{"event":"enter","tsNs":2000,"pid":1,"sessionId":"s1","tid":1,"depth":1,"asm":"App","ns":"MyNs","cls":"MyClass","m":"Helper","async":false}""",
-            """{"event":"gc_started","tsNs":2500,"pid":1,"sessionId":"s1","gen0":true,"gen1":false,"gen2":false}""",
+            """{"event":"gc_start","tsNs":2500,"pid":1,"sessionId":"s1","gen0":true,"gen1":false,"gen2":false,"reason":"other"}""",
             """{"event":"leave","tsNs":3000,"pid":1,"sessionId":"s1","tid":1,"depth":1,"asm":"App","ns":"MyNs","cls":"MyClass","m":"Helper","async":false,"deltaNs":1000}""",
             """{"event":"leave","tsNs":4000,"pid":1,"sessionId":"s1","tid":1,"depth":0,"asm":"App","ns":"MyNs","cls":"MyClass","m":"DoWork","async":false,"deltaNs":3000}"""
         ]);
@@ -94,7 +94,7 @@ public class TimelineAnalysisTests : IAsyncLifetime
 
         Assert.Contains("DoWork", output);
         Assert.DoesNotContain("Helper", output);
-        Assert.DoesNotContain("gc_started", output);
+        Assert.DoesNotContain("gc_start", output);
     }
 
     [Fact]

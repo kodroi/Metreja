@@ -96,7 +96,7 @@ metreja calltree .metreja/output/*.ndjson --method "ValidateInventory"
 | `metreja hotspots` | Rank methods by self time, inclusive time, call count, or allocations |
 | `metreja calltree` | Expand a slow method into its full call tree with timing at every level |
 | `metreja callers` | Find who calls a method and how much time each caller contributes |
-| `metreja memory` | GC counts by generation, pause times, per-type allocation hotspots |
+| `metreja memory` | GC summary by generation, pause times, heap breakdown with promoted bytes, allocation hotspots |
 | `metreja analyze-diff` | Compare two traces to verify a fix actually improved performance |
 | `metreja summary` | Trace overview: event counts, wall-clock duration, threads, methods |
 | `metreja exceptions` | Rank exception types by frequency with throw-site methods |
@@ -113,6 +113,20 @@ metreja calltree .metreja/output/*.ndjson --method "ValidateInventory"
 All analysis commands support `--format json` for structured machine-readable output and return proper exit codes (0=success, 1=non-success such as error or regression).
 
 For the full CLI reference with all options, see [src/Metreja.Tool/README.md](src/Metreja.Tool/README.md).
+
+### Event Types
+
+Configure which data the profiler emits via `metreja set events`:
+
+| Event | Description | maxEvents |
+|-------|-------------|-----------|
+| `enter`, `leave` | Method entry/exit with timing | Counts |
+| `exception` | Exception thrown with throw-site method | Counts |
+| `method_stats`, `exception_stats` | Periodic aggregated statistics | Bypass |
+| `gc_start`, `gc_end` | GC lifecycle with generation, duration, heap size | Bypass |
+| `gc_heap_stats` | Per-generation heap sizes, promoted bytes, finalization queue, pinned objects (EventPipe, .NET 5+) | Bypass |
+| `alloc_by_class` | Per-type allocation counts with optional call-site attribution | Counts |
+| `contention_start`, `contention_end` | Lock contention events (EventPipe, .NET 5+) | Counts |
 
 ### CI Integration
 
@@ -184,7 +198,7 @@ Build outputs:
 
 Metreja is a two-component system:
 
-1. **Metreja.Profiler** — Native C++ library (DLL on Windows, dylib on macOS) implementing `ICorProfilerCallback10` with ELT3 hooks. Attaches to the .NET runtime via `COR_PROFILER` environment variables, hooks method enter/leave, and writes NDJSON traces.
+1. **Metreja.Profiler** — Native C++ library (DLL on Windows, dylib on macOS) implementing `ICorProfilerCallback10` with ELT3 hooks. Attaches to the .NET runtime via `COR_PROFILER` environment variables, hooks method enter/leave, and writes NDJSON traces. GC monitoring uses `COR_PRF_HIGH_BASIC_GC` to provide GC callbacks without disabling concurrent GC, with additional heap statistics via EventPipe on .NET 5+.
 
 2. **Metreja.Tool** — C# CLI for session management and trace analysis. Creates session configs, generates profiler environment scripts, and provides 11 analysis commands (hotspots, calltree, callers, memory, exceptions, timeline, threads, trend, summary, analyze-diff, check) plus utilities (run, flush, list, merge, export). All analysis commands support `--format json`.
 
