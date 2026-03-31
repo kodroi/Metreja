@@ -4,15 +4,17 @@ namespace Metreja.Tool.Analysis;
 
 public static class CheckAnalyzer
 {
-    public static async Task<int> AnalyzeAsync(string basePath, string comparePath, double threshold, string format = "text")
+    public static async Task<int> AnalyzeAsync(string basePath, string comparePath, double threshold, string format = "text", TextWriter? output = null)
     {
-        if (!AnalyzerHelpers.ValidateFileExists(basePath, "Base file"))
+        output ??= Console.Out;
+
+        if (!EventReader.ValidateFileExists(basePath, "Base file"))
             return 1;
-        if (!AnalyzerHelpers.ValidateFileExists(comparePath, "Compare file"))
+        if (!EventReader.ValidateFileExists(comparePath, "Compare file"))
             return 1;
 
-        var baseTimings = await AnalyzerHelpers.CollectMethodTimingsAsync(basePath);
-        var compareTimings = await AnalyzerHelpers.CollectMethodTimingsAsync(comparePath);
+        var baseTimings = await EventReader.CollectMethodTimingsAsync(basePath);
+        var compareTimings = await EventReader.CollectMethodTimingsAsync(comparePath);
 
         var regressionCount = 0;
         var allMethods = baseTimings.Keys.Union(compareTimings.Keys)
@@ -54,28 +56,28 @@ public static class CheckAnalyzer
                 }).ToList()
             };
 
-            Console.WriteLine(JsonSerializer.Serialize(result, JsonOutputOptions.Default));
+            output.WriteLine(JsonSerializer.Serialize(result, JsonOutputOptions.Default));
             return regressionCount > 0 ? 1 : 0;
         }
 
-        Console.WriteLine($"Performance check (threshold: {threshold:F1}%)");
-        Console.WriteLine(new string('-', 100));
+        output.WriteLine($"Performance check (threshold: {threshold:F1}%)");
+        output.WriteLine(new string('-', 100));
 
         foreach (var (method, status, baseNs, compareNs, changePercent) in methodEntries)
         {
-            Console.WriteLine(
-                $"{status,-12} {AnalyzerHelpers.Truncate(method, 40),-40} base: {AnalyzerHelpers.FormatNs(baseNs),-12} compare: {AnalyzerHelpers.FormatNs(compareNs),-12} {changePercent:+0.0;-0.0}%");
+            output.WriteLine(
+                $"{status,-12} {FormatUtils.Truncate(method, 40),-40} base: {FormatUtils.FormatNs(baseNs),-12} compare: {FormatUtils.FormatNs(compareNs),-12} {changePercent:+0.0;-0.0}%");
         }
 
-        Console.WriteLine(new string('-', 100));
+        output.WriteLine(new string('-', 100));
 
         if (regressionCount > 0)
         {
-            Console.WriteLine($"Result: FAIL ({regressionCount} regression{(regressionCount > 1 ? "s" : "")})");
+            output.WriteLine($"Result: FAIL ({regressionCount} regression{(regressionCount > 1 ? "s" : "")})");
             return 1;
         }
 
-        Console.WriteLine("Result: PASS");
+        output.WriteLine("Result: PASS");
         return 0;
     }
 }

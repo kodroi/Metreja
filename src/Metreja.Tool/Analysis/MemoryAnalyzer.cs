@@ -4,9 +4,11 @@ namespace Metreja.Tool.Analysis;
 
 public static class MemoryAnalyzer
 {
-    public static async Task<int> AnalyzeAsync(string filePath, int top, string[] filters, string format = "text")
+    public static async Task<int> AnalyzeAsync(string filePath, int top, string[] filters, string format = "text", TextWriter? output = null)
     {
-        if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
+        output ??= Console.Out;
+
+        if (!EventReader.ValidateFileExists(filePath, "File"))
             return 1;
 
         var (gcEvents, allocations) = await AggregateAsync(filePath, filters);
@@ -44,13 +46,13 @@ public static class MemoryAnalyzer
                 totalTypes = allocations.Count,
             };
 
-            Console.WriteLine(JsonSerializer.Serialize(jsonOutput, JsonOutputOptions.Default));
+            output.WriteLine(JsonSerializer.Serialize(jsonOutput, JsonOutputOptions.Default));
             return 0;
         }
 
-        PrintGcSummary(gcEvents);
-        Console.WriteLine();
-        PrintAllocationTable(allocations, top);
+        PrintGcSummary(gcEvents, output);
+        output.WriteLine();
+        PrintAllocationTable(allocations, top, output);
 
         return 0;
     }
@@ -62,7 +64,7 @@ public static class MemoryAnalyzer
         var allocations = new Dictionary<string, long>();
         var hasFilters = filters.Length > 0;
 
-        await foreach (var (eventType, root) in AnalyzerHelpers.StreamEventsAsync(filePath))
+        await foreach (var (eventType, root) in EventReader.StreamEventsAsync(filePath))
         {
             switch (eventType)
             {
@@ -118,12 +120,12 @@ public static class MemoryAnalyzer
                         var allocNs = root.TryGetProperty("allocNs", out var ans) ? ans.GetString() ?? "" : "";
                         var allocCls = root.TryGetProperty("allocCls", out var acs) ? acs.GetString() ?? "" : "";
                         var allocM = am.GetString() ?? "";
-                        var allocKey = AnalyzerHelpers.BuildMethodKey(allocNs, allocCls, allocM);
+                        var allocKey = EventReader.BuildMethodKey(allocNs, allocCls, allocM);
                         if (!string.IsNullOrEmpty(allocKey) && allocKey != ".")
                             className = $"{className} <- {allocKey}";
                     }
 
-                    if (hasFilters && !AnalyzerHelpers.MatchesAnyFilter(filters, className))
+                    if (hasFilters && !MethodMatcher.MatchesAnyFilter(filters, className))
                         break;
 
                     if (!allocations.TryGetValue(className, out var existing))
@@ -137,61 +139,61 @@ public static class MemoryAnalyzer
         return (gc, allocations);
     }
 
-    private static void PrintGcSummary(GcSummary gc)
+    private static void PrintGcSummary(GcSummary gc, TextWriter output)
     {
-        Console.WriteLine("GC Summary");
-        Console.WriteLine(new string('-', 50));
+        output.WriteLine("GC Summary");
+        output.WriteLine(new string('-', 50));
 
         if (gc.TotalCount == 0)
         {
-            Console.WriteLine("  No GC events recorded.");
+            output.WriteLine("  No GC events recorded.");
             return;
         }
 
         var avgPauseNs = gc.TotalCount > 0 ? gc.TotalPauseNs / gc.TotalCount : 0;
 
-        Console.WriteLine($"  {"Generation",-15} {"Count",8}");
-        Console.WriteLine($"  {"Gen 0",-15} {gc.Gen0Count,8}");
-        Console.WriteLine($"  {"Gen 1",-15} {gc.Gen1Count,8}");
-        Console.WriteLine($"  {"Gen 2",-15} {gc.Gen2Count,8}");
-        Console.WriteLine($"  {"Total",-15} {gc.TotalCount,8}");
-        Console.WriteLine();
-        Console.WriteLine($"  {"Total pause:",-15} {AnalyzerHelpers.FormatNs(gc.TotalPauseNs)}");
-        Console.WriteLine($"  {"Avg pause:",-15} {AnalyzerHelpers.FormatNs(avgPauseNs)}");
-        Console.WriteLine($"  {"Max pause:",-15} {AnalyzerHelpers.FormatNs(gc.MaxPauseNs)}");
+        output.WriteLine($"  {"Generation",-15} {"Count",8}");
+        output.WriteLine($"  {"Gen 0",-15} {gc.Gen0Count,8}");
+        output.WriteLine($"  {"Gen 1",-15} {gc.Gen1Count,8}");
+        output.WriteLine($"  {"Gen 2",-15} {gc.Gen2Count,8}");
+        output.WriteLine($"  {"Total",-15} {gc.TotalCount,8}");
+        output.WriteLine();
+        output.WriteLine($"  {"Total pause:",-15} {FormatUtils.FormatNs(gc.TotalPauseNs)}");
+        output.WriteLine($"  {"Avg pause:",-15} {FormatUtils.FormatNs(avgPauseNs)}");
+        output.WriteLine($"  {"Max pause:",-15} {FormatUtils.FormatNs(gc.MaxPauseNs)}");
 
         if (gc.PeakHeapSizeBytes > 0)
         {
-            Console.WriteLine();
-            Console.WriteLine($"  {"Peak heap:",-15} {FormatBytes(gc.PeakHeapSizeBytes)}");
-            Console.WriteLine($"  {"Last heap:",-15} {FormatBytes(gc.LastHeapSizeBytes)}");
+            output.WriteLine();
+            output.WriteLine($"  {"Peak heap:",-15} {FormatUtils.FormatBytes(gc.PeakHeapSizeBytes)}");
+            output.WriteLine($"  {"Last heap:",-15} {FormatUtils.FormatBytes(gc.LastHeapSizeBytes)}");
         }
 
         if (gc.HasHeapStats)
         {
-            Console.WriteLine();
-            Console.WriteLine($"  {"Heap",-15} {"Size",12} {"Promoted",12}");
-            Console.WriteLine($"  {"Gen 0",-15} {FormatBytes(gc.LastGen0SizeBytes),12} {FormatBytes(gc.LastGen0PromotedBytes),12}");
-            Console.WriteLine($"  {"Gen 1",-15} {FormatBytes(gc.LastGen1SizeBytes),12} {FormatBytes(gc.LastGen1PromotedBytes),12}");
-            Console.WriteLine($"  {"Gen 2",-15} {FormatBytes(gc.LastGen2SizeBytes),12} {FormatBytes(gc.LastGen2PromotedBytes),12}");
-            Console.WriteLine($"  {"LOH",-15} {FormatBytes(gc.LastLohSizeBytes),12} {FormatBytes(gc.LastLohPromotedBytes),12}");
+            output.WriteLine();
+            output.WriteLine($"  {"Heap",-15} {"Size",12} {"Promoted",12}");
+            output.WriteLine($"  {"Gen 0",-15} {FormatUtils.FormatBytes(gc.LastGen0SizeBytes),12} {FormatUtils.FormatBytes(gc.LastGen0PromotedBytes),12}");
+            output.WriteLine($"  {"Gen 1",-15} {FormatUtils.FormatBytes(gc.LastGen1SizeBytes),12} {FormatUtils.FormatBytes(gc.LastGen1PromotedBytes),12}");
+            output.WriteLine($"  {"Gen 2",-15} {FormatUtils.FormatBytes(gc.LastGen2SizeBytes),12} {FormatUtils.FormatBytes(gc.LastGen2PromotedBytes),12}");
+            output.WriteLine($"  {"LOH",-15} {FormatUtils.FormatBytes(gc.LastLohSizeBytes),12} {FormatUtils.FormatBytes(gc.LastLohPromotedBytes),12}");
             if (gc.LastPohSizeBytes > 0)
-                Console.WriteLine($"  {"POH",-15} {FormatBytes(gc.LastPohSizeBytes),12} {FormatBytes(gc.LastPohPromotedBytes),12}");
-            Console.WriteLine();
-            Console.WriteLine($"  {"Total promoted:",-15} {FormatBytes(gc.TotalPromotedBytes)}");
-            Console.WriteLine($"  {"Finalization:",-15} {gc.LastFinalizationQueueLength}");
-            Console.WriteLine($"  {"Pinned objects:",-15} {gc.LastPinnedObjectCount}");
+                output.WriteLine($"  {"POH",-15} {FormatUtils.FormatBytes(gc.LastPohSizeBytes),12} {FormatUtils.FormatBytes(gc.LastPohPromotedBytes),12}");
+            output.WriteLine();
+            output.WriteLine($"  {"Total promoted:",-15} {FormatUtils.FormatBytes(gc.TotalPromotedBytes)}");
+            output.WriteLine($"  {"Finalization:",-15} {gc.LastFinalizationQueueLength}");
+            output.WriteLine($"  {"Pinned objects:",-15} {gc.LastPinnedObjectCount}");
         }
     }
 
-    private static void PrintAllocationTable(Dictionary<string, long> allocations, int top)
+    private static void PrintAllocationTable(Dictionary<string, long> allocations, int top, TextWriter output)
     {
-        Console.WriteLine("Allocations by Class");
-        Console.WriteLine(new string('-', 70));
+        output.WriteLine("Allocations by Class");
+        output.WriteLine(new string('-', 70));
 
         if (allocations.Count == 0)
         {
-            Console.WriteLine("  No allocation events recorded.");
+            output.WriteLine("  No allocation events recorded.");
             return;
         }
 
@@ -200,20 +202,18 @@ public static class MemoryAnalyzer
             .Take(top)
             .ToList();
 
-        Console.WriteLine($"  {"#",-5} {"Class",-50} {"Count",10}");
-        Console.WriteLine($"  {new string('-', 65)}");
+        output.WriteLine($"  {"#",-5} {"Class",-50} {"Count",10}");
+        output.WriteLine($"  {new string('-', 65)}");
 
         for (var i = 0; i < sorted.Count; i++)
         {
             var (className, count) = sorted[i];
-            Console.WriteLine($"  {i + 1,-5} {AnalyzerHelpers.Truncate(className, 50),-50} {count,10}");
+            output.WriteLine($"  {i + 1,-5} {FormatUtils.Truncate(className, 50),-50} {count,10}");
         }
 
-        Console.WriteLine($"  {new string('-', 65)}");
-        Console.WriteLine($"  Showing top {sorted.Count} of {allocations.Count} types");
+        output.WriteLine($"  {new string('-', 65)}");
+        output.WriteLine($"  Showing top {sorted.Count} of {allocations.Count} types");
     }
-
-    private static string FormatBytes(long bytes) => AnalyzerHelpers.FormatBytes(bytes);
 
     private sealed class GcSummary
     {

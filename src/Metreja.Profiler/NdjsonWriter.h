@@ -26,8 +26,8 @@ public:
     void WriteLeave(long long tsNs, DWORD tid, int depth, const MethodInfo& info, long long deltaNs,
                     bool tailcall = false, long long wallTimeNs = 0);
     void WriteException(long long tsNs, DWORD tid, const MethodInfo& info, const std::string& exType);
-    void WriteGcStarted(long long tsNs, bool gen0, bool gen1, bool gen2, const char* reason);
-    void WriteGcFinished(long long tsNs, long long durationNs, long long heapSizeBytes = 0);
+    void WriteGcStart(long long tsNs, bool gen0, bool gen1, bool gen2, const char* reason);
+    void WriteGcEnd(long long tsNs, long long durationNs, long long heapSizeBytes = 0);
     void WriteAllocByClass(long long tsNs, DWORD tid, const std::string& className, ULONG count);
     void WriteAllocByClassDetailed(long long tsNs, DWORD tid, const std::string& className, ULONG count,
                                    const MethodInfo& allocMethod);

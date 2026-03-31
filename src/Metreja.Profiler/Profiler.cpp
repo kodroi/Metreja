@@ -96,104 +96,9 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Initialize(IUnknown* pICorProfilerInf
     // Publish atomically — callbacks can now proceed
     g_ctx = ctx.release();
 
-    // Build event mask dynamically based on enabled event types
-    DWORD eventMask = COR_PRF_MONITOR_JIT_COMPILATION;
-
-    // ELT hooks needed whenever we require call-stack context
-    bool needElt = HasEvent(events, EventType::Enter) || HasEvent(events, EventType::Leave) ||
-                   HasEvent(events, EventType::MethodStats) || HasEvent(events, EventType::ExceptionStats) ||
-                   HasEvent(events, EventType::Exception) || HasEvent(events, EventType::AllocByClass);
-    if (needElt)
-    {
-        eventMask |= COR_PRF_MONITOR_ENTERLEAVE | COR_PRF_ENABLE_FRAME_INFO;
-    }
-
-    // Exception monitoring needed for exception/exception_stats
-    if (HasEvent(events, EventType::Exception) || HasEvent(events, EventType::ExceptionStats))
-        eventMask |= COR_PRF_MONITOR_EXCEPTIONS;
-
-    // GC monitoring: use COR_PRF_HIGH_BASIC_GC to avoid disabling concurrent GC.
-    // AllocByClass requires the full COR_PRF_MONITOR_GC (which does disable concurrent GC).
-    DWORD highFlags = 0;
-    bool needGcCallbacks = HasEvent(events, EventType::GcStart) || HasEvent(events, EventType::GcEnd);
-    bool needGcHeapStats = HasEvent(events, EventType::GcHeapStats) && m_profilerInfo12 != nullptr;
-    bool needAllocByClass = HasEvent(events, EventType::AllocByClass);
-
-    if (needAllocByClass || (needGcCallbacks && m_profilerInfo5 == nullptr))
-    {
-        // COR_PRF_MONITOR_GC: required for AllocByClass, or as fallback on old runtimes.
-        // Note: this disables concurrent GC.
-        eventMask |= COR_PRF_MONITOR_GC;
-    }
-    else if (needGcCallbacks)
-    {
-        // COR_PRF_HIGH_BASIC_GC: GC callbacks without disabling concurrent GC
-        highFlags |= COR_PRF_HIGH_BASIC_GC;
-    }
-
-    // Build EventPipe keyword mask for combined subscription
-    UINT64 epKeywords = 0;
-    bool needEventPipe = false;
-
-    if (HasEvent(events, EventType::ContentionStart) || HasEvent(events, EventType::ContentionEnd))
-    {
-        epKeywords |= 0x4000; // ContentionKeyword
-        needEventPipe = true;
-    }
-    if (needGcHeapStats)
-    {
-        epKeywords |= 0x1; // GCKeyword
-        needEventPipe = true;
-    }
-
-    if (m_profilerInfo12 != nullptr && needEventPipe)
-        highFlags |= COR_PRF_HIGH_MONITOR_EVENT_PIPE;
-
-    if (g_ctx->config.disableInlining)
-        eventMask |= COR_PRF_DISABLE_INLINING;
-
-    // Single consolidated SetEventMask call
-    if (m_profilerInfo5 != nullptr && highFlags != 0)
-    {
-        hr = m_profilerInfo5->SetEventMask2(eventMask, highFlags);
-    }
-    else
-    {
-        hr = m_profilerInfo->SetEventMask(eventMask);
-    }
+    hr = SetupEventMonitoring(events);
     if (FAILED(hr))
         return hr;
-
-    // Set ELT3 hooks when enter/leave/stats events are needed
-    if (needElt)
-    {
-        hr = m_profilerInfo->SetEnterLeaveFunctionHooks3WithInfo(
-            reinterpret_cast<FunctionEnter3WithInfo*>(EnterNaked),
-            reinterpret_cast<FunctionLeave3WithInfo*>(LeaveNaked),
-            reinterpret_cast<FunctionTailcall3WithInfo*>(TailcallNaked));
-        if (FAILED(hr))
-            return hr;
-
-        // FunctionIDMapper2 filters excluded functions at JIT time (only useful with ELT hooks)
-        hr = m_profilerInfo->SetFunctionIDMapper2(reinterpret_cast<FunctionIDMapper2*>(FunctionMapper), nullptr);
-        if (FAILED(hr))
-            return hr;
-    }
-
-    // Start EventPipe session with combined keywords (contention + GC)
-    if (m_profilerInfo12 != nullptr && needEventPipe)
-    {
-        COR_PRF_EVENTPIPE_PROVIDER_CONFIG providerConfig;
-        providerConfig.providerName = reinterpret_cast<const WCHAR*>(u"Microsoft-Windows-DotNETRuntime");
-        providerConfig.keywords = epKeywords;
-        providerConfig.loggingLevel = 4; // Informational
-        providerConfig.filterData = nullptr;
-
-        EVENTPIPE_SESSION session = 0;
-        HRESULT epHr = m_profilerInfo12->EventPipeStartSession(1, &providerConfig, false, &session);
-        if (SUCCEEDED(epHr))
-            g_ctx->eventPipeSession = session;
-    }
 
     // Create named semaphore for manual flush
     // Placed after all fallible setup so resources aren't leaked on early return.
@@ -256,6 +161,111 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Shutdown()
     {
         m_profilerInfo->Release();
         m_profilerInfo = nullptr;
+    }
+
+    return S_OK;
+}
+
+HRESULT MetrejaProfiler::SetupEventMonitoring(EventType events)
+{
+    // Build event mask dynamically based on enabled event types
+    DWORD eventMask = COR_PRF_MONITOR_JIT_COMPILATION;
+
+    // ELT hooks needed whenever we require call-stack context
+    bool needElt = HasEvent(events, EventType::Enter) || HasEvent(events, EventType::Leave) ||
+                   HasEvent(events, EventType::MethodStats) || HasEvent(events, EventType::ExceptionStats) ||
+                   HasEvent(events, EventType::Exception) || HasEvent(events, EventType::AllocByClass);
+    if (needElt)
+    {
+        eventMask |= COR_PRF_MONITOR_ENTERLEAVE | COR_PRF_ENABLE_FRAME_INFO;
+    }
+
+    // Exception monitoring needed for exception/exception_stats
+    if (HasEvent(events, EventType::Exception) || HasEvent(events, EventType::ExceptionStats))
+        eventMask |= COR_PRF_MONITOR_EXCEPTIONS;
+
+    // GC monitoring: use COR_PRF_HIGH_BASIC_GC to avoid disabling concurrent GC.
+    // AllocByClass requires the full COR_PRF_MONITOR_GC (which does disable concurrent GC).
+    DWORD highFlags = 0;
+    bool needGcCallbacks = HasEvent(events, EventType::GcStart) || HasEvent(events, EventType::GcEnd);
+    bool needGcHeapStats = HasEvent(events, EventType::GcHeapStats) && m_profilerInfo12 != nullptr;
+    bool needAllocByClass = HasEvent(events, EventType::AllocByClass);
+
+    if (needAllocByClass || (needGcCallbacks && m_profilerInfo5 == nullptr))
+    {
+        // COR_PRF_MONITOR_GC: required for AllocByClass, or as fallback on old runtimes.
+        // Note: this disables concurrent GC.
+        eventMask |= COR_PRF_MONITOR_GC;
+    }
+    else if (needGcCallbacks)
+    {
+        // COR_PRF_HIGH_BASIC_GC: GC callbacks without disabling concurrent GC
+        highFlags |= COR_PRF_HIGH_BASIC_GC;
+    }
+
+    // Build EventPipe keyword mask for combined subscription
+    UINT64 epKeywords = 0;
+    bool needEventPipe = false;
+
+    if (HasEvent(events, EventType::ContentionStart) || HasEvent(events, EventType::ContentionEnd))
+    {
+        epKeywords |= 0x4000; // ContentionKeyword
+        needEventPipe = true;
+    }
+    if (needGcHeapStats)
+    {
+        epKeywords |= 0x1; // GCKeyword
+        needEventPipe = true;
+    }
+
+    if (m_profilerInfo12 != nullptr && needEventPipe)
+        highFlags |= COR_PRF_HIGH_MONITOR_EVENT_PIPE;
+
+    if (g_ctx->config.disableInlining)
+        eventMask |= COR_PRF_DISABLE_INLINING;
+
+    // Single consolidated SetEventMask call
+    HRESULT hr;
+    if (m_profilerInfo5 != nullptr && highFlags != 0)
+    {
+        hr = m_profilerInfo5->SetEventMask2(eventMask, highFlags);
+    }
+    else
+    {
+        hr = m_profilerInfo->SetEventMask(eventMask);
+    }
+    if (FAILED(hr))
+        return hr;
+
+    // Set ELT3 hooks when enter/leave/stats events are needed
+    if (needElt)
+    {
+        hr = m_profilerInfo->SetEnterLeaveFunctionHooks3WithInfo(
+            reinterpret_cast<FunctionEnter3WithInfo*>(EnterNaked),
+            reinterpret_cast<FunctionLeave3WithInfo*>(LeaveNaked),
+            reinterpret_cast<FunctionTailcall3WithInfo*>(TailcallNaked));
+        if (FAILED(hr))
+            return hr;
+
+        // FunctionIDMapper2 filters excluded functions at JIT time (only useful with ELT hooks)
+        hr = m_profilerInfo->SetFunctionIDMapper2(reinterpret_cast<FunctionIDMapper2*>(FunctionMapper), nullptr);
+        if (FAILED(hr))
+            return hr;
+    }
+
+    // Start EventPipe session with combined keywords (contention + GC)
+    if (m_profilerInfo12 != nullptr && needEventPipe)
+    {
+        COR_PRF_EVENTPIPE_PROVIDER_CONFIG providerConfig;
+        providerConfig.providerName = reinterpret_cast<const WCHAR*>(u"Microsoft-Windows-DotNETRuntime");
+        providerConfig.keywords = epKeywords;
+        providerConfig.loggingLevel = 4; // Informational
+        providerConfig.filterData = nullptr;
+
+        EVENTPIPE_SESSION session = 0;
+        HRESULT epHr = m_profilerInfo12->EventPipeStartSession(1, &providerConfig, false, &session);
+        if (SUCCEEDED(epHr))
+            g_ctx->eventPipeSession = session;
     }
 
     return S_OK;
@@ -462,13 +472,38 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionSearchFunctionLeave() { retu
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionSearchFilterEnter(FunctionID functionId) { return S_OK; }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionSearchFilterLeave() { return S_OK; }
 
+// Decrement async nesting count for the given functionId. When the count
+// reaches zero the entry is removed and wall-time (tsNs minus the first
+// enter timestamp) is returned. Returns 0 when nesting is still active or
+// when the functionId has no async tracking entry.
+static inline long long DecrementAsyncNesting(ThreadCallStack* ts, UINT_PTR functionId, long long tsNs)
+{
+    long long wallTimeNs = 0;
+    auto it = ts->m_asyncNestingCount.find(functionId);
+    if (it != ts->m_asyncNestingCount.end())
+    {
+        it->second--;
+        if (it->second <= 0)
+        {
+            auto firstIt = ts->m_asyncFirstEnterNs.find(functionId);
+            if (firstIt != ts->m_asyncFirstEnterNs.end())
+            {
+                wallTimeNs = tsNs - firstIt->second;
+                ts->m_asyncFirstEnterNs.erase(firstIt);
+            }
+            ts->m_asyncNestingCount.erase(it);
+        }
+    }
+    return wallTimeNs;
+}
+
 // Finalize a deferred unwind entry that turned out NOT to be the catcher
 // (an inner recursive activation with the same FunctionID as the catcher).
 static void FinalizeDeferredUnwind(ProfilerContext* ctx, ThreadCallStack* ts)
 {
     CallEntry& entry = ts->m_deferredUnwindEntry;
     long long inclusiveNs = (entry.enterTsNs > 0) ? (ts->m_deferredUnwindTsNs - entry.enterTsNs) : 0;
-    long long selfNs = inclusiveNs - entry.m_childrenTimeNs;
+    long long selfNs = inclusiveNs - entry.childrenTimeNs;
     if (selfNs < 0)
         selfNs = 0;
     ctx->callStackManager->CreditParent(inclusiveNs);
@@ -477,18 +512,7 @@ static void FinalizeDeferredUnwind(ProfilerContext* ctx, ThreadCallStack* ts)
     // Clean up async wall-time tracking for finalized deferred entries
     const MethodInfo* deferredInfo = ctx->methodCache->Lookup(static_cast<FunctionID>(ts->m_deferredUnwindFunctionId));
     if (deferredInfo != nullptr && deferredInfo->isAsyncStateMachine)
-    {
-        auto it = ts->m_asyncNestingCount.find(ts->m_deferredUnwindFunctionId);
-        if (it != ts->m_asyncNestingCount.end())
-        {
-            it->second--;
-            if (it->second <= 0)
-            {
-                ts->m_asyncFirstEnterNs.erase(ts->m_deferredUnwindFunctionId);
-                ts->m_asyncNestingCount.erase(it);
-            }
-        }
-    }
+        DecrementAsyncNesting(ts, ts->m_deferredUnwindFunctionId, ts->m_deferredUnwindTsNs);
 
     if (ctx->statsAggregator && HasEvent(ctx->config.enabledEvents, EventType::MethodStats))
         ctx->statsAggregator->RecordMethod(static_cast<FunctionID>(ts->m_deferredUnwindFunctionId), inclusiveNs,
@@ -561,18 +585,7 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionUnwindFunctionEnter(Function
 
         // Clean up async wall-time tracking for unwound methods
         if (info != nullptr && info->isAsyncStateMachine && threadStack != nullptr)
-        {
-            auto it = threadStack->m_asyncNestingCount.find(functionId);
-            if (it != threadStack->m_asyncNestingCount.end())
-            {
-                it->second--;
-                if (it->second <= 0)
-                {
-                    threadStack->m_asyncFirstEnterNs.erase(functionId);
-                    threadStack->m_asyncNestingCount.erase(it);
-                }
-            }
-        }
+            DecrementAsyncNesting(threadStack, functionId, tsNs);
 
         threadStack->m_deferredUnwindEntry = entry;
         threadStack->m_deferredUnwindFunctionId = functionId;
@@ -587,21 +600,10 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::ExceptionUnwindFunctionEnter(Function
 
     // Clean up async wall-time tracking for unwound methods
     if (info != nullptr && info->isAsyncStateMachine && threadStack != nullptr)
-    {
-        auto it = threadStack->m_asyncNestingCount.find(functionId);
-        if (it != threadStack->m_asyncNestingCount.end())
-        {
-            it->second--;
-            if (it->second <= 0)
-            {
-                threadStack->m_asyncFirstEnterNs.erase(functionId);
-                threadStack->m_asyncNestingCount.erase(it);
-            }
-        }
-    }
+        DecrementAsyncNesting(threadStack, functionId, tsNs);
 
     long long inclusiveNs = (entry.enterTsNs > 0) ? (tsNs - entry.enterTsNs) : 0;
-    long long selfNs = inclusiveNs - entry.m_childrenTimeNs;
+    long long selfNs = inclusiveNs - entry.childrenTimeNs;
     if (selfNs < 0)
         selfNs = 0;
     ctx->callStackManager->CreditParent(inclusiveNs);
@@ -687,7 +689,7 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::GarbageCollectionStarted(int cGenerat
     default: reasonStr = "unknown"; break;
     }
 
-    ctx->ndjsonWriter->WriteGcStarted(startNs, gen0, gen1, gen2, reasonStr);
+    ctx->ndjsonWriter->WriteGcStart(startNs, gen0, gen1, gen2, reasonStr);
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::SurvivingReferences(ULONG cSurvivingObjectIDRanges,
@@ -720,7 +722,7 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::GarbageCollectionFinished()
             heapSizeBytes += static_cast<long long>(ranges[i].rangeLength);
     }
 
-    ctx->ndjsonWriter->WriteGcFinished(nowNs, durationNs, heapSizeBytes);
+    ctx->ndjsonWriter->WriteGcEnd(nowNs, durationNs, heapSizeBytes);
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE MetrejaProfiler::FinalizeableObjectQueued(DWORD finalizerFlags, ObjectID objectID)
@@ -955,7 +957,7 @@ static void ProcessLeave(FunctionIDOrClientID functionIDOrClientID, bool isTailc
 
     CallEntry entry = ctx->callStackManager->Pop();
     long long inclusiveNs = (entry.enterTsNs > 0) ? (tsNs - entry.enterTsNs) : 0;
-    long long selfNs = inclusiveNs - entry.m_childrenTimeNs;
+    long long selfNs = inclusiveNs - entry.childrenTimeNs;
     if (selfNs < 0)
         selfNs = 0;
     ctx->callStackManager->CreditParent(inclusiveNs);
@@ -967,23 +969,7 @@ static void ProcessLeave(FunctionIDOrClientID functionIDOrClientID, bool isTailc
     {
         auto* threadStack = ctx->callStackManager->GetThreadStack();
         if (threadStack != nullptr)
-        {
-            auto it = threadStack->m_asyncNestingCount.find(funcId);
-            if (it != threadStack->m_asyncNestingCount.end())
-            {
-                it->second--;
-                if (it->second <= 0)
-                {
-                    auto firstIt = threadStack->m_asyncFirstEnterNs.find(funcId);
-                    if (firstIt != threadStack->m_asyncFirstEnterNs.end())
-                    {
-                        wallTimeNs = tsNs - firstIt->second;
-                        threadStack->m_asyncFirstEnterNs.erase(firstIt);
-                    }
-                    threadStack->m_asyncNestingCount.erase(it);
-                }
-            }
-        }
+            wallTimeNs = DecrementAsyncNesting(threadStack, funcId, tsNs);
     }
 
     if (ctx->statsAggregator && HasEvent(ctx->config.enabledEvents, EventType::MethodStats))

@@ -3,6 +3,7 @@
 #include "platform/pal_io.h"
 #include <fstream>
 #include <sstream>
+#include <unordered_map>
 #include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
@@ -95,34 +96,31 @@ ProfilerConfig ConfigReader::Load()
 
         if (inst.contains("events") && inst["events"].is_array())
         {
+            static const std::unordered_map<std::string, EventType> EVENT_NAME_MAP = {
+                {"enter", EventType::Enter},
+                {"leave", EventType::Leave},
+                {"exception", EventType::Exception},
+                {"gc_start", EventType::GcStart},
+                {"gc_end", EventType::GcEnd},
+                {"alloc_by_class", EventType::AllocByClass},
+                {"method_stats", EventType::MethodStats},
+                {"exception_stats", EventType::ExceptionStats},
+                {"contention_start", EventType::ContentionStart},
+                {"contention_end", EventType::ContentionEnd},
+                {"gc_heap_stats", EventType::GcHeapStats},
+            };
+
             EventType mask = EventType::None;
             for (const auto& item : inst["events"])
             {
                 if (!item.is_string())
                     continue;
                 std::string name = item.get<std::string>();
-                if (name == "enter")
-                    mask |= EventType::Enter;
-                else if (name == "leave")
-                    mask |= EventType::Leave;
-                else if (name == "exception")
-                    mask |= EventType::Exception;
-                else if (name == "gc_start")
-                    mask |= EventType::GcStart;
-                else if (name == "gc_end")
-                    mask |= EventType::GcEnd;
-                else if (name == "alloc_by_class")
-                    mask |= EventType::AllocByClass;
-                else if (name == "method_stats")
-                    mask |= EventType::MethodStats;
-                else if (name == "exception_stats")
-                    mask |= EventType::ExceptionStats;
-                else if (name == "contention_start")
-                    mask |= EventType::ContentionStart;
-                else if (name == "contention_end")
-                    mask |= EventType::ContentionEnd;
-                else if (name == "gc_heap_stats")
-                    mask |= EventType::GcHeapStats;
+                auto it = EVENT_NAME_MAP.find(name);
+                if (it != EVENT_NAME_MAP.end())
+                {
+                    mask |= it->second;
+                }
                 else
                 {
                     char msg[256];

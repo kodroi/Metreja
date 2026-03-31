@@ -131,6 +131,6 @@ public class TimelineAnalysisTests : IAsyncLifetime
         var dataLines = output.Split('\n').Where(l => l.Contains("MyNs")).ToArray();
         Assert.Equal(2, dataLines.Length);
         Assert.Contains("0ns", dataLines[0]);
-        Assert.Contains(AnalyzerHelpers.FormatNs(1_000_000), dataLines[1]);
+        Assert.Contains(FormatUtils.FormatNs(1_000_000), dataLines[1]);
     }
 }

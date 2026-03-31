@@ -4,9 +4,11 @@ namespace Metreja.Tool.Analysis;
 
 public static class ThreadsAnalyzer
 {
-    public static async Task<int> AnalyzeAsync(string filePath, string sortBy, string format = "text")
+    public static async Task<int> AnalyzeAsync(string filePath, string sortBy, string format = "text", TextWriter? output = null)
     {
-        if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
+        output ??= Console.Out;
+
+        if (!EventReader.ValidateFileExists(filePath, "File"))
             return 1;
 
         var threads = await AggregateAsync(filePath);
@@ -15,13 +17,13 @@ public static class ThreadsAnalyzer
         {
             if (format == "json")
             {
-                Console.WriteLine(JsonSerializer.Serialize(
+                output.WriteLine(JsonSerializer.Serialize(
                     new { Threads = Array.Empty<object>(), TotalThreads = 0 },
                     JsonOutputOptions.Default));
             }
             else
             {
-                Console.WriteLine("No thread activity found.");
+                output.WriteLine("No thread activity found.");
             }
 
             return 0;
@@ -37,7 +39,7 @@ public static class ThreadsAnalyzer
 
         if (format == "json")
         {
-            var output = new
+            var jsonResult = new
             {
                 Threads = sorted.Select(kv =>
                 {
@@ -58,13 +60,13 @@ public static class ThreadsAnalyzer
                 TotalThreads = threads.Count
             };
 
-            Console.WriteLine(JsonSerializer.Serialize(output, JsonOutputOptions.Default));
+            output.WriteLine(JsonSerializer.Serialize(jsonResult, JsonOutputOptions.Default));
             return 0;
         }
 
-        Console.WriteLine(
+        output.WriteLine(
             $"{"TID",-15} {"Calls",7} {"Root Time",12} {"First Event",14} {"Last Event",14} {"Active Duration",17}");
-        Console.WriteLine(new string('-', 82));
+        output.WriteLine(new string('-', 82));
 
         foreach (var (tid, stats) in sorted)
         {
@@ -72,12 +74,12 @@ public static class ThreadsAnalyzer
             var lastRelative = stats.LastTsNs - globalMinTsNs;
             var activeDuration = stats.LastTsNs - stats.FirstTsNs;
 
-            Console.WriteLine(
-                $"{tid,-15} {stats.CallCount,7} {AnalyzerHelpers.FormatNs(stats.RootTimeNs),12} {AnalyzerHelpers.FormatNs(firstRelative),14} {AnalyzerHelpers.FormatNs(lastRelative),14} {AnalyzerHelpers.FormatNs(activeDuration),17}");
+            output.WriteLine(
+                $"{tid,-15} {stats.CallCount,7} {FormatUtils.FormatNs(stats.RootTimeNs),12} {FormatUtils.FormatNs(firstRelative),14} {FormatUtils.FormatNs(lastRelative),14} {FormatUtils.FormatNs(activeDuration),17}");
         }
 
-        Console.WriteLine(new string('-', 82));
-        Console.WriteLine($"Total threads: {threads.Count}");
+        output.WriteLine(new string('-', 82));
+        output.WriteLine($"Total threads: {threads.Count}");
 
         return 0;
     }
@@ -86,7 +88,7 @@ public static class ThreadsAnalyzer
     {
         var threads = new Dictionary<long, ThreadStats>();
 
-        await foreach (var (eventType, root) in AnalyzerHelpers.StreamEventsAsync(filePath))
+        await foreach (var (eventType, root) in EventReader.StreamEventsAsync(filePath))
         {
             if (!root.TryGetProperty("tid", out var tidProp))
                 continue;

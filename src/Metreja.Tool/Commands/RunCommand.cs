@@ -55,13 +55,8 @@ public static class RunCommand
                 return 1;
             }
 
+            await manager.EnsureAbsoluteOutputPathAsync(session);
             var config = await manager.LoadConfigAsync(session);
-            if (!Path.IsPathFullyQualified(config.Output.Path))
-            {
-                var absoluteOutputPath = Path.GetFullPath(config.Output.Path);
-                config = config with { Output = config.Output with { Path = absoluteOutputPath } };
-                await manager.SaveConfigAsync(session, config);
-            }
 
             var absoluteConfigPath = Path.GetFullPath(configPath);
 

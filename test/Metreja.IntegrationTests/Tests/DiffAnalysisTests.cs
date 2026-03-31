@@ -119,8 +119,8 @@ public class DiffAnalysisTests : IAsyncLifetime
 
         Assert.Contains("Repeat", output);
         // Base = 3ms + 2ms = 5ms, Compare = 1ms
-        Assert.Contains(AnalyzerHelpers.FormatNs(5_000_000), output);
-        Assert.Contains(AnalyzerHelpers.FormatNs(1_000_000), output);
+        Assert.Contains(FormatUtils.FormatNs(5_000_000), output);
+        Assert.Contains(FormatUtils.FormatNs(1_000_000), output);
     }
 
     [Fact]
@@ -140,11 +140,11 @@ public class DiffAnalysisTests : IAsyncLifetime
             DiffAnalyzer.AnalyzeAsync(_baseFile, _compareFile));
 
         // Should use totalInclusiveNs (50ms/40ms), consistent with leave's deltaNs (also inclusive)
-        Assert.Contains(AnalyzerHelpers.FormatNs(50_000_000), output);
-        Assert.Contains(AnalyzerHelpers.FormatNs(40_000_000), output);
+        Assert.Contains(FormatUtils.FormatNs(50_000_000), output);
+        Assert.Contains(FormatUtils.FormatNs(40_000_000), output);
         // Should NOT show self-time values (7ms/3ms)
-        Assert.DoesNotContain(AnalyzerHelpers.FormatNs(7_000_000), output);
-        Assert.DoesNotContain(AnalyzerHelpers.FormatNs(3_000_000), output);
+        Assert.DoesNotContain(FormatUtils.FormatNs(7_000_000), output);
+        Assert.DoesNotContain(FormatUtils.FormatNs(3_000_000), output);
     }
 
     [Fact]
@@ -203,8 +203,8 @@ public class DiffAnalysisTests : IAsyncLifetime
 
         // Should use FormatNs units (ns, us, ms, s) — not raw nanosecond numbers
         Assert.Contains("500ns", output);
-        Assert.Contains(AnalyzerHelpers.FormatNs(2_000_000_000), output);
-        Assert.Contains(AnalyzerHelpers.FormatNs(1_000_000_000), output);
+        Assert.Contains(FormatUtils.FormatNs(2_000_000_000), output);
+        Assert.Contains(FormatUtils.FormatNs(1_000_000_000), output);
     }
 
     [Fact]

@@ -64,6 +64,8 @@ Events written by the profiler DLL (controlled by `set events` command):
 - `contention_start` / `contention_end` — lock contention events via EventPipe (tid, tsNs)
 - `method_stats` / `exception_stats` — periodic aggregated statistics
 
+**maxEvents behavior:** `session_metadata`, `gc_start`, `gc_end`, `gc_heap_stats`, `method_stats`, and `exception_stats` bypass the maxEvents cap. Only `enter`, `leave`, `exception`, `alloc_by_class`, `contention_start`, and `contention_end` count against it.
+
 ## Code Style
 
 **C#:** Warnings as errors, `AnalysisLevel: latest-recommended`, nullable enabled, file-scoped namespaces, Allman braces, 4-space indent. Private fields: `_camelCase`. Private methods go after public ones.
@@ -104,6 +106,18 @@ GitVersion (ContinuousDeployment mode) drives semver. Bump via commit messages: 
 - System.CommandLine 2.0.3 stable API: `Subcommands.Add`, `SetAction`, `ParseResult.InvokeAsync`
 - C++ async state machine detection: `MethodCache` detects `MoveNext` on `IAsyncStateMachine` implementors and unwraps to the original method name
 - Per-thread call stacks use TLS — `CallStackManager` maintains deferred unwind state for exception handling
+
+## Adding a New Event Type
+
+When adding a new NDJSON event type, update these files:
+
+1. `src/Metreja.Profiler/ConfigReader.h` — add to `EventType` enum
+2. `src/Metreja.Profiler/ConfigReader.cpp` — add event name parsing
+3. `src/Metreja.Profiler/Profiler.cpp` — event mask setup in `Initialize()`
+4. `src/Metreja.Profiler/NdjsonWriter.h/.cpp` — add `Write*` method
+5. `src/Metreja.Tool/Commands/SetCommand.cs` — add to `ValidEventTypes`
+6. `test/Metreja.IntegrationTests/Infrastructure/TraceEvent.cs` — add record type
+7. `test/Metreja.IntegrationTests/Infrastructure/TraceParser.cs` — add parsing case
 
 ## Prerequisites
 

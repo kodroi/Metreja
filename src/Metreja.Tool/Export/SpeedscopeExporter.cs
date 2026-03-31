@@ -7,7 +7,7 @@ internal static class SpeedscopeExporter
 {
     public static async Task ExportAsync(string inputPath, string outputPath)
     {
-        if (!AnalyzerHelpers.ValidateFileExists(inputPath, "File"))
+        if (!EventReader.ValidateFileExists(inputPath, "File"))
             return;
 
         var frameIndex = new Dictionary<string, int>();
@@ -17,7 +17,7 @@ internal static class SpeedscopeExporter
         var threadMaxTs = new Dictionary<long, long>();
         var scenario = "";
 
-        await foreach (var (eventType, root) in AnalyzerHelpers.StreamEventsAsync(inputPath))
+        await foreach (var (eventType, root) in EventReader.StreamEventsAsync(inputPath))
         {
             if (eventType == "session_metadata")
             {
@@ -32,8 +32,8 @@ internal static class SpeedscopeExporter
             var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
             var tsNs = root.TryGetProperty("tsNs", out var ts) ? ts.GetInt64() : 0;
 
-            var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
-            var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
+            var (ns, cls, m) = EventReader.ExtractMethodInfo(root);
+            var key = EventReader.BuildMethodKey(ns, cls, m);
 
             if (!frameIndex.TryGetValue(key, out var idx))
             {

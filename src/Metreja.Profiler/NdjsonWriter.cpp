@@ -163,7 +163,7 @@ void NdjsonWriter::WriteException(long long tsNs, DWORD tid, const MethodInfo& i
         WriteLockedEvent(line, static_cast<size_t>(len));
 }
 
-void NdjsonWriter::WriteGcStarted(long long tsNs, bool gen0, bool gen1, bool gen2, const char* reason)
+void NdjsonWriter::WriteGcStart(long long tsNs, bool gen0, bool gen1, bool gen2, const char* reason)
 {
     char line[2048];
     int len = snprintf(
@@ -181,7 +181,7 @@ void NdjsonWriter::WriteGcStarted(long long tsNs, bool gen0, bool gen1, bool gen
     }
 }
 
-void NdjsonWriter::WriteGcFinished(long long tsNs, long long durationNs, long long heapSizeBytes)
+void NdjsonWriter::WriteGcEnd(long long tsNs, long long durationNs, long long heapSizeBytes)
 {
     char line[2048];
     char heapPart[64] = "";

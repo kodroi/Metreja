@@ -4,9 +4,11 @@ namespace Metreja.Tool.Analysis;
 
 public static class ExceptionsAnalyzer
 {
-    public static async Task<int> AnalyzeAsync(string filePath, int top, string[] filters, string format = "text")
+    public static async Task<int> AnalyzeAsync(string filePath, int top, string[] filters, string format = "text", TextWriter? output = null)
     {
-        if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
+        output ??= Console.Out;
+
+        if (!EventReader.ValidateFileExists(filePath, "File"))
             return 1;
 
         var stats = await AggregateAsync(filePath, filters);
@@ -34,13 +36,13 @@ public static class ExceptionsAnalyzer
                 totalTypes = stats.Count,
             };
 
-            Console.WriteLine(JsonSerializer.Serialize(jsonOutput, JsonOutputOptions.Default));
+            output.WriteLine(JsonSerializer.Serialize(jsonOutput, JsonOutputOptions.Default));
             return 0;
         }
 
         if (stats.Count == 0)
         {
-            Console.WriteLine("No exceptions found");
+            output.WriteLine("No exceptions found");
             return 0;
         }
 
@@ -49,9 +51,9 @@ public static class ExceptionsAnalyzer
             .Take(top)
             .ToList();
 
-        Console.WriteLine(
+        output.WriteLine(
             $"{"Exception Type",-50} {"Count",7}  Top Throw Sites");
-        Console.WriteLine(new string('-', 75));
+        output.WriteLine(new string('-', 75));
 
         foreach (var (exType, s) in sortedText)
         {
@@ -63,12 +65,12 @@ public static class ExceptionsAnalyzer
 
             var sitesStr = string.Join(", ", topSites);
 
-            Console.WriteLine(
-                $"{AnalyzerHelpers.Truncate(exType, 50),-50} {s.Count,7}  {sitesStr}");
+            output.WriteLine(
+                $"{FormatUtils.Truncate(exType, 50),-50} {s.Count,7}  {sitesStr}");
         }
 
-        Console.WriteLine(new string('-', 75));
-        Console.WriteLine($"Showing top {sortedText.Count} of {stats.Count} exception types");
+        output.WriteLine(new string('-', 75));
+        output.WriteLine($"Showing top {sortedText.Count} of {stats.Count} exception types");
 
         return 0;
     }
@@ -78,7 +80,7 @@ public static class ExceptionsAnalyzer
         var stats = new Dictionary<string, ExceptionTypeStats>();
         var hasFilters = filters.Length > 0;
 
-        await foreach (var (eventType, root) in AnalyzerHelpers.StreamEventsAsync(filePath))
+        await foreach (var (eventType, root) in EventReader.StreamEventsAsync(filePath))
         {
             if (eventType == "exception")
             {
@@ -97,8 +99,8 @@ public static class ExceptionsAnalyzer
 
                 s.Count++;
 
-                var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
-                var methodKey = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
+                var (ns, cls, m) = EventReader.ExtractMethodInfo(root);
+                var methodKey = EventReader.BuildMethodKey(ns, cls, m);
                 if (!string.IsNullOrEmpty(methodKey) && methodKey != ".")
                 {
                     s.ThrowSites.TryGetValue(methodKey, out var siteCount);
@@ -126,8 +128,8 @@ public static class ExceptionsAnalyzer
 
                 s.Count += count;
 
-                var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
-                var methodKey = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
+                var (ns, cls, m) = EventReader.ExtractMethodInfo(root);
+                var methodKey = EventReader.BuildMethodKey(ns, cls, m);
                 if (!string.IsNullOrEmpty(methodKey) && methodKey != ".")
                 {
                     s.ThrowSites.TryGetValue(methodKey, out var siteCount);

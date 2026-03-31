@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include "include/profiling.h"
+#include "ConfigReader.h"
 
 // Forward declarations
 class MetrejaProfiler;
@@ -170,6 +171,8 @@ public:
     ICorProfilerInfo3* GetProfilerInfo() const { return m_profilerInfo; }
 
 private:
+    HRESULT SetupEventMonitoring(EventType events);
+
     std::atomic<LONG> m_refCount;
     ICorProfilerInfo3* m_profilerInfo;
     ICorProfilerInfo5* m_profilerInfo5;

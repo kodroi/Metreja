@@ -64,6 +64,12 @@ internal static class EventReader
         return string.IsNullOrEmpty(ns) ? $"{cls}.{m}" : $"{ns}.{cls}.{m}";
     }
 
+    public static long GetTid(JsonElement root) => root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
+
+    public static long GetTsNs(JsonElement root) => root.TryGetProperty("tsNs", out var t) ? t.GetInt64() : 0;
+
+    public static long GetDeltaNs(JsonElement root) => root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0;
+
     public static bool ValidateFileExists(string path, string label)
     {
         if (File.Exists(path))

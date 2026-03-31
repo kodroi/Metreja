@@ -86,6 +86,17 @@ public class ConfigManager
             File.Delete(path);
     }
 
+    public async Task EnsureAbsoluteOutputPathAsync(string sessionId)
+    {
+        var config = await LoadConfigAsync(sessionId);
+        if (!Path.IsPathFullyQualified(config.Output.Path))
+        {
+            var absoluteOutputPath = Path.GetFullPath(config.Output.Path);
+            config = config with { Output = config.Output with { Path = absoluteOutputPath } };
+            await SaveConfigAsync(sessionId, config);
+        }
+    }
+
     public void DeleteAllSessions()
     {
         if (Directory.Exists(_sessionsDir))
