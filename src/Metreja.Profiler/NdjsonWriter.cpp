@@ -240,10 +240,10 @@ void NdjsonWriter::WriteAllocByClass(long long tsNs, DWORD tid, const std::strin
     char line[2048];
     int len = snprintf(
         line, sizeof(line),
-        R"({"event":"alloc_by_class","tsNs":%lld,"pid":%lu,"sessionId":"%s","tid":%lu,"className":"%s","count":%lu})"
+        R"({"event":"alloc_by_class","tsNs":%lld,"pid":%lu,"sessionId":"%s","tid":%lu,"className":"%s","count":%u})"
         "\n",
         tsNs, static_cast<unsigned long>(m_pid), m_sessionId.c_str(), static_cast<unsigned long>(tid),
-        className.c_str(), static_cast<unsigned long>(count));
+        className.c_str(), static_cast<unsigned int>(count));
 
     if (len > 0 && static_cast<size_t>(len) < sizeof(line))
         WriteLockedEvent(line, static_cast<size_t>(len));
@@ -258,10 +258,10 @@ void NdjsonWriter::WriteAllocByClassDetailed(long long tsNs, DWORD tid, const st
     char line[2048];
     int len = snprintf(
         line, sizeof(line),
-        R"({"event":"alloc_by_class","tsNs":%lld,"pid":%lu,"sessionId":"%s","tid":%lu,"className":"%s","count":%lu,"allocAsm":"%s","allocNs":"%s","allocCls":"%s","allocM":"%s"})"
+        R"({"event":"alloc_by_class","tsNs":%lld,"pid":%lu,"sessionId":"%s","tid":%lu,"className":"%s","count":%u,"allocAsm":"%s","allocNs":"%s","allocCls":"%s","allocM":"%s"})"
         "\n",
         tsNs, static_cast<unsigned long>(m_pid), m_sessionId.c_str(), static_cast<unsigned long>(tid),
-        className.c_str(), static_cast<unsigned long>(count), allocMethod.assemblyName.c_str(),
+        className.c_str(), static_cast<unsigned int>(count), allocMethod.assemblyName.c_str(),
         allocMethod.namespaceName.c_str(), allocMethod.className.c_str(), allocMethod.methodName.c_str());
 
     if (len > 0 && static_cast<size_t>(len) < sizeof(line))
