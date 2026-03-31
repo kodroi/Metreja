@@ -119,20 +119,16 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::Initialize(IUnknown* pICorProfilerInf
     bool needGcHeapStats = HasEvent(events, EventType::GcHeapStats) && m_profilerInfo12 != nullptr;
     bool needAllocByClass = HasEvent(events, EventType::AllocByClass);
 
-    if (needAllocByClass)
+    if (needAllocByClass || (needGcCallbacks && m_profilerInfo5 == nullptr))
     {
-        // AllocByClass requires COR_PRF_MONITOR_GC (disables concurrent GC — unavoidable)
+        // COR_PRF_MONITOR_GC: required for AllocByClass, or as fallback on old runtimes.
+        // Note: this disables concurrent GC.
         eventMask |= COR_PRF_MONITOR_GC;
-    }
-    else if (needGcCallbacks && m_profilerInfo5 != nullptr)
-    {
-        // Use COR_PRF_HIGH_BASIC_GC: GC callbacks without disabling concurrent GC
-        highFlags |= COR_PRF_HIGH_BASIC_GC;
     }
     else if (needGcCallbacks)
     {
-        // Fallback for old runtimes without ICorProfilerInfo5
-        eventMask |= COR_PRF_MONITOR_GC;
+        // COR_PRF_HIGH_BASIC_GC: GC callbacks without disabling concurrent GC
+        highFlags |= COR_PRF_HIGH_BASIC_GC;
     }
 
     // Build EventPipe keyword mask for combined subscription
@@ -853,10 +849,16 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::EventPipeEventDelivered(EVENTPIPE_PRO
         // Minimum V1 payload: 92 bytes (gen0-LOH + finalization + pinned + sink + handle counts)
         if (cbEventData >= 92 && eventData != nullptr)
         {
-            uint64_t gen0Size, gen0Promoted, gen1Size, gen1Promoted;
-            uint64_t gen2Size, gen2Promoted, lohSize, lohPromoted;
-            uint64_t finalizationPromotedCount;
-            uint32_t pinnedObjectCount;
+            uint64_t gen0Size = 0;
+            uint64_t gen0Promoted = 0;
+            uint64_t gen1Size = 0;
+            uint64_t gen1Promoted = 0;
+            uint64_t gen2Size = 0;
+            uint64_t gen2Promoted = 0;
+            uint64_t lohSize = 0;
+            uint64_t lohPromoted = 0;
+            uint64_t finalizationPromotedCount = 0;
+            uint32_t pinnedObjectCount = 0;
 
             memcpy(&gen0Size, eventData + 0, 8);
             memcpy(&gen0Promoted, eventData + 8, 8);
@@ -871,7 +873,8 @@ HRESULT STDMETHODCALLTYPE MetrejaProfiler::EventPipeEventDelivered(EVENTPIPE_PRO
             memcpy(&pinnedObjectCount, eventData + 80, 4);
 
             // V2 adds POH (Pinned Object Heap) after ClrInstanceID (uint16 at offset 92)
-            uint64_t pohSize = 0, pohPromoted = 0;
+            uint64_t pohSize = 0;
+            uint64_t pohPromoted = 0;
             if (cbEventData >= 110)
             {
                 memcpy(&pohSize, eventData + 94, 8);
