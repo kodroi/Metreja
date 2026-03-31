@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"$CLAUDE_PROJECT_DIR\" && dotnet build src/Metreja.Tool/Metreja.Tool.csproj -c Release && scripts/build-macos.sh && dotnet test test/Metreja.IntegrationTests/Metreja.IntegrationTests.csproj -c Release",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && dotnet build src/Metreja.Tool/Metreja.Tool.csproj -c Release && if [ \"$(uname -s)\" = \"Darwin\" ]; then scripts/build-macos.sh; fi && dotnet test test/Metreja.IntegrationTests/Metreja.IntegrationTests.csproj -c Release",
             "timeout": 300
           }
         ]
