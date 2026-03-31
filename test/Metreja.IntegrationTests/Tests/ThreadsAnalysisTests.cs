@@ -98,7 +98,7 @@ public class ThreadsAnalysisTests : IAsyncLifetime
             ThreadsAnalyzer.AnalyzeAsync(_tempFile, "calls"));
 
         Assert.Contains("0ns", output);
-        Assert.Contains(AnalyzerHelpers.FormatNs(40000), output);
+        Assert.Contains(FormatUtils.FormatNs(40000), output);
         Assert.Contains("Total threads: 1", output);
     }
 
@@ -122,6 +122,6 @@ public class ThreadsAnalysisTests : IAsyncLifetime
         var tidLine = lines.FirstOrDefault(l => l.TrimStart().StartsWith("42", StringComparison.Ordinal));
         Assert.NotNull(tidLine);
         Assert.Contains("2", tidLine);
-        Assert.Contains(AnalyzerHelpers.FormatNs(19000), output);
+        Assert.Contains(FormatUtils.FormatNs(19000), output);
     }
 }

@@ -15,6 +15,17 @@ internal static class FormatUtils
         };
     }
 
+    public static string FormatBytes(long bytes)
+    {
+        return bytes switch
+        {
+            >= 1024 * 1024 * 1024 => string.Format(CultureInfo.InvariantCulture, "{0:F2} GB", bytes / (1024.0 * 1024.0 * 1024.0)),
+            >= 1024 * 1024 => string.Format(CultureInfo.InvariantCulture, "{0:F2} MB", bytes / (1024.0 * 1024.0)),
+            >= 1024 => string.Format(CultureInfo.InvariantCulture, "{0:F2} KB", bytes / 1024.0),
+            _ => $"{bytes} B",
+        };
+    }
+
     public static string Truncate(string value, int maxLength)
     {
         return value.Length <= maxLength ? value : string.Concat("...", value.AsSpan(value.Length - maxLength + 3));

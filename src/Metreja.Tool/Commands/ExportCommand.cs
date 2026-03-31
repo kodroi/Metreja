@@ -9,6 +9,7 @@ public static class ExportCommand
     {
         var fileArg = new Argument<string>("file") { Description = "NDJSON trace file path" };
         var formatOption = new Option<string>("--format") { Description = "Export format", DefaultValueFactory = _ => "speedscope" };
+        formatOption.AcceptOnlyFromAmong("speedscope", "csv");
         var outputOption = new Option<string?>("--output") { Description = "Output file path (default: auto-generated based on format)" };
 
         var command = new Command("export", "Convert traces to external formats (speedscope, csv)");

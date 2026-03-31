@@ -4,9 +4,11 @@ namespace Metreja.Tool.Analysis;
 
 public static class CallTreeAnalyzer
 {
-    public static async Task<int> AnalyzeAsync(string filePath, string methodPattern, long? tidFilter, int occurrence, string format = "text")
+    public static async Task<int> AnalyzeAsync(string filePath, string methodPattern, long? tidFilter, int occurrence, string format = "text", TextWriter? output = null)
     {
-        if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
+        output ??= Console.Out;
+
+        if (!EventReader.ValidateFileExists(filePath, "File"))
             return 1;
 
         // Pass 1: Find all occurrences of the method
@@ -52,19 +54,19 @@ public static class CallTreeAnalyzer
                 }).ToArray()
             };
 
-            Console.WriteLine(JsonSerializer.Serialize(jsonOutput, JsonOutputOptions.Default));
+            output.WriteLine(JsonSerializer.Serialize(jsonOutput, JsonOutputOptions.Default));
         }
         else
         {
-            Console.WriteLine(
+            output.WriteLine(
                 $"Found {occurrences.Count} invocation(s). Showing #{occurrence} (slowest-first).");
-            Console.WriteLine(
-                $"Call tree for tid {selected.Tid} (total: {AnalyzerHelpers.FormatNs(selected.DeltaNs)})");
-            Console.WriteLine(new string('-', 80));
+            output.WriteLine(
+                $"Call tree for tid {selected.Tid} (total: {FormatUtils.FormatNs(selected.DeltaNs)})");
+            output.WriteLine(new string('-', 80));
 
-            PrintEntries(entries);
+            PrintEntries(entries, output);
 
-            Console.WriteLine(new string('-', 80));
+            output.WriteLine(new string('-', 80));
         }
 
         return 0;
@@ -76,7 +78,7 @@ public static class CallTreeAnalyzer
         var occurrences = new List<Occurrence>();
         var threadStacks = new Dictionary<long, Stack<int>>();
 
-        await foreach (var (eventType, root) in AnalyzerHelpers.StreamEventsAsync(filePath))
+        await foreach (var (eventType, root) in EventReader.StreamEventsAsync(filePath))
         {
             var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
 
@@ -101,11 +103,11 @@ public static class CallTreeAnalyzer
                     stack.Pop();
                 }
 
-                var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
+                var (ns, cls, m) = EventReader.ExtractMethodInfo(root);
                 var deltaNs = root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0;
                 var tsNs = root.TryGetProperty("tsNs", out var ts) ? ts.GetInt64() : 0;
 
-                if (AnalyzerHelpers.MatchesPattern(methodPattern, ns, cls, m))
+                if (MethodMatcher.MatchesPattern(methodPattern, ns, cls, m))
                 {
                     occurrences.Add(new Occurrence
                     {
@@ -129,7 +131,7 @@ public static class CallTreeAnalyzer
         // Stack of entries by depth for attaching leave timing
         var depthStack = new Stack<DisplayEntry>();
 
-        await foreach (var (eventType, root) in AnalyzerHelpers.StreamEventsAsync(filePath))
+        await foreach (var (eventType, root) in EventReader.StreamEventsAsync(filePath))
         {
             var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
 
@@ -150,10 +152,10 @@ public static class CallTreeAnalyzer
 
                 if (inSubtree && depth >= target.Depth)
                 {
-                    var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
+                    var (ns, cls, m) = EventReader.ExtractMethodInfo(root);
                     var isAsync = root.TryGetProperty("async", out var asyncProp) &&
                                   asyncProp.ValueKind == JsonValueKind.True;
-                    var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
+                    var key = EventReader.BuildMethodKey(ns, cls, m);
 
                     var entry = new DisplayEntry
                     {
@@ -201,18 +203,18 @@ public static class CallTreeAnalyzer
         return entries;
     }
 
-    private static void PrintEntries(List<DisplayEntry> entries)
+    private static void PrintEntries(List<DisplayEntry> entries, TextWriter output)
     {
         foreach (var entry in entries)
         {
             var indent = new string(' ', entry.Depth * 2);
             var asyncTag = entry.IsAsync ? " [async]" : "";
-            var timing = entry.DeltaNs >= 0 ? $" ({AnalyzerHelpers.FormatNs(entry.DeltaNs)})" : "";
-            Console.WriteLine($"{indent}{entry.Name}{asyncTag}{timing}");
+            var timing = entry.DeltaNs >= 0 ? $" ({FormatUtils.FormatNs(entry.DeltaNs)})" : "";
+            output.WriteLine($"{indent}{entry.Name}{asyncTag}{timing}");
 
             if (entry.IsException)
             {
-                Console.WriteLine($"{indent}  !! {entry.ExceptionType}");
+                output.WriteLine($"{indent}  !! {entry.ExceptionType}");
             }
         }
     }

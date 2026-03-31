@@ -4,15 +4,17 @@ namespace Metreja.Tool.Analysis;
 
 public static class DiffAnalyzer
 {
-    public static async Task<int> AnalyzeAsync(string basePath, string comparePath, string format = "text")
+    public static async Task<int> AnalyzeAsync(string basePath, string comparePath, string format = "text", TextWriter? output = null)
     {
-        if (!AnalyzerHelpers.ValidateFileExists(basePath, "Base file"))
+        output ??= Console.Out;
+
+        if (!EventReader.ValidateFileExists(basePath, "Base file"))
             return 1;
-        if (!AnalyzerHelpers.ValidateFileExists(comparePath, "Compare file"))
+        if (!EventReader.ValidateFileExists(comparePath, "Compare file"))
             return 1;
 
-        var baseTimings = await AnalyzerHelpers.CollectMethodTimingsAsync(basePath);
-        var compareTimings = await AnalyzerHelpers.CollectMethodTimingsAsync(comparePath);
+        var baseTimings = await EventReader.CollectMethodTimingsAsync(basePath);
+        var compareTimings = await EventReader.CollectMethodTimingsAsync(comparePath);
 
         var allMethods = baseTimings.Keys.Union(compareTimings.Keys)
             .OrderByDescending(k => Math.Abs(compareTimings.GetValueOrDefault(k, 0) - baseTimings.GetValueOrDefault(k, 0)));
@@ -35,14 +37,14 @@ public static class DiffAnalyzer
                 compareMethodCount = compareTimings.Count
             };
 
-            Console.WriteLine(JsonSerializer.Serialize(result, JsonOutputOptions.Default));
+            output.WriteLine(JsonSerializer.Serialize(result, JsonOutputOptions.Default));
             return 0;
         }
 
-        Console.WriteLine("Method Timing Diff (base -> compare):");
-        Console.WriteLine(new string('-', 100));
-        Console.WriteLine($"{"Method",-50} {"Base",12} {"Compare",12} {"Delta",12} {"Change",10}");
-        Console.WriteLine(new string('-', 100));
+        output.WriteLine("Method Timing Diff (base -> compare):");
+        output.WriteLine(new string('-', 100));
+        output.WriteLine($"{"Method",-50} {"Base",12} {"Compare",12} {"Delta",12} {"Change",10}");
+        output.WriteLine(new string('-', 100));
 
         foreach (var method in allMethods)
         {
@@ -53,12 +55,12 @@ public static class DiffAnalyzer
             var changeStr = baseNs > 0
                 ? $"{(double)delta / baseNs:P0}"
                 : compareNs > 0 ? "new" : "";
-            Console.WriteLine(
-                $"{AnalyzerHelpers.Truncate(method, 50),-50} {AnalyzerHelpers.FormatNs(baseNs),12} {AnalyzerHelpers.FormatNs(compareNs),12} {deltaPrefix + AnalyzerHelpers.FormatNs(Math.Abs(delta)),12} {changeStr,10}");
+            output.WriteLine(
+                $"{FormatUtils.Truncate(method, 50),-50} {FormatUtils.FormatNs(baseNs),12} {FormatUtils.FormatNs(compareNs),12} {deltaPrefix + FormatUtils.FormatNs(Math.Abs(delta)),12} {changeStr,10}");
         }
 
-        Console.WriteLine(new string('-', 100));
-        Console.WriteLine($"Methods in base: {baseTimings.Count}, in compare: {compareTimings.Count}");
+        output.WriteLine(new string('-', 100));
+        output.WriteLine($"Methods in base: {baseTimings.Count}, in compare: {compareTimings.Count}");
 
         return 0;
     }

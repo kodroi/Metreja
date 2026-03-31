@@ -5,9 +5,11 @@ namespace Metreja.Tool.Analysis;
 
 public static class SummaryAnalyzer
 {
-    public static async Task<int> AnalyzeAsync(string filePath, string format = "text")
+    public static async Task<int> AnalyzeAsync(string filePath, string format = "text", TextWriter? output = null)
     {
-        if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
+        output ??= Console.Out;
+
+        if (!EventReader.ValidateFileExists(filePath, "File"))
             return 1;
 
         var summary = await AggregateAsync(filePath);
@@ -33,34 +35,34 @@ public static class SummaryAnalyzer
                 exceptionCount = summary.ExceptionCount,
             };
 
-            Console.WriteLine(JsonSerializer.Serialize(jsonOutput, JsonOutputOptions.Default));
+            output.WriteLine(JsonSerializer.Serialize(jsonOutput, JsonOutputOptions.Default));
             return 0;
         }
 
-        Console.WriteLine("Trace Summary");
-        Console.WriteLine(new string('-', 50));
-        Console.WriteLine($"  Session:      {summary.SessionId}");
-        Console.WriteLine($"  Scenario:     {summary.Scenario}");
-        Console.WriteLine($"  PID:          {summary.Pid}");
+        output.WriteLine("Trace Summary");
+        output.WriteLine(new string('-', 50));
+        output.WriteLine($"  Session:      {summary.SessionId}");
+        output.WriteLine($"  Scenario:     {summary.Scenario}");
+        output.WriteLine($"  PID:          {summary.Pid}");
 
         var duration = summary.MinTsNs.HasValue && summary.MaxTsNs.HasValue
-            ? AnalyzerHelpers.FormatNs(summary.MaxTsNs.Value - summary.MinTsNs.Value)
+            ? FormatUtils.FormatNs(summary.MaxTsNs.Value - summary.MinTsNs.Value)
             : "N/A";
-        Console.WriteLine($"  Duration:     {duration}");
-        Console.WriteLine($"  Threads:      {summary.ThreadIds.Count}");
-        Console.WriteLine($"  Methods:      {summary.MethodKeys.Count}");
-        Console.WriteLine($"  Total events: {summary.TotalEvents}");
-        Console.WriteLine();
-        Console.WriteLine("  Event breakdown:");
+        output.WriteLine($"  Duration:     {duration}");
+        output.WriteLine($"  Threads:      {summary.ThreadIds.Count}");
+        output.WriteLine($"  Methods:      {summary.MethodKeys.Count}");
+        output.WriteLine($"  Total events: {summary.TotalEvents}");
+        output.WriteLine();
+        output.WriteLine("  Event breakdown:");
 
         foreach (var (eventType, count) in summary.EventCounts.OrderByDescending(kv => kv.Value))
         {
-            Console.WriteLine($"    {eventType,-18}{count}");
+            output.WriteLine($"    {eventType,-18}{count}");
         }
 
-        Console.WriteLine();
-        Console.WriteLine($"  GC collections:  {summary.GcCount}");
-        Console.WriteLine($"  Exceptions:     {summary.ExceptionCount}");
+        output.WriteLine();
+        output.WriteLine($"  GC collections:  {summary.GcCount}");
+        output.WriteLine($"  Exceptions:     {summary.ExceptionCount}");
 
         return 0;
     }
@@ -69,7 +71,7 @@ public static class SummaryAnalyzer
     {
         var summary = new TraceSummary();
 
-        await foreach (var (eventType, root) in AnalyzerHelpers.StreamEventsAsync(filePath))
+        await foreach (var (eventType, root) in EventReader.StreamEventsAsync(filePath))
         {
             summary.TotalEvents++;
 
@@ -99,15 +101,15 @@ public static class SummaryAnalyzer
                 case "enter":
                 case "leave":
                 {
-                    var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
-                    var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
+                    var (ns, cls, m) = EventReader.ExtractMethodInfo(root);
+                    var key = EventReader.BuildMethodKey(ns, cls, m);
                     summary.MethodKeys.Add(key);
                     break;
                 }
                 case "method_stats":
                 {
-                    var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
-                    var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
+                    var (ns, cls, m) = EventReader.ExtractMethodInfo(root);
+                    var key = EventReader.BuildMethodKey(ns, cls, m);
                     summary.MethodKeys.Add(key);
                     break;
                 }

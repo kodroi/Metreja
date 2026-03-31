@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.Globalization;
+using Metreja.Tool.Analysis;
 using Metreja.Tool.Config;
 
 namespace Metreja.Tool.Commands;
@@ -35,7 +36,7 @@ public static class ListCommand
                     var excludes = config.Instrumentation.Excludes.Count;
 
                     Console.WriteLine(
-                        $"{sessionId,-12} {Truncate(config.Metadata.Scenario, 25),-25} {modified,-22} {Truncate(config.Output.Path, 45),-45} {includes,9} {excludes,9}");
+                        $"{sessionId,-12} {FormatUtils.Truncate(config.Metadata.Scenario, 25),-25} {modified,-22} {FormatUtils.Truncate(config.Output.Path, 45),-45} {includes,9} {excludes,9}");
                 }
                 catch (Exception)
                 {
@@ -48,10 +49,5 @@ public static class ListCommand
         });
 
         return command;
-    }
-
-    private static string Truncate(string value, int maxLength)
-    {
-        return value.Length <= maxLength ? value : string.Concat("...", value.AsSpan(value.Length - maxLength + 3));
     }
 }

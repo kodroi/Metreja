@@ -4,9 +4,11 @@ namespace Metreja.Tool.Analysis;
 
 public static class HotspotsAnalyzer
 {
-    public static async Task<int> AnalyzeAsync(string filePath, int top, double minMs, string sortBy, string[] filters, string format = "text")
+    public static async Task<int> AnalyzeAsync(string filePath, int top, double minMs, string sortBy, string[] filters, string format = "text", TextWriter? output = null)
     {
-        if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
+        output ??= Console.Out;
+
+        if (!EventReader.ValidateFileExists(filePath, "File"))
             return 1;
 
         var stats = await AggregateAsync(filePath, filters);
@@ -28,7 +30,7 @@ public static class HotspotsAnalyzer
 
         if (format == "json")
         {
-            var output = new
+            var jsonOutput = new
             {
                 Methods = shown.Select(kv =>
                 {
@@ -53,13 +55,13 @@ public static class HotspotsAnalyzer
                 MinThresholdMs = minMs
             };
 
-            Console.WriteLine(JsonSerializer.Serialize(output, JsonOutputOptions.Default));
+            output.WriteLine(JsonSerializer.Serialize(jsonOutput, JsonOutputOptions.Default));
             return 0;
         }
 
-        Console.WriteLine(
+        output.WriteLine(
             $"{"#",-5} {"Method",-50} {"Calls",7} {"Self Total",12} {"Self Avg",10} {"Incl Total",12} {"Incl Avg",10} {"Allocs",9} {"Tailcalls",10} {"Exceptions",11}");
-        Console.WriteLine(new string('-', 138));
+        output.WriteLine(new string('-', 138));
 
         for (var i = 0; i < shown.Count; i++)
         {
@@ -67,12 +69,12 @@ public static class HotspotsAnalyzer
             var selfAvg = s.Count > 0 ? s.SelfTotal / s.Count : 0;
             var inclAvg = s.Count > 0 ? s.InclusiveTotal / s.Count : 0;
 
-            Console.WriteLine(
-                $"{i + 1,-5} {AnalyzerHelpers.Truncate(method, 50),-50} {s.Count,7} {AnalyzerHelpers.FormatNs(s.SelfTotal),12} {AnalyzerHelpers.FormatNs(selfAvg),10} {AnalyzerHelpers.FormatNs(s.InclusiveTotal),12} {AnalyzerHelpers.FormatNs(inclAvg),10} {s.AllocCount,9} {s.TailcallCount,10} {s.ExceptionCount,11}");
+            output.WriteLine(
+                $"{i + 1,-5} {FormatUtils.Truncate(method, 50),-50} {s.Count,7} {FormatUtils.FormatNs(s.SelfTotal),12} {FormatUtils.FormatNs(selfAvg),10} {FormatUtils.FormatNs(s.InclusiveTotal),12} {FormatUtils.FormatNs(inclAvg),10} {s.AllocCount,9} {s.TailcallCount,10} {s.ExceptionCount,11}");
         }
 
-        Console.WriteLine(new string('-', 138));
-        Console.WriteLine(
+        output.WriteLine(new string('-', 138));
+        output.WriteLine(
             $"Showing top {shown.Count} of {stats.Count} methods (min threshold: {minMs:F1}ms, sorted by: {sortBy})");
 
         return 0;
@@ -84,13 +86,13 @@ public static class HotspotsAnalyzer
         var threadStacks = new Dictionary<long, Stack<StackFrame>>();
         var hasFilters = filters.Length > 0;
 
-        await foreach (var (eventType, root) in AnalyzerHelpers.StreamEventsAsync(filePath))
+        await foreach (var (eventType, root) in EventReader.StreamEventsAsync(filePath))
         {
             if (eventType == "enter")
             {
-                var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
-                var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
-                var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
+                var tid = EventReader.GetTid(root);
+                var (ns, cls, m) = EventReader.ExtractMethodInfo(root);
+                var key = EventReader.BuildMethodKey(ns, cls, m);
 
                 if (!threadStacks.TryGetValue(tid, out var stack))
                 {
@@ -102,17 +104,17 @@ public static class HotspotsAnalyzer
             }
             else if (eventType == "leave")
             {
-                var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
-                var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
-                var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
-                var deltaNs = root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0;
+                var tid = EventReader.GetTid(root);
+                var (ns, cls, m) = EventReader.ExtractMethodInfo(root);
+                var key = EventReader.BuildMethodKey(ns, cls, m);
+                var deltaNs = EventReader.GetDeltaNs(root);
 
                 if (threadStacks.TryGetValue(tid, out var stack) && stack.Count > 0)
                 {
                     var frame = stack.Pop();
                     var selfNs = deltaNs - frame.ChildrenNs;
 
-                    if (!hasFilters || AnalyzerHelpers.MatchesAnyFilter(filters, ns, cls, m, key))
+                    if (!hasFilters || MethodMatcher.MatchesAnyFilter(filters, ns, cls, m, key))
                     {
                         if (!stats.TryGetValue(key, out var ms))
                         {
@@ -138,10 +140,10 @@ public static class HotspotsAnalyzer
             }
             else if (eventType == "method_stats")
             {
-                var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
-                var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
+                var (ns, cls, m) = EventReader.ExtractMethodInfo(root);
+                var key = EventReader.BuildMethodKey(ns, cls, m);
 
-                if (!hasFilters || AnalyzerHelpers.MatchesAnyFilter(filters, ns, cls, m, key))
+                if (!hasFilters || MethodMatcher.MatchesAnyFilter(filters, ns, cls, m, key))
                 {
                     if (!stats.TryGetValue(key, out var ms))
                     {
@@ -158,11 +160,11 @@ public static class HotspotsAnalyzer
             }
             else if (eventType == "exception")
             {
-                var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
-                var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
+                var (ns, cls, m) = EventReader.ExtractMethodInfo(root);
+                var key = EventReader.BuildMethodKey(ns, cls, m);
 
                 if (!string.IsNullOrEmpty(key) && key != "." &&
-                    (!hasFilters || AnalyzerHelpers.MatchesAnyFilter(filters, ns, cls, m, key)))
+                    (!hasFilters || MethodMatcher.MatchesAnyFilter(filters, ns, cls, m, key)))
                 {
                     if (!stats.TryGetValue(key, out var ms))
                     {
@@ -175,12 +177,12 @@ public static class HotspotsAnalyzer
             }
             else if (eventType == "exception_stats")
             {
-                var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
-                var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
+                var (ns, cls, m) = EventReader.ExtractMethodInfo(root);
+                var key = EventReader.BuildMethodKey(ns, cls, m);
                 var exCount = root.TryGetProperty("count", out var ec) ? ec.GetInt64() : 0;
 
                 if (exCount > 0 && !string.IsNullOrEmpty(key) && key != "." &&
-                    (!hasFilters || AnalyzerHelpers.MatchesAnyFilter(filters, ns, cls, m, key)))
+                    (!hasFilters || MethodMatcher.MatchesAnyFilter(filters, ns, cls, m, key)))
                 {
                     if (!stats.TryGetValue(key, out var ms))
                     {
@@ -193,7 +195,7 @@ public static class HotspotsAnalyzer
             }
             else if (eventType == "alloc_by_class")
             {
-                var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
+                var tid = EventReader.GetTid(root);
                 var allocCount = root.TryGetProperty("count", out var c) ? c.GetInt64() : 0;
 
                 if (allocCount > 0 && threadStacks.TryGetValue(tid, out var stack) && stack.Count > 0)

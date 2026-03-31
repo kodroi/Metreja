@@ -41,7 +41,31 @@ public record ExceptionEvent : TraceEvent
     public required string ExType { get; init; }
 }
 
-public record GcEvent : TraceEvent;
+public record GcEvent : TraceEvent
+{
+    public bool? Gen0 { get; init; }
+    public bool? Gen1 { get; init; }
+    public bool? Gen2 { get; init; }
+    public string? Reason { get; init; }
+    public long? DurationNs { get; init; }
+    public long? HeapSizeBytes { get; init; }
+}
+
+public record GcHeapStatsEvent : TraceEvent
+{
+    public long Gen0SizeBytes { get; init; }
+    public long Gen0PromotedBytes { get; init; }
+    public long Gen1SizeBytes { get; init; }
+    public long Gen1PromotedBytes { get; init; }
+    public long Gen2SizeBytes { get; init; }
+    public long Gen2PromotedBytes { get; init; }
+    public long LohSizeBytes { get; init; }
+    public long LohPromotedBytes { get; init; }
+    public long PohSizeBytes { get; init; }
+    public long PohPromotedBytes { get; init; }
+    public long FinalizationQueueLength { get; init; }
+    public int PinnedObjectCount { get; init; }
+}
 
 public record ContentionEvent : TraceEvent
 {

@@ -75,10 +75,7 @@ inline int PalWideCharToMultiByte(const WCHAR* wide, int wideLen, char* mb, int 
 typedef int PalFileHandle;
 #define PAL_INVALID_FILE_HANDLE (-1)
 
-inline PalFileHandle PalCreateFile(const char* path)
-{
-    return open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-}
+inline PalFileHandle PalCreateFile(const char* path) { return open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644); }
 
 inline bool PalWriteFile(PalFileHandle h, const void* data, size_t len)
 {
@@ -107,10 +104,7 @@ inline void PalCloseFile(PalFileHandle h)
 
 // ─── Directories ──────────────────────────────────────────────────────────────
 
-inline bool PalCreateDirectory(const char* path)
-{
-    return mkdir(path, 0755) == 0 || errno == EEXIST;
-}
+inline bool PalCreateDirectory(const char* path) { return mkdir(path, 0755) == 0 || errno == EEXIST; }
 
 // ─── Process / Thread ID ──────────────────────────────────────────────────────
 

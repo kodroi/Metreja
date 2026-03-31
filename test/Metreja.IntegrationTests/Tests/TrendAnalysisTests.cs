@@ -81,10 +81,10 @@ public class TrendAnalysisTests : IAsyncLifetime
             TrendAnalyzer.AnalyzeAsync(_tempFile, "Target"));
 
         Assert.Contains("200", output);
-        Assert.Contains(AnalyzerHelpers.FormatNs(10_000_000), output);
-        Assert.Contains(AnalyzerHelpers.FormatNs(20_000_000), output);
-        Assert.Contains(AnalyzerHelpers.FormatNs(50_000), output);
-        Assert.Contains(AnalyzerHelpers.FormatNs(100_000), output);
+        Assert.Contains(FormatUtils.FormatNs(10_000_000), output);
+        Assert.Contains(FormatUtils.FormatNs(20_000_000), output);
+        Assert.Contains(FormatUtils.FormatNs(50_000), output);
+        Assert.Contains(FormatUtils.FormatNs(100_000), output);
     }
 
     [Fact]

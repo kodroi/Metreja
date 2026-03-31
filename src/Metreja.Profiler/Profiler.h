@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include "include/profiling.h"
+#include "ConfigReader.h"
 
 // Forward declarations
 class MetrejaProfiler;
@@ -132,7 +133,8 @@ public:
     HRESULT STDMETHODCALLTYPE ReJITError(ModuleID moduleId, mdMethodDef methodId, FunctionID functionId,
                                          HRESULT hrStatus) override;
     HRESULT STDMETHODCALLTYPE MovedReferences2(ULONG cMovedObjectIDRanges, ObjectID oldObjectIDRangeStart[],
-                                               ObjectID newObjectIDRangeStart[], SIZE_T cObjectIDRangeLength[]) override;
+                                               ObjectID newObjectIDRangeStart[],
+                                               SIZE_T cObjectIDRangeLength[]) override;
     HRESULT STDMETHODCALLTYPE SurvivingReferences2(ULONG cSurvivingObjectIDRanges, ObjectID objectIDRangeStart[],
                                                    SIZE_T cObjectIDRangeLength[]) override;
 
@@ -169,6 +171,8 @@ public:
     ICorProfilerInfo3* GetProfilerInfo() const { return m_profilerInfo; }
 
 private:
+    HRESULT SetupEventMonitoring(EventType events);
+
     std::atomic<LONG> m_refCount;
     ICorProfilerInfo3* m_profilerInfo;
     ICorProfilerInfo5* m_profilerInfo5;

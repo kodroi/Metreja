@@ -5,8 +5,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"$CLAUDE_PROJECT_DIR\" && dotnet build src/Metreja.Tool/Metreja.Tool.csproj -c Release",
-            "timeout": 120
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/verify-build.sh\"",
+            "timeout": 300
           }
         ]
       }

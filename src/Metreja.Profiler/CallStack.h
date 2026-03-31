@@ -12,7 +12,7 @@ struct CallEntry
 {
     UINT_PTR functionId;
     long long enterTsNs;
-    long long m_childrenTimeNs = 0;
+    long long childrenTimeNs = 0;
 };
 
 struct ThreadCallStack

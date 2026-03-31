@@ -9,13 +9,13 @@ internal static class CsvExporter
 {
     public static async Task ExportAsync(string inputPath, string outputPath)
     {
-        if (!AnalyzerHelpers.ValidateFileExists(inputPath, "File"))
+        if (!EventReader.ValidateFileExists(inputPath, "File"))
             return;
 
         var hasEnterLeave = false;
         var hasMethodStats = false;
 
-        await foreach (var (eventType, _) in AnalyzerHelpers.StreamEventsAsync(inputPath))
+        await foreach (var (eventType, _) in EventReader.StreamEventsAsync(inputPath))
         {
             if (eventType is "enter" or "leave")
             {
@@ -53,7 +53,7 @@ internal static class CsvExporter
 
         await writer.WriteLineAsync("tsNs,event,tid,depth,ns,cls,method,deltaNs,async");
 
-        await foreach (var (eventType, root) in AnalyzerHelpers.StreamEventsAsync(inputPath))
+        await foreach (var (eventType, root) in EventReader.StreamEventsAsync(inputPath))
         {
             if (eventType is not "enter" and not "leave")
                 continue;
@@ -61,7 +61,7 @@ internal static class CsvExporter
             var tsNs = root.TryGetProperty("tsNs", out var ts) ? ts.GetInt64() : 0;
             var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
             var depth = root.TryGetProperty("depth", out var dp) ? dp.GetInt32() : 0;
-            var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
+            var (ns, cls, m) = EventReader.ExtractMethodInfo(root);
             var deltaNs = root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0;
             var isAsync = root.TryGetProperty("async", out var asyncProp) &&
                           asyncProp.ValueKind == JsonValueKind.True;
@@ -94,13 +94,13 @@ internal static class CsvExporter
 
         await writer.WriteLineAsync("method,callCount,totalSelfNs,maxSelfNs,totalInclusiveNs,maxInclusiveNs");
 
-        await foreach (var (eventType, root) in AnalyzerHelpers.StreamEventsAsync(inputPath))
+        await foreach (var (eventType, root) in EventReader.StreamEventsAsync(inputPath))
         {
             if (eventType != "method_stats")
                 continue;
 
-            var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
-            var method = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
+            var (ns, cls, m) = EventReader.ExtractMethodInfo(root);
+            var method = EventReader.BuildMethodKey(ns, cls, m);
             var callCount = root.TryGetProperty("callCount", out var cc) ? cc.GetInt64() : 0;
             var totalSelfNs = root.TryGetProperty("totalSelfNs", out var sn) ? sn.GetInt64() : 0;
             var maxSelfNs = root.TryGetProperty("maxSelfNs", out var smx) ? smx.GetInt64() : 0;

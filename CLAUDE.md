@@ -58,10 +58,13 @@ Events written by the profiler DLL (controlled by `set events` command):
 - `session_metadata` — emitted once at start (scenario, sessionId, pid)
 - `enter` / `leave` — method entry/exit with tsNs, tid, depth, deltaNs (on leave). Async method leave events include `wallTimeNs` (wall-clock time including awaits)
 - `exception` — exception thrown (exType, method info)
-- `gc_started` / `gc_finished` — GC events by generation
+- `gc_start` / `gc_end` — GC lifecycle events by generation. `gc_end` includes `durationNs` and may include `heapSizeBytes` when available (from GetGenerationBounds)
+- `gc_heap_stats` — per-generation heap sizes, promoted bytes, finalization queue, pinned objects (via EventPipe GCHeapStats_V2, .NET 5+)
 - `alloc_by_class` — per-type allocation counts with optional call-site attribution (`allocM`, `allocNs`, `allocCls`)
 - `contention_start` / `contention_end` — lock contention events via EventPipe (tid, tsNs)
 - `method_stats` / `exception_stats` — periodic aggregated statistics
+
+**maxEvents behavior:** `session_metadata`, `gc_start`, `gc_end`, `gc_heap_stats`, `method_stats`, and `exception_stats` bypass the maxEvents cap. Only `enter`, `leave`, `exception`, `alloc_by_class`, `contention_start`, and `contention_end` count against it.
 
 ## Code Style
 
@@ -103,6 +106,35 @@ GitVersion (ContinuousDeployment mode) drives semver. Bump via commit messages: 
 - System.CommandLine 2.0.3 stable API: `Subcommands.Add`, `SetAction`, `ParseResult.InvokeAsync`
 - C++ async state machine detection: `MethodCache` detects `MoveNext` on `IAsyncStateMachine` implementors and unwraps to the original method name
 - Per-thread call stacks use TLS — `CallStackManager` maintains deferred unwind state for exception handling
+
+## Adding a New Event Type
+
+When adding a new NDJSON event type, update these files:
+
+1. `src/Metreja.Profiler/ConfigReader.h` — add to `EventType` enum
+2. `src/Metreja.Profiler/ConfigReader.cpp` — add event name parsing
+3. `src/Metreja.Profiler/Profiler.cpp` — event mask setup in `Initialize()`
+4. `src/Metreja.Profiler/NdjsonWriter.h/.cpp` — add `Write*` method
+5. `src/Metreja.Tool/Commands/SetCommand.cs` — add to `ValidEventTypes`
+6. `test/Metreja.IntegrationTests/Infrastructure/TraceEvent.cs` — add record type
+7. `test/Metreja.IntegrationTests/Infrastructure/TraceParser.cs` — add parsing case
+
+## Documentation
+
+When changing user-facing features (new commands, new event types, changed CLI options, changed output formats), update:
+
+1. `README.md` — event types table, command descriptions, architecture notes
+2. `src/Metreja.Tool/README.md` — full CLI reference with options
+3. `CLAUDE.md` — NDJSON event types, architecture, known pitfalls
+
+When all changes are complete, verify tests pass before committing.
+
+## Pull Request Reviews
+
+Always respond to every review comment on PRs with an inline reply:
+- **Fixed items:** State what was fixed and in which commit (e.g., "Fixed in abc1234 — added braces.")
+- **Won't fix items:** Explain why with technical reasoning (e.g., clang-format output, verified correct behavior)
+- Never leave review comments without a response
 
 ## Prerequisites
 

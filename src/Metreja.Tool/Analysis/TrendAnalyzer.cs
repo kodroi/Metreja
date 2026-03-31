@@ -4,9 +4,11 @@ namespace Metreja.Tool.Analysis;
 
 public static class TrendAnalyzer
 {
-    public static async Task<int> AnalyzeAsync(string filePath, string methodPattern, string format = "text")
+    public static async Task<int> AnalyzeAsync(string filePath, string methodPattern, string format = "text", TextWriter? output = null)
     {
-        if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
+        output ??= Console.Out;
+
+        if (!EventReader.ValidateFileExists(filePath, "File"))
             return 1;
 
         var intervals = await CollectIntervalsAsync(filePath, methodPattern);
@@ -22,7 +24,7 @@ public static class TrendAnalyzer
 
         if (format == "json")
         {
-            var output = new
+            var jsonResult = new
             {
                 Method = methodKey,
                 Intervals = intervals.Select(iv =>
@@ -44,13 +46,13 @@ public static class TrendAnalyzer
                 TotalIntervals = intervals.Count
             };
 
-            Console.WriteLine(JsonSerializer.Serialize(output, JsonOutputOptions.Default));
+            output.WriteLine(JsonSerializer.Serialize(jsonResult, JsonOutputOptions.Default));
             return 0;
         }
 
-        Console.WriteLine($"Trend: {methodKey}");
-        Console.WriteLine(new string('-', 50));
-        Console.WriteLine(
+        output.WriteLine($"Trend: {methodKey}");
+        output.WriteLine(new string('-', 50));
+        output.WriteLine(
             $"{"#",-5} {"Flush Time",12} {"Calls",7}  {"Self Total",12}  {"Self Avg",12}  {"Incl Total",12}  {"Incl Avg",12}");
 
         for (var i = 0; i < intervals.Count; i++)
@@ -60,12 +62,12 @@ public static class TrendAnalyzer
             var selfAvg = iv.CallCount > 0 ? iv.TotalSelfNs / iv.CallCount : 0;
             var inclAvg = iv.CallCount > 0 ? iv.TotalInclusiveNs / iv.CallCount : 0;
 
-            Console.WriteLine(
-                $"{i + 1,-5} {AnalyzerHelpers.FormatNs(relativeTs),12} {iv.CallCount,7}  {AnalyzerHelpers.FormatNs(iv.TotalSelfNs),12}  {AnalyzerHelpers.FormatNs(selfAvg),12}  {AnalyzerHelpers.FormatNs(iv.TotalInclusiveNs),12}  {AnalyzerHelpers.FormatNs(inclAvg),12}");
+            output.WriteLine(
+                $"{i + 1,-5} {FormatUtils.FormatNs(relativeTs),12} {iv.CallCount,7}  {FormatUtils.FormatNs(iv.TotalSelfNs),12}  {FormatUtils.FormatNs(selfAvg),12}  {FormatUtils.FormatNs(iv.TotalInclusiveNs),12}  {FormatUtils.FormatNs(inclAvg),12}");
         }
 
-        Console.WriteLine(new string('-', 50));
-        Console.WriteLine($"{intervals.Count} intervals found");
+        output.WriteLine(new string('-', 50));
+        output.WriteLine($"{intervals.Count} intervals found");
 
         return 0;
     }
@@ -74,14 +76,14 @@ public static class TrendAnalyzer
     {
         var intervals = new List<TrendInterval>();
 
-        await foreach (var (eventType, root) in AnalyzerHelpers.StreamEventsAsync(filePath))
+        await foreach (var (eventType, root) in EventReader.StreamEventsAsync(filePath))
         {
             if (eventType != "method_stats")
                 continue;
 
-            var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
+            var (ns, cls, m) = EventReader.ExtractMethodInfo(root);
 
-            if (!AnalyzerHelpers.MatchesPattern(methodPattern, ns, cls, m))
+            if (!MethodMatcher.MatchesPattern(methodPattern, ns, cls, m))
                 continue;
 
             var tsNs = root.TryGetProperty("tsNs", out var ts) ? ts.GetInt64() : 0;
@@ -93,7 +95,7 @@ public static class TrendAnalyzer
 
             intervals.Add(new TrendInterval
             {
-                MethodKey = AnalyzerHelpers.BuildMethodKey(ns, cls, m),
+                MethodKey = EventReader.BuildMethodKey(ns, cls, m),
                 TsNs = tsNs,
                 CallCount = callCount,
                 TotalSelfNs = totalSelfNs,

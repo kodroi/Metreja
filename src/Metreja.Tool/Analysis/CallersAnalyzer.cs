@@ -4,9 +4,11 @@ namespace Metreja.Tool.Analysis;
 
 public static class CallersAnalyzer
 {
-    public static async Task<int> AnalyzeAsync(string filePath, string methodPattern, int top, string format = "text")
+    public static async Task<int> AnalyzeAsync(string filePath, string methodPattern, int top, string format = "text", TextWriter? output = null)
     {
-        if (!AnalyzerHelpers.ValidateFileExists(filePath, "File"))
+        output ??= Console.Out;
+
+        if (!EventReader.ValidateFileExists(filePath, "File"))
             return 1;
 
         var (callerStats, totalCalls) = await AggregateAsync(filePath, methodPattern);
@@ -42,23 +44,23 @@ public static class CallersAnalyzer
                 }).ToArray()
             };
 
-            Console.WriteLine(JsonSerializer.Serialize(jsonOutput, JsonOutputOptions.Default));
+            output.WriteLine(JsonSerializer.Serialize(jsonOutput, JsonOutputOptions.Default));
         }
         else
         {
-            Console.WriteLine($"Callers of {methodPattern} ({totalCalls} total calls):");
-            Console.WriteLine(
+            output.WriteLine($"Callers of {methodPattern} ({totalCalls} total calls):");
+            output.WriteLine(
                 $"  {"Caller",-50} {"Calls",7} {"Total",12} {"Avg",12} {"Max",12}");
-            Console.WriteLine($"  {new string('-', 93)}");
+            output.WriteLine($"  {new string('-', 93)}");
 
             foreach (var (caller, s) in sorted)
             {
                 var avg = s.Count > 0 ? s.TotalNs / s.Count : 0;
-                Console.WriteLine(
-                    $"  {AnalyzerHelpers.Truncate(caller, 50),-50} {s.Count,7} {AnalyzerHelpers.FormatNs(s.TotalNs),12} {AnalyzerHelpers.FormatNs(avg),12} {AnalyzerHelpers.FormatNs(s.MaxNs),12}");
+                output.WriteLine(
+                    $"  {FormatUtils.Truncate(caller, 50),-50} {s.Count,7} {FormatUtils.FormatNs(s.TotalNs),12} {FormatUtils.FormatNs(avg),12} {FormatUtils.FormatNs(s.MaxNs),12}");
             }
 
-            Console.WriteLine($"  {new string('-', 93)}");
+            output.WriteLine($"  {new string('-', 93)}");
         }
 
         return 0;
@@ -71,11 +73,11 @@ public static class CallersAnalyzer
         var threadStacks = new Dictionary<long, Stack<string>>();
         var totalCalls = 0;
 
-        await foreach (var (eventType, root) in AnalyzerHelpers.StreamEventsAsync(filePath))
+        await foreach (var (eventType, root) in EventReader.StreamEventsAsync(filePath))
         {
-            var (ns, cls, m) = AnalyzerHelpers.ExtractMethodInfo(root);
+            var (ns, cls, m) = EventReader.ExtractMethodInfo(root);
             var tid = root.TryGetProperty("tid", out var t) ? t.GetInt64() : 0;
-            var key = AnalyzerHelpers.BuildMethodKey(ns, cls, m);
+            var key = EventReader.BuildMethodKey(ns, cls, m);
 
             if (!threadStacks.TryGetValue(tid, out var stack))
             {
@@ -91,7 +93,7 @@ public static class CallersAnalyzer
             {
                 if (stack.Count > 0) stack.Pop();
 
-                if (AnalyzerHelpers.MatchesPattern(methodPattern, ns, cls, m))
+                if (MethodMatcher.MatchesPattern(methodPattern, ns, cls, m))
                 {
                     totalCalls++;
                     var deltaNs = root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0;
