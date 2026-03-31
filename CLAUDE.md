@@ -119,6 +119,16 @@ When adding a new NDJSON event type, update these files:
 6. `test/Metreja.IntegrationTests/Infrastructure/TraceEvent.cs` — add record type
 7. `test/Metreja.IntegrationTests/Infrastructure/TraceParser.cs` — add parsing case
 
+## Documentation
+
+When changing user-facing features (new commands, new event types, changed CLI options, changed output formats), update:
+
+1. `README.md` — event types table, command descriptions, architecture notes
+2. `src/Metreja.Tool/README.md` — full CLI reference with options
+3. `CLAUDE.md` — NDJSON event types, architecture, known pitfalls
+
+When all changes are complete, verify tests pass before committing.
+
 ## Prerequisites
 
 **Windows:**
