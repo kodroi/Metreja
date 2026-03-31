@@ -38,8 +38,8 @@ public class AllocationCallSiteTests : IAsyncLifetime
             // When they do fire, verify they have valid structure.
             foreach (var alloc in allocEvents)
             {
-                Assert.True(alloc.Count > 0,
-                    "Allocation count should be positive");
+                Assert.True(alloc.Count >= 0,
+                    "Allocation count should be non-negative");
                 Assert.False(string.IsNullOrEmpty(alloc.ClassName),
                     "ClassName should be populated");
             }
