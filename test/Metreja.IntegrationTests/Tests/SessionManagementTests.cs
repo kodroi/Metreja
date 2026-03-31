@@ -283,9 +283,8 @@ public class SessionManagementTests : IAsyncLifetime
         // Verify the config file exists on disk
         Assert.True(File.Exists(configPath));
 
-        // Verify the env var values that would be generated
-        // CORECLR_ENABLE_PROFILING is always "1"
-        Assert.Equal("1", "1");
+        // Verify the METREJA_CONFIG path points to the session file
+        Assert.True(configPath.EndsWith(".json", StringComparison.Ordinal), "Config path should be a JSON file");
 
         // CORECLR_PROFILER is the profiler CLSID
         Assert.Equal("{7C8F944B-4810-4999-BF98-6A3361185FC2}", MetrejaConstants.ProfilerClsid);

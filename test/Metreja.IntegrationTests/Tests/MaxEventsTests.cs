@@ -44,10 +44,7 @@ public class MaxEventsTests : IAsyncLifetime
                     enterLeaveCount++;
             }
 
-            Assert.True(enterLeaveCount <= maxEvents,
-                $"Expected at most {maxEvents} enter+leave events, but found {enterLeaveCount}");
-            Assert.True(enterLeaveCount > 0,
-                "Expected at least some enter/leave events to be written");
+            Assert.Equal(maxEvents, enterLeaveCount);
         }
         finally
         {
@@ -60,7 +57,7 @@ public class MaxEventsTests : IAsyncLifetime
     {
         if (_skipReason is not null) return;
 
-        const int maxEvents = 10;
+        const int maxEvents = 4;
 
         var (outputPath, tempDir) = await RunWithMaxEventsAsync(
             maxEvents,
@@ -82,8 +79,7 @@ public class MaxEventsTests : IAsyncLifetime
                     gcCount++;
             }
 
-            Assert.True(enterLeaveCount <= maxEvents,
-                $"Expected at most {maxEvents} enter+leave events, but found {enterLeaveCount}");
+            Assert.Equal(maxEvents, enterLeaveCount);
             Assert.True(gcCount > 0,
                 "Expected GC events to appear even when per-call events are capped");
         }
@@ -149,11 +145,12 @@ public class MaxEventsTests : IAsyncLifetime
         using var process = Process.Start(psi)
             ?? throw new InvalidOperationException("Failed to start TestApp process");
 
-        await process.StandardOutput.ReadToEndAsync();
-        await process.StandardError.ReadToEndAsync();
+        var stdoutTask = process.StandardOutput.ReadToEndAsync();
+        var stderrTask = process.StandardError.ReadToEndAsync();
 
         using var cts = new CancellationTokenSource(30_000);
         await process.WaitForExitAsync(cts.Token);
+        await Task.WhenAll(stdoutTask, stderrTask);
 
         if (process.ExitCode != 0)
             throw new InvalidOperationException($"TestApp exited with code {process.ExitCode}");
