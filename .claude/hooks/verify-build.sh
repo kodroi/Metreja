@@ -1,5 +1,8 @@
 #!/bin/bash
-cd "$CLAUDE_PROJECT_DIR" || exit 0
+if ! cd "$CLAUDE_PROJECT_DIR" 2>/dev/null; then
+    echo "ERROR: CLAUDE_PROJECT_DIR not found: $CLAUDE_PROJECT_DIR" >&2
+    exit 1
+fi
 
 # Build CLI
 if ! dotnet build src/Metreja.Tool/Metreja.Tool.csproj -c Release 2>&1; then
