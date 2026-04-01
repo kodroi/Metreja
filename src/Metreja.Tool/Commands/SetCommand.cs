@@ -17,6 +17,8 @@ public static class SetCommand
         command.Subcommands.Add(CreateComputeDeltasCommand(sessionOption));
         command.Subcommands.Add(CreateEventsCommand(sessionOption));
         command.Subcommands.Add(CreateStatsFlushIntervalCommand(sessionOption));
+        command.Subcommands.Add(CreateDisableInliningCommand(sessionOption));
+        command.Subcommands.Add(CreateDisableOptimizationsCommand(sessionOption));
 
         return command;
     }
@@ -178,6 +180,48 @@ public static class SetCommand
                 $"stats-flush-interval to: {value}s");
 
             return 0;
+        });
+
+        return command;
+    }
+
+    private static Command CreateDisableInliningCommand(Option<string> sessionOption)
+    {
+        var valueArg = new Argument<bool>("value") { Description = "Disable JIT inlining (default: false). Set to true for complete method-level tracing" };
+
+        var command = new Command("disable-inlining", "Control JIT inlining during profiling");
+        command.Options.Add(sessionOption);
+        command.Arguments.Add(valueArg);
+
+        command.SetAction(async (parseResult, _) =>
+        {
+            var session = parseResult.GetValue(sessionOption)!;
+            var value = parseResult.GetValue(valueArg);
+
+            await SetConfigPropertyAsync(session,
+                config => config with { Instrumentation = config.Instrumentation with { DisableInlining = value } },
+                $"disable-inlining to: {value}");
+        });
+
+        return command;
+    }
+
+    private static Command CreateDisableOptimizationsCommand(Option<string> sessionOption)
+    {
+        var valueArg = new Argument<bool>("value") { Description = "Disable JIT optimizations (default: false). Set to true for debug-level tracing" };
+
+        var command = new Command("disable-optimizations", "Control JIT optimizations during profiling");
+        command.Options.Add(sessionOption);
+        command.Arguments.Add(valueArg);
+
+        command.SetAction(async (parseResult, _) =>
+        {
+            var session = parseResult.GetValue(sessionOption)!;
+            var value = parseResult.GetValue(valueArg);
+
+            await SetConfigPropertyAsync(session,
+                config => config with { Instrumentation = config.Instrumentation with { DisableOptimizations = value } },
+                $"disable-optimizations to: {value}");
         });
 
         return command;

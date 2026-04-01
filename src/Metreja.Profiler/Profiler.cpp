@@ -224,6 +224,9 @@ HRESULT MetrejaProfiler::SetupEventMonitoring(EventType events)
     if (g_ctx->config.disableInlining)
         eventMask |= COR_PRF_DISABLE_INLINING;
 
+    if (g_ctx->config.disableOptimizations)
+        eventMask |= COR_PRF_DISABLE_OPTIMIZATIONS;
+
     // Single consolidated SetEventMask call
     HRESULT hr;
     if (m_profilerInfo5 != nullptr && highFlags != 0)
