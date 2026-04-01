@@ -32,7 +32,10 @@ public record InstrumentationConfig
     public bool ComputeDeltas { get; init; } = true;
 
     [JsonPropertyName("disableInlining")]
-    public bool DisableInlining { get; init; } = true;
+    public bool DisableInlining { get; init; } = false;
+
+    [JsonPropertyName("disableOptimizations")]
+    public bool DisableOptimizations { get; init; } = false;
 
     [JsonPropertyName("statsFlushIntervalSeconds")]
     public int StatsFlushIntervalSeconds { get; init; } = 30;

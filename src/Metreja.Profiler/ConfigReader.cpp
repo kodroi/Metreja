@@ -78,6 +78,8 @@ ProfilerConfig ConfigReader::Load()
             config.computeDeltas = inst["computeDeltas"].get<bool>();
         if (inst.contains("disableInlining"))
             config.disableInlining = inst["disableInlining"].get<bool>();
+        if (inst.contains("disableOptimizations"))
+            config.disableOptimizations = inst["disableOptimizations"].get<bool>();
         if (inst.contains("statsFlushIntervalSeconds"))
             config.statsFlushIntervalSeconds = inst["statsFlushIntervalSeconds"].get<int>();
 

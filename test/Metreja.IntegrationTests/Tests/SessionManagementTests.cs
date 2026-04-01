@@ -34,7 +34,7 @@ public class SessionManagementTests : IAsyncLifetime
         Assert.Equal("round-trip-test", config.Metadata.Scenario);
         Assert.Equal(0, config.Instrumentation.MaxEvents);
         Assert.True(config.Instrumentation.ComputeDeltas);
-        Assert.True(config.Instrumentation.DisableInlining);
+        Assert.False(config.Instrumentation.DisableInlining);
         Assert.Equal(30, config.Instrumentation.StatsFlushIntervalSeconds);
         Assert.Null(config.Instrumentation.Events);
         Assert.Empty(config.Instrumentation.Includes);
@@ -350,6 +350,147 @@ public class SessionManagementTests : IAsyncLifetime
         var config = await manager.LoadConfigAsync(sessionId);
 
         Assert.Equal("", config.Metadata.Scenario);
+    }
+
+    [Fact]
+    public async Task DisableInlining_DefaultsFalse()
+    {
+        var manager = new ConfigManager(_tempDir);
+        var sessionId = await manager.CreateSessionAsync("inlining-default-test");
+
+        var config = await manager.LoadConfigAsync(sessionId);
+
+        Assert.False(config.Instrumentation.DisableInlining);
+    }
+
+    [Fact]
+    public async Task DisableInlining_SetTrue_PersistsCorrectly()
+    {
+        var manager = new ConfigManager(_tempDir);
+        var sessionId = await manager.CreateSessionAsync("inlining-disable-test");
+
+        var config = await manager.LoadConfigAsync(sessionId);
+        config = config with
+        {
+            Instrumentation = config.Instrumentation with { DisableInlining = true }
+        };
+        await manager.SaveConfigAsync(sessionId, config);
+
+        var reloaded = await manager.LoadConfigAsync(sessionId);
+        Assert.True(reloaded.Instrumentation.DisableInlining);
+    }
+
+    [Fact]
+    public async Task DisableInlining_SetFalse_PersistsCorrectly()
+    {
+        var manager = new ConfigManager(_tempDir);
+        var sessionId = await manager.CreateSessionAsync("inlining-enable-test");
+
+        // First set to true
+        var config = await manager.LoadConfigAsync(sessionId);
+        config = config with
+        {
+            Instrumentation = config.Instrumentation with { DisableInlining = true }
+        };
+        await manager.SaveConfigAsync(sessionId, config);
+
+        // Then set back to false
+        config = await manager.LoadConfigAsync(sessionId);
+        config = config with
+        {
+            Instrumentation = config.Instrumentation with { DisableInlining = false }
+        };
+        await manager.SaveConfigAsync(sessionId, config);
+
+        var reloaded = await manager.LoadConfigAsync(sessionId);
+        Assert.False(reloaded.Instrumentation.DisableInlining);
+    }
+
+    [Fact]
+    public async Task DisableInlining_PreservesOtherSettings()
+    {
+        var manager = new ConfigManager(_tempDir);
+        var sessionId = await manager.CreateSessionAsync("inlining-preserve-test");
+
+        // Set events and max-events first
+        var config = await manager.LoadConfigAsync(sessionId);
+        config = config with
+        {
+            Instrumentation = config.Instrumentation with
+            {
+                Events = ["enter", "leave", "method_stats"],
+                MaxEvents = 50000
+            }
+        };
+        await manager.SaveConfigAsync(sessionId, config);
+
+        // Now toggle disable-inlining
+        config = await manager.LoadConfigAsync(sessionId);
+        config = config with
+        {
+            Instrumentation = config.Instrumentation with { DisableInlining = true }
+        };
+        await manager.SaveConfigAsync(sessionId, config);
+
+        // Verify other settings are preserved
+        var reloaded = await manager.LoadConfigAsync(sessionId);
+        Assert.True(reloaded.Instrumentation.DisableInlining);
+        Assert.Equal(50000, reloaded.Instrumentation.MaxEvents);
+        Assert.NotNull(reloaded.Instrumentation.Events);
+        Assert.Equal(3, reloaded.Instrumentation.Events!.Count);
+        Assert.Contains("method_stats", reloaded.Instrumentation.Events);
+    }
+
+    [Fact]
+    public async Task DisableOptimizations_DefaultsFalse()
+    {
+        var manager = new ConfigManager(_tempDir);
+        var sessionId = await manager.CreateSessionAsync("optimizations-default-test");
+
+        var config = await manager.LoadConfigAsync(sessionId);
+
+        Assert.False(config.Instrumentation.DisableOptimizations);
+    }
+
+    [Fact]
+    public async Task DisableOptimizations_SetTrue_PersistsCorrectly()
+    {
+        var manager = new ConfigManager(_tempDir);
+        var sessionId = await manager.CreateSessionAsync("optimizations-disable-test");
+
+        var config = await manager.LoadConfigAsync(sessionId);
+        config = config with
+        {
+            Instrumentation = config.Instrumentation with { DisableOptimizations = true }
+        };
+        await manager.SaveConfigAsync(sessionId, config);
+
+        var reloaded = await manager.LoadConfigAsync(sessionId);
+        Assert.True(reloaded.Instrumentation.DisableOptimizations);
+    }
+
+    [Fact]
+    public async Task DisableOptimizations_SetFalse_PersistsCorrectly()
+    {
+        var manager = new ConfigManager(_tempDir);
+        var sessionId = await manager.CreateSessionAsync("optimizations-enable-test");
+
+        var config = await manager.LoadConfigAsync(sessionId);
+        config = config with
+        {
+            Instrumentation = config.Instrumentation with { DisableOptimizations = true }
+        };
+        await manager.SaveConfigAsync(sessionId, config);
+
+        config = await manager.LoadConfigAsync(sessionId);
+        config = config with
+        {
+            Instrumentation = config.Instrumentation with { DisableOptimizations = false }
+        };
+        await manager.SaveConfigAsync(sessionId, config);
+
+        var reloaded = await manager.LoadConfigAsync(sessionId);
+        Assert.False(reloaded.Instrumentation.DisableOptimizations);
     }
 
     [Fact]
