@@ -304,7 +304,9 @@ metreja run -s a1b2c3 ./bin/Release/net10.0/MyApp -- --port 5000
 metreja run -s a1b2c3 --detach ./bin/Release/net10.0/MyGuiApp
 ```
 
-**Exit codes:** Returns the profiled process's exit code, or `1` on setup failure.
+**Auto-merge:** After the process exits, if the output path template contains `{pid}` and multiple trace files were produced (common with `dotnet run`, `dotnet test`, BenchmarkDotNet), they are automatically merged into a single file sorted by timestamp and the per-PID files are deleted. The merged file drops the `{pid}` token from the name (e.g., `trace-abc123_1234.ndjson` + `trace-abc123_5678.ndjson` → `trace-abc123.ndjson`). Skipped in `--detach` mode.
+
+**Exit codes:** Returns the profiled process's exit code, or `1` on setup failure. Auto-merge errors are logged as warnings but do not change the exit code.
 
 #### `flush`
 

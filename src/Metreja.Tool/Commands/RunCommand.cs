@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.Diagnostics;
+using Metreja.Tool.Analysis;
 using Metreja.Tool.Config;
 
 namespace Metreja.Tool.Commands;
@@ -132,7 +133,51 @@ public static class RunCommand
             DebugLog.Write("run", $"PID {process.Id} started, waiting for exit...");
             await process.WaitForExitAsync(cancellationToken);
             DebugLog.Write("run", $"PID {process.Id} exited with code {process.ExitCode}");
-            return process.ExitCode;
+            var processExitCode = process.ExitCode;
+
+            // 6. Auto-merge output files
+            try
+            {
+                var outputTemplate = config.Output.Path;
+                var sessionFiles = NdjsonMerger.FindSessionOutputFiles(outputTemplate, session);
+
+                if (sessionFiles.Length > 1)
+                {
+                    var mergedPath = NdjsonMerger.ComputeMergedPath(outputTemplate, session);
+                    DebugLog.Write("run", $"Merging {sessionFiles.Length} output files into {mergedPath}");
+
+                    var mergeResult = await NdjsonMerger.MergeFilesAsync(sessionFiles, mergedPath, cancellationToken);
+
+                    DebugLog.Write("run", $"Merged {mergeResult.EventCount} events, {mergeResult.SkippedCount} skipped");
+                    Console.Error.WriteLine($"Merged {sessionFiles.Length} trace files into {Path.GetFileName(mergedPath)}");
+
+                    foreach (var file in sessionFiles)
+                    {
+                        try { File.Delete(file); }
+                        catch (Exception ex) { DebugLog.Write("run", $"Failed to delete {file}: {ex.Message}"); }
+                    }
+                }
+                else if (sessionFiles.Length == 1)
+                {
+                    var mergedPath = NdjsonMerger.ComputeMergedPath(outputTemplate, session);
+                    if (!string.Equals(Path.GetFullPath(mergedPath), Path.GetFullPath(sessionFiles[0]), StringComparison.OrdinalIgnoreCase))
+                    {
+                        DebugLog.Write("run", $"Renaming single output file to {mergedPath}");
+                        File.Move(sessionFiles[0], mergedPath, overwrite: true);
+                    }
+                }
+                else
+                {
+                    DebugLog.Write("run", "No output files found for session");
+                }
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Write("run", $"Auto-merge failed: {ex.Message}");
+                Console.Error.WriteLine($"Warning: Auto-merge failed: {ex.Message}");
+            }
+
+            return processExitCode;
         });
 
         return command;

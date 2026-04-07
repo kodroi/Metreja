@@ -43,7 +43,7 @@ Build outputs:
 
 2. **Metreja.Tool** (`src/Metreja.Tool/`) — C# CLI targeting net8.0/net9.0/net10.0. Uses System.CommandLine 2.0.3. Session-based: configs stored in `.metreja/sessions/{sessionId}.json`. Commands split across `Commands/` (session management) and `Analysis/` (hotspots, calltree, callers, memory, diff).
 
-**Data flow:** CLI creates session config → `generate-env` sets profiler env vars → profiled app loads DLL → DLL writes NDJSON → CLI analysis commands read NDJSON.
+**Data flow:** CLI creates session config → `generate-env` sets profiler env vars → profiled app loads DLL → DLL writes NDJSON (one file per PID via `{pid}` token) → `run` command auto-merges multi-PID files on exit → CLI analysis commands read NDJSON.
 
 **C++ global context:** The profiler uses a global `g_ctx` (`ProfilerContext*`) because ELT3 callbacks are bare function pointers with no `this`. `ProfilerContext` owns `MethodCache`, `CallStackManager`, `NdjsonWriter`, and `StatsAggregator`. Published atomically in `Profiler::Initialize()`.
 

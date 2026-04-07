@@ -104,7 +104,7 @@ metreja calltree .metreja/output/*.ndjson --method "ValidateInventory"
 | `metreja threads` | Per-thread breakdown: call counts, root time, activity windows |
 | `metreja trend` | Method performance trend across periodic stats flush intervals |
 | `metreja check` | CI regression gate: compare two traces, exit non-zero on regression |
-| `metreja run` | Launch an executable with profiler attached (`--detach` for GUI apps) |
+| `metreja run` | Launch an executable with profiler attached; auto-merges multi-PID output files on exit (`--detach` for GUI apps) |
 | `metreja flush` | Trigger manual stats flush on a running profiled process |
 | `metreja list` | List existing profiling sessions |
 | `metreja merge` | Combine multiple trace files into one sorted by timestamp |
