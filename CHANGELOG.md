@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [1.0.21] — 2026-04-07
+
 ### Added
 - Auto-merge multi-PID output files after `metreja run` exits — produces a single timestamp-sorted file, deletes per-PID originals; skipped in `--detach` mode
 - Multi-metric percentage comparison in `analyze-diff` — shows self-time, inclusive-time, and call count deltas with percentages
