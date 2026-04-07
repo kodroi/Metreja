@@ -87,9 +87,8 @@ internal static class NdjsonMerger
         var mergedPath = ComputeMergedPath(outputPathTemplate, sessionId);
         var fullMergedPath = Path.GetFullPath(mergedPath);
 
-        return Directory.GetFiles(directory, filePattern)
+        return [.. Directory.GetFiles(directory, filePattern)
             .Where(f => !string.Equals(Path.GetFullPath(f), fullMergedPath, StringComparison.OrdinalIgnoreCase))
-            .Order()
-            .ToArray();
+            .Order()];
     }
 }
