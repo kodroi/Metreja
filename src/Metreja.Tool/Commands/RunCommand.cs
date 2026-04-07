@@ -134,7 +134,7 @@ public static class RunCommand
                     if (!string.Equals(Path.GetFullPath(mergedPath), Path.GetFullPath(sessionFiles[0]), StringComparison.OrdinalIgnoreCase))
                     {
                         DebugLog.Write("run", $"Renaming single output file to {mergedPath}");
-                        File.Move(sessionFiles[0], mergedPath);
+                        File.Move(sessionFiles[0], mergedPath, overwrite: true);
                     }
                 }
                 else
