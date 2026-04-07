@@ -1,5 +1,5 @@
 using System.CommandLine;
-using System.Text.Json;
+using Metreja.Tool.Analysis;
 
 namespace Metreja.Tool.Commands;
 
@@ -36,42 +36,12 @@ public static class MergeCommand
                 }
             }
 
-            var events = new List<(long TsNs, string Line)>();
-            var skippedCount = 0;
+            var result = await NdjsonMerger.MergeFilesAsync(files, output, cancellationToken);
 
-            foreach (var file in files)
+            Console.WriteLine($"Merged {result.EventCount} events from {files.Length} files into {output}");
+            if (result.SkippedCount > 0)
             {
-                await foreach (var line in File.ReadLinesAsync(file, cancellationToken))
-                {
-                    if (string.IsNullOrWhiteSpace(line)) continue;
-
-                    try
-                    {
-                        using var doc = JsonDocument.Parse(line);
-                        long tsNs = 0;
-                        if (doc.RootElement.TryGetProperty("tsNs", out var ts) &&
-                            ts.ValueKind == JsonValueKind.Number)
-                        {
-                            ts.TryGetInt64(out tsNs);
-                        }
-                        events.Add((tsNs, line));
-                    }
-                    catch (JsonException)
-                    {
-                        Console.Error.WriteLine($"Warning: Skipping malformed JSON line");
-                        skippedCount++;
-                    }
-                }
-            }
-
-            events.Sort((a, b) => a.TsNs.CompareTo(b.TsNs));
-
-            await File.WriteAllLinesAsync(output, events.Select(e => e.Line), cancellationToken);
-
-            Console.WriteLine($"Merged {events.Count} events from {files.Length} files into {output}");
-            if (skippedCount > 0)
-            {
-                Console.WriteLine($"Skipped {skippedCount} malformed lines");
+                Console.WriteLine($"Skipped {result.SkippedCount} malformed lines");
             }
 
             return 0;
