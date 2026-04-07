@@ -105,9 +105,15 @@ public static class RunCommand
             {
                 process = Process.Start(psi)!;
             }
-            catch (System.ComponentModel.Win32Exception)
+            catch (System.ComponentModel.Win32Exception ex)
             {
-                Console.Error.WriteLine($"Error: Executable '{exePath}' not found. Ensure it exists or is on your PATH.");
+                var message = ex.NativeErrorCode switch
+                {
+                    2 or 3 => $"Error: Executable '{exePath}' not found. Ensure it exists or is on your PATH.",
+                    5 => $"Error: Access denied when trying to run '{exePath}'.",
+                    _ => $"Error: Failed to start '{exePath}': {ex.Message}"
+                };
+                Console.Error.WriteLine(message);
                 return 1;
             }
 
