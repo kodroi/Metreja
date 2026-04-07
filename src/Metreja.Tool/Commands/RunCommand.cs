@@ -66,17 +66,30 @@ public static class RunCommand
             DebugLog.Write("run", $"includes: {config.Instrumentation.Includes.Count} rules, excludes: {config.Instrumentation.Excludes.Count} rules");
 
             // 3. Resolve exe path
-            var absoluteExePath = Path.GetFullPath(exePath);
-            if (!File.Exists(absoluteExePath))
+            string resolvedExePath;
+            var isBareName = !Path.IsPathRooted(exePath)
+                && !exePath.Contains(Path.DirectorySeparatorChar)
+                && !exePath.Contains(Path.AltDirectorySeparatorChar);
+
+            if (isBareName)
             {
-                Console.Error.WriteLine($"Error: Executable not found at {absoluteExePath}");
-                return 1;
+                // Bare command name (e.g. "dotnet") — let Process.Start resolve from PATH
+                resolvedExePath = exePath;
+            }
+            else
+            {
+                resolvedExePath = Path.GetFullPath(exePath);
+                if (!File.Exists(resolvedExePath))
+                {
+                    Console.Error.WriteLine($"Error: Executable not found at {resolvedExePath}");
+                    return 1;
+                }
             }
 
             // 4. Create ProcessStartInfo with profiler env vars
             var psi = new ProcessStartInfo
             {
-                FileName = absoluteExePath,
+                FileName = resolvedExePath,
                 Arguments = string.Join(' ', extraArgs),
                 UseShellExecute = false
             };
@@ -86,8 +99,24 @@ public static class RunCommand
             psi.Environment["METREJA_CONFIG"] = absoluteConfigPath;
 
             // 5. Launch
-            DebugLog.Write("run", $"launching: {absoluteExePath} {string.Join(' ', extraArgs)}");
-            var process = Process.Start(psi);
+            DebugLog.Write("run", $"launching: {resolvedExePath} {string.Join(' ', extraArgs)}");
+            Process process;
+            try
+            {
+                process = Process.Start(psi)!;
+            }
+            catch (System.ComponentModel.Win32Exception ex)
+            {
+                var message = ex.NativeErrorCode switch
+                {
+                    2 or 3 => $"Error: Executable '{exePath}' not found. Ensure it exists or is on your PATH.",
+                    5 => $"Error: Access denied when trying to run '{exePath}'.",
+                    _ => $"Error: Failed to start '{exePath}': {ex.Message}"
+                };
+                Console.Error.WriteLine(message);
+                return 1;
+            }
+
             if (process == null)
             {
                 Console.Error.WriteLine("Error: Failed to start process.");
