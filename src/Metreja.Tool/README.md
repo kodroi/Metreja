@@ -382,13 +382,21 @@ GC summary (generation counts, pause times) and per-type allocation hotspots.
 
 #### `analyze-diff`
 
-Compare two traces. Shows per-method timing delta (base vs. compare).
+Compare two traces with multi-metric percentage changes. Shows per-method deltas for self-time, inclusive-time, and call count. When input contains only `leave` events (no `method_stats`), falls back to a simplified inclusive-time comparison.
 
 | Argument / Option | Type | Default | Description |
 |-------------------|------|---------|-------------|
 | `base` | string | — | **Required.** Base NDJSON file |
 | `compare` | string | — | **Required.** Comparison NDJSON file |
+| `--top` | int | `0` (all) | Limit output to top N methods |
+| `--sort` | string | `inclusive` | Sort by: `inclusive`, `self`, `calls`, or `percent` |
+| `--filter` | string[] | — | Filter methods by name substring (repeatable) |
 | `--format` | string | `text` | Output format: `text` or `json` |
+
+```bash
+metreja analyze-diff base.ndjson optimized.ndjson --top 20
+metreja analyze-diff base.ndjson optimized.ndjson --sort self --filter "MyApp.Services"
+```
 
 #### `summary`
 

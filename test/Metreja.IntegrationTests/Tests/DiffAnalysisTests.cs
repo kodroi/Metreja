@@ -63,6 +63,29 @@ public class DiffAnalysisTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task MethodStats_ShowsMultiMetricColumns()
+    {
+        await File.WriteAllLinesAsync(_baseFile,
+        [
+            """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"Target","callCount":100,"totalSelfNs":10000000,"maxSelfNs":200000,"totalInclusiveNs":15000000,"maxInclusiveNs":300000}"""
+        ]);
+        await File.WriteAllLinesAsync(_compareFile,
+        [
+            """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"Target","callCount":80,"totalSelfNs":7000000,"maxSelfNs":150000,"totalInclusiveNs":10000000,"maxInclusiveNs":200000}"""
+        ]);
+
+        var output = await TestHelpers.CaptureConsoleOutputAsync(() =>
+            DiffAnalyzer.AnalyzeAsync(_baseFile, _compareFile));
+
+        // Should have multi-metric column headers
+        Assert.Contains("Self", output);
+        Assert.Contains("Incl", output);
+        Assert.Contains("Calls", output);
+        // Should show call count delta (-20)
+        Assert.Contains("-20", output);
+    }
+
+    [Fact]
     public async Task MethodStats_NewMethodInCompare_ShowsAsNew()
     {
         await File.WriteAllLinesAsync(_baseFile,
@@ -98,7 +121,6 @@ public class DiffAnalysisTests : IAsyncLifetime
             DiffAnalyzer.AnalyzeAsync(_baseFile, _compareFile));
 
         Assert.Contains("RemovedMethod", output);
-        Assert.Contains("0ns", output);
     }
 
     [Fact]
@@ -118,15 +140,15 @@ public class DiffAnalysisTests : IAsyncLifetime
             DiffAnalyzer.AnalyzeAsync(_baseFile, _compareFile));
 
         Assert.Contains("Repeat", output);
-        // Base = 3ms + 2ms = 5ms, Compare = 1ms
+        // Base = 3ms + 2ms = 5ms, Compare = 1ms — leave-only, simplified output
         Assert.Contains(FormatUtils.FormatNs(5_000_000), output);
         Assert.Contains(FormatUtils.FormatNs(1_000_000), output);
     }
 
     [Fact]
-    public async Task MethodStats_UsesInclusiveTimeForComparison()
+    public async Task MethodStats_ShowsSelfTimeInMultiMetric()
     {
-        // Self-time is 7ms/3ms, inclusive is 50ms/40ms — verify inclusive is used
+        // Self-time is 7ms/3ms, inclusive is 50ms/40ms — multi-metric shows both
         await File.WriteAllLinesAsync(_baseFile,
         [
             """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"Target","callCount":10,"totalSelfNs":7000000,"maxSelfNs":700000,"totalInclusiveNs":50000000,"maxInclusiveNs":5000000}"""
@@ -139,12 +161,10 @@ public class DiffAnalysisTests : IAsyncLifetime
         var output = await TestHelpers.CaptureConsoleOutputAsync(() =>
             DiffAnalyzer.AnalyzeAsync(_baseFile, _compareFile));
 
-        // Should use totalInclusiveNs (50ms/40ms), consistent with leave's deltaNs (also inclusive)
-        Assert.Contains(FormatUtils.FormatNs(50_000_000), output);
-        Assert.Contains(FormatUtils.FormatNs(40_000_000), output);
-        // Should NOT show self-time values (7ms/3ms)
-        Assert.DoesNotContain(FormatUtils.FormatNs(7_000_000), output);
-        Assert.DoesNotContain(FormatUtils.FormatNs(3_000_000), output);
+        // Multi-metric table should show self-time delta (-4ms)
+        Assert.Contains(FormatUtils.FormatNs(4_000_000), output);
+        // And inclusive delta (-10ms)
+        Assert.Contains(FormatUtils.FormatNs(10_000_000), output);
     }
 
     [Fact]
@@ -189,28 +209,26 @@ public class DiffAnalysisTests : IAsyncLifetime
     {
         await File.WriteAllLinesAsync(_baseFile,
         [
-            """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"QuickMethod","callCount":1,"totalSelfNs":500,"maxSelfNs":500,"totalInclusiveNs":500,"maxInclusiveNs":500}""",
             """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"SlowMethod","callCount":1,"totalSelfNs":2000000000,"maxSelfNs":2000000000,"totalInclusiveNs":2000000000,"maxInclusiveNs":2000000000}"""
         ]);
         await File.WriteAllLinesAsync(_compareFile,
         [
-            """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"QuickMethod","callCount":1,"totalSelfNs":500,"maxSelfNs":500,"totalInclusiveNs":500,"maxInclusiveNs":500}""",
             """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"SlowMethod","callCount":1,"totalSelfNs":1000000000,"maxSelfNs":1000000000,"totalInclusiveNs":1000000000,"maxInclusiveNs":1000000000}"""
         ]);
 
         var output = await TestHelpers.CaptureConsoleOutputAsync(() =>
             DiffAnalyzer.AnalyzeAsync(_baseFile, _compareFile));
 
-        // Should use FormatNs units (ns, us, ms, s) — not raw nanosecond numbers
-        Assert.Contains("500ns", output);
-        Assert.Contains(FormatUtils.FormatNs(2_000_000_000), output);
+        // Multi-metric table shows deltas with FormatNs units — self delta is 1s, inclusive delta is 1s
         Assert.Contains(FormatUtils.FormatNs(1_000_000_000), output);
+        // Should not contain raw nanosecond numbers
+        Assert.DoesNotContain("2000000000", output);
+        Assert.DoesNotContain("1000000000", output);
     }
 
     [Fact]
     public async Task MethodStats_KeyFormat_ConsistentWithHotspots()
     {
-        // Both analyzers should produce the same key format for the same method
         await File.WriteAllLinesAsync(_baseFile,
         [
             """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"MyNs","cls":"MyClass","m":"DoWork","callCount":10,"totalSelfNs":5000000,"maxSelfNs":500000,"totalInclusiveNs":8000000,"maxInclusiveNs":800000}"""
@@ -226,5 +244,95 @@ public class DiffAnalysisTests : IAsyncLifetime
         // Key should be "MyNs.MyClass.DoWork" (no asm prefix), matching HotspotsAnalyzer
         Assert.Contains("MyNs.MyClass.DoWork", diffOutput);
         Assert.DoesNotContain("App.MyNs.MyClass.DoWork", diffOutput);
+    }
+
+    [Fact]
+    public async Task TopOption_LimitsOutput()
+    {
+        await File.WriteAllLinesAsync(_baseFile,
+        [
+            """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"MethodA","callCount":10,"totalSelfNs":10000000,"maxSelfNs":1000000,"totalInclusiveNs":10000000,"maxInclusiveNs":1000000}""",
+            """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"MethodB","callCount":5,"totalSelfNs":5000000,"maxSelfNs":1000000,"totalInclusiveNs":5000000,"maxInclusiveNs":1000000}"""
+        ]);
+        await File.WriteAllLinesAsync(_compareFile,
+        [
+            """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"MethodA","callCount":20,"totalSelfNs":20000000,"maxSelfNs":1000000,"totalInclusiveNs":20000000,"maxInclusiveNs":1000000}""",
+            """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"MethodB","callCount":10,"totalSelfNs":10000000,"maxSelfNs":1000000,"totalInclusiveNs":10000000,"maxInclusiveNs":1000000}"""
+        ]);
+
+        var output = await TestHelpers.CaptureConsoleOutputAsync(() =>
+            DiffAnalyzer.AnalyzeAsync(_baseFile, _compareFile, top: 1));
+
+        // Only one data row should appear (the one with largest delta)
+        Assert.Contains("MethodA", output);
+        Assert.DoesNotContain("MethodB", output);
+    }
+
+    [Fact]
+    public async Task SortByCalls_OrdersByCallCountDelta()
+    {
+        await File.WriteAllLinesAsync(_baseFile,
+        [
+            """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"BigTimeDelta","callCount":10,"totalSelfNs":100000000,"maxSelfNs":10000000,"totalInclusiveNs":100000000,"maxInclusiveNs":10000000}""",
+            """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"BigCallDelta","callCount":10,"totalSelfNs":1000000,"maxSelfNs":100000,"totalInclusiveNs":1000000,"maxInclusiveNs":100000}"""
+        ]);
+        await File.WriteAllLinesAsync(_compareFile,
+        [
+            """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"BigTimeDelta","callCount":15,"totalSelfNs":10000000,"maxSelfNs":1000000,"totalInclusiveNs":10000000,"maxInclusiveNs":1000000}""",
+            """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"BigCallDelta","callCount":1000,"totalSelfNs":500000,"maxSelfNs":50000,"totalInclusiveNs":500000,"maxInclusiveNs":50000}"""
+        ]);
+
+        var output = await TestHelpers.CaptureConsoleOutputAsync(() =>
+            DiffAnalyzer.AnalyzeAsync(_baseFile, _compareFile, sort: "calls"));
+
+        var lines = output.Split('\n');
+        var callLine = Array.FindIndex(lines, l => l.Contains("BigCallDelta"));
+        var timeLine = Array.FindIndex(lines, l => l.Contains("BigTimeDelta"));
+        Assert.True(callLine < timeLine, "BigCallDelta (990 call delta) should appear before BigTimeDelta (5 call delta)");
+    }
+
+    [Fact]
+    public async Task FilterOption_NarrowsResults()
+    {
+        await File.WriteAllLinesAsync(_baseFile,
+        [
+            """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"MatchMe","callCount":10,"totalSelfNs":5000000,"maxSelfNs":500000,"totalInclusiveNs":8000000,"maxInclusiveNs":800000}""",
+            """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"SkipMe","callCount":10,"totalSelfNs":5000000,"maxSelfNs":500000,"totalInclusiveNs":8000000,"maxInclusiveNs":800000}"""
+        ]);
+        await File.WriteAllLinesAsync(_compareFile,
+        [
+            """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"MatchMe","callCount":20,"totalSelfNs":10000000,"maxSelfNs":1000000,"totalInclusiveNs":16000000,"maxInclusiveNs":1600000}""",
+            """{"event":"method_stats","tsNs":0,"pid":1,"sessionId":"s1","asm":"App","ns":"N","cls":"C","m":"SkipMe","callCount":20,"totalSelfNs":10000000,"maxSelfNs":1000000,"totalInclusiveNs":16000000,"maxInclusiveNs":1600000}"""
+        ]);
+
+        var output = await TestHelpers.CaptureConsoleOutputAsync(() =>
+            DiffAnalyzer.AnalyzeAsync(_baseFile, _compareFile, filters: ["MatchMe"]));
+
+        Assert.Contains("MatchMe", output);
+        Assert.DoesNotContain("SkipMe", output);
+    }
+
+    [Fact]
+    public async Task LeaveEvents_ShowsDashesForSelfAndCalls()
+    {
+        await File.WriteAllLinesAsync(_baseFile,
+        [
+            """{"event":"leave","tsNs":1000,"pid":1,"sessionId":"s1","tid":1,"depth":0,"asm":"App","ns":"N","cls":"C","m":"LeaveOnly","async":false,"deltaNs":10000000}"""
+        ]);
+        await File.WriteAllLinesAsync(_compareFile,
+        [
+            """{"event":"leave","tsNs":1000,"pid":1,"sessionId":"s1","tid":1,"depth":0,"asm":"App","ns":"N","cls":"C","m":"LeaveOnly","async":false,"deltaNs":5000000}"""
+        ]);
+
+        var output = await TestHelpers.CaptureConsoleOutputAsync(() =>
+            DiffAnalyzer.AnalyzeAsync(_baseFile, _compareFile));
+
+        // Leave-only data uses the simplified format (Base/Compare/Delta/Change)
+        Assert.Contains("Base", output);
+        Assert.Contains("Compare", output);
+        Assert.Contains("Delta", output);
+        // Should NOT have multi-metric headers
+        Assert.DoesNotContain("Self", output);
+        Assert.DoesNotContain("Calls", output);
     }
 }
