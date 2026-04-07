@@ -97,7 +97,7 @@ metreja calltree .metreja/output/*.ndjson --method "ValidateInventory"
 | `metreja calltree` | Expand a slow method into its full call tree with timing at every level |
 | `metreja callers` | Find who calls a method and how much time each caller contributes |
 | `metreja memory` | GC summary by generation, pause times, heap breakdown with promoted bytes, allocation hotspots |
-| `metreja analyze-diff` | Compare two traces to verify a fix actually improved performance |
+| `metreja analyze-diff` | Compare two traces with multi-metric percentage changes (`--top`, `--sort`, `--filter`) |
 | `metreja summary` | Trace overview: event counts, wall-clock duration, threads, methods |
 | `metreja exceptions` | Rank exception types by frequency with throw-site methods |
 | `metreja timeline` | Chronological event listing with tid, event type, and method filtering |

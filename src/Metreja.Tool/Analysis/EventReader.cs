@@ -102,4 +102,47 @@ internal static class EventReader
 
         return timings;
     }
+
+    public static async Task<Dictionary<string, MethodMetrics>> CollectMethodMetricsAsync(string path)
+    {
+        var metrics = new Dictionary<string, MethodMetrics>();
+
+        await foreach (var (eventType, root) in StreamEventsAsync(path))
+        {
+            if (eventType is not ("leave" or "method_stats"))
+                continue;
+
+            var (ns, cls, m) = ExtractMethodInfo(root);
+            var key = BuildMethodKey(ns, cls, m);
+            var existing = metrics.GetValueOrDefault(key, MethodMetrics.Empty);
+
+            if (eventType == "method_stats")
+            {
+                var selfNs = root.TryGetProperty("totalSelfNs", out var s) ? s.GetInt64() : 0;
+                var inclNs = root.TryGetProperty("totalInclusiveNs", out var inc) ? inc.GetInt64() : 0;
+                var calls = root.TryGetProperty("callCount", out var cc) ? cc.GetInt64() : 0;
+                metrics[key] = new MethodMetrics(
+                    existing.SelfNs + selfNs,
+                    existing.InclusiveNs + inclNs,
+                    existing.CallCount + calls,
+                    true);
+            }
+            else // leave
+            {
+                var deltaNs = root.TryGetProperty("deltaNs", out var d) ? d.GetInt64() : 0;
+                metrics[key] = new MethodMetrics(
+                    existing.SelfNs,
+                    existing.InclusiveNs + deltaNs,
+                    existing.CallCount,
+                    existing.HasStats);
+            }
+        }
+
+        return metrics;
+    }
+}
+
+internal record MethodMetrics(long SelfNs, long InclusiveNs, long CallCount, bool HasStats)
+{
+    public static readonly MethodMetrics Empty = new(0, 0, 0, false);
 }
