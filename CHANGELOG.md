@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+- Auto-merge multi-PID output files after `metreja run` exits — produces a single timestamp-sorted file, deletes per-PID originals; skipped in `--detach` mode
+- Multi-metric percentage comparison in `analyze-diff` — shows self-time, inclusive-time, and call count deltas with percentages
+- `--top`, `--sort` (inclusive/self/calls/percent), and `--filter` options for `analyze-diff`
+- Reusable `NdjsonMerger` helper extracted from `merge` command
+
+### Fixed
+- `metreja run` now resolves bare executable names (e.g. `dotnet`) from PATH instead of only looking relative to CWD
+- Differentiated `Win32Exception` error codes in `run` for clearer error messages (file not found vs access denied)
+
 ## [1.0.9] — 2026-03-24
 
 ### Added
