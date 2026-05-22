@@ -36,7 +36,7 @@ internal static class TelemetryService
 
             var options = new PostHogOptions
             {
-                ProjectApiKey = apiKey,
+                ProjectToken = apiKey,
                 HostUrl = new Uri("https://eu.i.posthog.com"),
                 FlushAt = 20,
                 FlushInterval = TimeSpan.FromSeconds(30),
