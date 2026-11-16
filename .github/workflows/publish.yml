@@ -82,10 +82,13 @@ jobs:
 
       - name: Inspect package contents
         run: |
+          target_frameworks=$(dotnet msbuild src/Metreja.Tool/Metreja.Tool.csproj -nologo -getProperty:TargetFrameworks)
+          test -n "$target_frameworks"
+          IFS=';' read -r -a frameworks <<< "$target_frameworks"
           for f in artifacts/*.nupkg; do
             echo "=== $f ==="
             entries=$(unzip -Z1 "$f")
-            for framework in net8.0 net9.0 net10.0 net11.0; do
+            for framework in "${frameworks[@]}"; do
               grep -Fx "tools/$framework/any/Metreja.Profiler.dll" <<< "$entries"
               grep -Fx "tools/$framework/any/libMetreja.Profiler.dylib" <<< "$entries"
             done

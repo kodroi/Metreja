@@ -126,15 +126,7 @@ jobs:
             11.0.x
 
       - name: Build Metreja.Profiler (CMake)
-        run: |
-          cd src/Metreja.Profiler
-          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0
-          cmake --build build
-
-      - name: Copy dylib to bin/Release
-        run: |
-          mkdir -p bin/Release
-          cp src/Metreja.Profiler/build/libMetreja.Profiler.dylib bin/Release/
+        run: scripts/build-macos.sh
 
       - name: Restore .NET dependencies
         run: dotnet restore

@@ -10,7 +10,7 @@ PROFILER_DIR="$ROOT_DIR/src/Metreja.Profiler"
 echo "Building Metreja.Profiler (macOS ARM64)..."
 
 cd "$PROFILER_DIR"
-cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0
 cmake --build build
 
 # Copy to bin/Release/ (matching Windows convention)
