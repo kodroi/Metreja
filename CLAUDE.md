@@ -20,7 +20,7 @@ scripts/build-macos.sh
 # Or manually:
 cd src/Metreja.Profiler && cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build
 
-# Build the test app and run integration tests on .NET 10 and 11
+# Build the test app and run integration tests on .NET 8 through 11
 dotnet build test/Metreja.TestApp/Metreja.TestApp.csproj -c Release
 dotnet test test/Metreja.IntegrationTests/Metreja.IntegrationTests.csproj -c Release
 
@@ -142,10 +142,10 @@ Always respond to every review comment on PRs with an inline reply:
 **Windows:**
 - Windows 10/11
 - Visual Studio 2022 Build Tools with "Desktop development with C++" workload
-- .NET 11 SDK and .NET 10 runtime for integration tests
+- .NET 11 SDK and .NET 8, 9, and 10 runtimes for the full integration suite
 
 **macOS:**
 - macOS 14+ (Apple Silicon / ARM64)
 - Xcode Command Line Tools (provides clang++)
 - CMake (`brew install cmake`)
-- .NET 11 SDK and .NET 10 runtime for integration tests
+- .NET 11 SDK and .NET 8, 9, and 10 runtimes for the full integration suite

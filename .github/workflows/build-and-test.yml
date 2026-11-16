@@ -34,10 +34,12 @@ jobs:
       - name: Display version
         run: echo "SemVer ${{ steps.gitversion.outputs.semVer }}"
 
-      - name: Setup .NET 10 and 11
+      - name: Set up .NET 8 through 11
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: |
+            8.0.x
+            9.0.x
             10.0.x
             11.0.x
 
@@ -114,10 +116,12 @@ jobs:
       - name: Display version
         run: echo "SemVer ${{ steps.gitversion.outputs.semVer }}"
 
-      - name: Setup .NET 10 and 11
+      - name: Set up .NET 8 through 11
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: |
+            8.0.x
+            9.0.x
             10.0.x
             11.0.x
 

@@ -172,7 +172,7 @@ Read the full design philosophy in [`docs/design-philosophy.md`](docs/design-phi
 - CMake (`brew install cmake`)
 - [.NET 11 SDK](https://dotnet.microsoft.com/download/dotnet/11.0) (targets .NET 8, 9, 10, and 11)
 
-Running the full integration suite also requires the [.NET 10 runtime](https://dotnet.microsoft.com/download/dotnet/10.0).
+Running the full integration suite also requires the .NET 8, 9, and 10 runtimes.
 
 ```bash
 # Build CLI (all platforms)
@@ -184,7 +184,7 @@ msbuild src/Metreja.Profiler/Metreja.Profiler.vcxproj /p:Configuration=Release /
 # Build profiler — macOS
 scripts/build-macos.sh
 
-# Build the test app and run integration tests on .NET 10 and 11
+# Build the test app and run integration tests on .NET 8 through 11
 dotnet build test/Metreja.TestApp/Metreja.TestApp.csproj -c Release
 dotnet test test/Metreja.IntegrationTests/Metreja.IntegrationTests.csproj -c Release
 
