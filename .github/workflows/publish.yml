@@ -7,12 +7,12 @@ concurrency:
   group: publish
   cancel-in-progress: false
 
-permissions:
-  contents: write
-
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
 
     env:
       HUSKY: 0
@@ -42,6 +42,9 @@ jobs:
       - name: Stamp changelog version
         run: |
           VERSION="${{ steps.gitversion.outputs.semVer }}"
+          if grep -Fq "## [$VERSION] " CHANGELOG.md; then
+            exit 0
+          fi
           DATE=$(date +%Y-%m-%d)
           sed -i "s/^## Unreleased$/## Unreleased\n\n## [$VERSION] — $DATE/" CHANGELOG.md
           git config user.name "github-actions[bot]"
@@ -94,8 +97,16 @@ jobs:
             done
           done
 
+      - name: Sign in to NuGet.org
+        id: nuget
+        uses: NuGet/login@v1
+        with:
+          user: iirorahkonen
+
       - name: Push to NuGet.org
-        run: dotnet nuget push artifacts/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+        env:
+          NUGET_API_KEY: ${{ steps.nuget.outputs.NUGET_API_KEY }}
+        run: dotnet nuget push artifacts/*.nupkg --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json
 
       - name: Create GitHub release
         env:
