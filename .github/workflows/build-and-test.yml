@@ -23,19 +23,19 @@ jobs:
           fetch-depth: 0
 
       - name: Install GitVersion
-        uses: gittools/actions/gitversion/setup@v4.5.0
+        uses: gittools/actions/gitversion/setup@v4.7.0
         with:
           versionSpec: '6.x'
 
       - name: Determine version
         id: gitversion
-        uses: gittools/actions/gitversion/execute@v4.5.0
+        uses: gittools/actions/gitversion/execute@v4.7.0
 
       - name: Display version
         run: echo "SemVer ${{ steps.gitversion.outputs.semVer }}"
 
       - name: Set up .NET 8 through 11
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: |
             8.0.x
@@ -105,19 +105,19 @@ jobs:
           fetch-depth: 0
 
       - name: Install GitVersion
-        uses: gittools/actions/gitversion/setup@v4.5.0
+        uses: gittools/actions/gitversion/setup@v4.7.0
         with:
           versionSpec: '6.x'
 
       - name: Determine version
         id: gitversion
-        uses: gittools/actions/gitversion/execute@v4.5.0
+        uses: gittools/actions/gitversion/execute@v4.7.0
 
       - name: Display version
         run: echo "SemVer ${{ steps.gitversion.outputs.semVer }}"
 
       - name: Set up .NET 8 through 11
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: |
             8.0.x
