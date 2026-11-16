@@ -92,7 +92,7 @@ jobs:
           path: bin/Release/Metreja.Profiler.dll
 
   build-macos:
-    runs-on: macos-14
+    runs-on: macos-15
 
     env:
       HUSKY: 0
@@ -124,7 +124,7 @@ jobs:
       - name: Build Metreja.Profiler (CMake)
         run: |
           cd src/Metreja.Profiler
-          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0
           cmake --build build
 
       - name: Copy dylib to bin/Release
