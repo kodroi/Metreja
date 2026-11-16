@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.CommandLine;
 using Metreja.Tool.Config;
 
@@ -110,11 +111,11 @@ public static class SetCommand
         return command;
     }
 
-    private static readonly HashSet<string> ValidEventTypes = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly FrozenSet<string> ValidEventTypes = new[]
     {
         "enter", "leave", "exception", "gc_start", "gc_end", "gc_heap_stats", "alloc_by_class", "method_stats",
         "exception_stats", "contention_start", "contention_end"
-    };
+    }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
 
     private static Command CreateEventsCommand(Option<string> sessionOption)
     {

@@ -43,7 +43,7 @@ Existing .NET profilers require a human in the seat — launching GUIs, clicking
 
 ## Installation
 
-**Prerequisites:** .NET 8 SDK or later. Windows 10/11 (x64) or macOS 14+ (Apple Silicon).
+**Prerequisites:** .NET 8, 9, 10, or 11 SDK. Windows 10/11 (x64) or macOS 14+ (Apple Silicon).
 
 ```bash
 dotnet tool install -g Metreja.Tool
@@ -163,14 +163,16 @@ Read the full design philosophy in [`docs/design-philosophy.md`](docs/design-phi
 
 **Windows prerequisites:**
 - Windows 10/11 (x64)
-- [.NET 10 SDK](https://dotnet.microsoft.com/download) (multi-targets .NET 8/9/10)
+- [.NET 11 SDK](https://dotnet.microsoft.com/download/dotnet/11.0) (targets .NET 8, 9, 10, and 11)
 - Visual Studio 2022 Build Tools with "Desktop development with C++" workload
 
 **macOS prerequisites:**
 - macOS 14+ (Apple Silicon / ARM64)
 - Xcode Command Line Tools
 - CMake (`brew install cmake`)
-- [.NET 10 SDK](https://dotnet.microsoft.com/download) (multi-targets .NET 8/9/10)
+- [.NET 11 SDK](https://dotnet.microsoft.com/download/dotnet/11.0) (targets .NET 8, 9, 10, and 11)
+
+Running the full integration suite also requires the [.NET 10 runtime](https://dotnet.microsoft.com/download/dotnet/10.0).
 
 ```bash
 # Build CLI (all platforms)
@@ -182,7 +184,8 @@ msbuild src/Metreja.Profiler/Metreja.Profiler.vcxproj /p:Configuration=Release /
 # Build profiler — macOS
 scripts/build-macos.sh
 
-# Run integration tests
+# Build the test app and run integration tests on .NET 10 and 11
+dotnet build test/Metreja.TestApp/Metreja.TestApp.csproj -c Release
 dotnet test test/Metreja.IntegrationTests/Metreja.IntegrationTests.csproj -c Release
 
 # Format C++ code
@@ -191,8 +194,8 @@ scripts/format-cpp.sh    # macOS/Linux
 ```
 
 Build outputs:
-- **Windows:** CLI at `src/Metreja.Tool/bin/Release/net10.0/metreja.exe`, profiler DLL at `bin/Release/Metreja.Profiler.dll`
-- **macOS:** CLI at `src/Metreja.Tool/bin/Release/net10.0/metreja`, profiler dylib at `bin/Release/libMetreja.Profiler.dylib`
+- **Windows:** .NET 11 CLI at `src/Metreja.Tool/bin/Release/net11.0/metreja.exe`, profiler DLL at `bin/Release/Metreja.Profiler.dll`
+- **macOS:** .NET 11 CLI at `src/Metreja.Tool/bin/Release/net11.0/metreja`, profiler dylib at `bin/Release/libMetreja.Profiler.dylib`
 
 ## Architecture
 

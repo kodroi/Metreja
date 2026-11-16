@@ -44,10 +44,10 @@ jobs:
           git add CHANGELOG.md
           git diff --cached --quiet || (git commit -m "docs: stamp changelog v$VERSION" && git push)
 
-      - name: Setup .NET 10
+      - name: Setup .NET 11
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 11.0.x
 
       - name: Download Windows profiler from latest CI
         uses: dawidd6/action-download-artifact@v21
@@ -84,8 +84,11 @@ jobs:
         run: |
           for f in artifacts/*.nupkg; do
             echo "=== $f ==="
-            unzip -l "$f" | grep -q "Metreja\.Profiler\.dll"
-            unzip -l "$f" | grep -q "libMetreja\.Profiler\.dylib"
+            entries=$(unzip -Z1 "$f")
+            for framework in net8.0 net9.0 net10.0 net11.0; do
+              grep -Fx "tools/$framework/any/Metreja.Profiler.dll" <<< "$entries"
+              grep -Fx "tools/$framework/any/libMetreja.Profiler.dylib" <<< "$entries"
+            done
           done
 
       - name: Push to NuGet.org

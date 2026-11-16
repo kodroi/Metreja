@@ -1,4 +1,6 @@
+using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 
 namespace Metreja.IntegrationTests.Infrastructure;
 
@@ -31,7 +33,10 @@ public static class ProfilerPrerequisites
         var fileName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
             ? "Metreja.TestApp.exe"
             : "Metreja.TestApp";
-        return Path.Combine(solutionRoot, "test", "Metreja.TestApp", "bin", "Release", "net10.0", fileName);
+        var testAssembly = typeof(ProfilerPrerequisites).Assembly;
+        var framework = new FrameworkName(testAssembly.GetCustomAttribute<TargetFrameworkAttribute>()!.FrameworkName);
+        var targetFramework = $"net{framework.Version.ToString(2)}";
+        return Path.Combine(solutionRoot, "test", "Metreja.TestApp", "bin", "Release", targetFramework, fileName);
     }
 
     public static string? GetSkipReason(string solutionRoot)

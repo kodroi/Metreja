@@ -123,17 +123,8 @@ internal static class TelemetryService
             DebugLog.Write("telemetry", "flushing...");
             await s_client.FlushAsync();
             DebugLog.Write("telemetry", "flushed, disposing...");
-            var disposeTask = s_client.DisposeAsync().AsTask();
-            var completed = await Task.WhenAny(disposeTask, Task.Delay(TimeSpan.FromSeconds(2)));
-            if (completed == disposeTask)
-            {
-                await disposeTask;
-                DebugLog.Write("telemetry", "disposed");
-            }
-            else
-            {
-                DebugLog.Write("telemetry", "dispose timed out after 2s");
-            }
+            await s_client.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(2));
+            DebugLog.Write("telemetry", "disposed");
         }
         catch (Exception ex)
         {
