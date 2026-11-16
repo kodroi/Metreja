@@ -22,6 +22,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup .NET 11
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 11.0.x
+
       - name: Install GitVersion
         uses: gittools/actions/gitversion/setup@v4.7.0
         with:
@@ -43,11 +48,6 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add CHANGELOG.md
           git diff --cached --quiet || (git commit -m "docs: stamp changelog v$VERSION" && git push)
-
-      - name: Setup .NET 11
-        uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: 11.0.x
 
       - name: Download Windows profiler from latest CI
         uses: dawidd6/action-download-artifact@v28

@@ -22,6 +22,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up .NET 8 through 11
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+            11.0.x
+
       - name: Install GitVersion
         uses: gittools/actions/gitversion/setup@v4.7.0
         with:
@@ -33,15 +42,6 @@ jobs:
 
       - name: Display version
         run: echo "SemVer ${{ steps.gitversion.outputs.semVer }}"
-
-      - name: Set up .NET 8 through 11
-        uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: |
-            8.0.x
-            9.0.x
-            10.0.x
-            11.0.x
 
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v3
@@ -104,6 +104,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up .NET 8 through 11
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+            11.0.x
+
       - name: Install GitVersion
         uses: gittools/actions/gitversion/setup@v4.7.0
         with:
@@ -115,15 +124,6 @@ jobs:
 
       - name: Display version
         run: echo "SemVer ${{ steps.gitversion.outputs.semVer }}"
-
-      - name: Set up .NET 8 through 11
-        uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: |
-            8.0.x
-            9.0.x
-            10.0.x
-            11.0.x
 
       - name: Build Metreja.Profiler (CMake)
         run: scripts/build-macos.sh
