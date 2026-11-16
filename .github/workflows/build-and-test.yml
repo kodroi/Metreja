@@ -34,10 +34,14 @@ jobs:
       - name: Display version
         run: echo "SemVer ${{ steps.gitversion.outputs.semVer }}"
 
-      - name: Setup .NET 10
+      - name: Set up .NET 8 through 11
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+            11.0.x
 
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v3
@@ -90,7 +94,7 @@ jobs:
           path: bin/Release/Metreja.Profiler.dll
 
   build-macos:
-    runs-on: macos-14
+    runs-on: macos-15
 
     env:
       HUSKY: 0
@@ -112,21 +116,17 @@ jobs:
       - name: Display version
         run: echo "SemVer ${{ steps.gitversion.outputs.semVer }}"
 
-      - name: Setup .NET 10
+      - name: Set up .NET 8 through 11
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+            11.0.x
 
       - name: Build Metreja.Profiler (CMake)
-        run: |
-          cd src/Metreja.Profiler
-          cmake -B build -DCMAKE_BUILD_TYPE=Release
-          cmake --build build
-
-      - name: Copy dylib to bin/Release
-        run: |
-          mkdir -p bin/Release
-          cp src/Metreja.Profiler/build/libMetreja.Profiler.dylib bin/Release/
+        run: scripts/build-macos.sh
 
       - name: Restore .NET dependencies
         run: dotnet restore

@@ -20,7 +20,8 @@ scripts/build-macos.sh
 # Or manually:
 cd src/Metreja.Profiler && cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build
 
-# Run integration tests
+# Build the test app and run integration tests on .NET 8 through 11
+dotnet build test/Metreja.TestApp/Metreja.TestApp.csproj -c Release
 dotnet test test/Metreja.IntegrationTests/Metreja.IntegrationTests.csproj -c Release
 
 # Run a single test
@@ -32,8 +33,8 @@ scripts/format-cpp.sh    # macOS/Linux
 ```
 
 Build outputs:
-- **Windows:** CLI at `src/Metreja.Tool/bin/Release/net10.0/metreja.exe`, profiler DLL at `bin/Release/Metreja.Profiler.dll`
-- **macOS:** CLI at `src/Metreja.Tool/bin/Release/net10.0/metreja`, profiler dylib at `bin/Release/libMetreja.Profiler.dylib`
+- **Windows:** .NET 11 CLI at `src/Metreja.Tool/bin/Release/net11.0/metreja.exe`, profiler DLL at `bin/Release/Metreja.Profiler.dll`
+- **macOS:** .NET 11 CLI at `src/Metreja.Tool/bin/Release/net11.0/metreja`, profiler dylib at `bin/Release/libMetreja.Profiler.dylib`
 
 ## Architecture
 
@@ -41,7 +42,7 @@ Build outputs:
 
 1. **Metreja.Profiler** (`src/Metreja.Profiler/`) — Native C++ library (vcxproj on Windows x64 / CMake on macOS ARM64, C++20). Windows uses MASM assembly helpers (`amd64/asmhelpers.asm`), macOS uses GAS (`arm64/asmhelpers.S`). Platform abstraction via `platform/pal*.h` headers. Implements COM class factory with CLSID `{7C8F944B-4810-4999-BF98-6A3361185FC2}`. Attaches to .NET runtime via `COR_PROFILER` environment variables, hooks method enter/leave via ELT3, writes NDJSON traces.
 
-2. **Metreja.Tool** (`src/Metreja.Tool/`) — C# CLI targeting net8.0/net9.0/net10.0. Uses System.CommandLine 2.0.3. Session-based: configs stored in `.metreja/sessions/{sessionId}.json`. Commands split across `Commands/` (session management) and `Analysis/` (hotspots, calltree, callers, memory, diff).
+2. **Metreja.Tool** (`src/Metreja.Tool/`) — C# CLI targeting .NET 8, 9, 10, and 11. Uses System.CommandLine 2.0.3. Session-based: configs stored in `.metreja/sessions/{sessionId}.json`. Commands split across `Commands/` (session management) and `Analysis/` (hotspots, calltree, callers, memory, diff).
 
 **Data flow:** CLI creates session config → `generate-env` sets profiler env vars → profiled app loads DLL → DLL writes NDJSON (one file per PID via `{pid}` token) → `run` command auto-merges multi-PID files on exit → CLI analysis commands read NDJSON.
 
@@ -141,10 +142,10 @@ Always respond to every review comment on PRs with an inline reply:
 **Windows:**
 - Windows 10/11
 - Visual Studio 2022 Build Tools with "Desktop development with C++" workload
-- .NET 10 SDK (multi-targets 8/9/10)
+- .NET 11 SDK and .NET 8, 9, and 10 runtimes for the full integration suite
 
 **macOS:**
 - macOS 14+ (Apple Silicon / ARM64)
 - Xcode Command Line Tools (provides clang++)
 - CMake (`brew install cmake`)
-- .NET 10 SDK (multi-targets 8/9/10)
+- .NET 11 SDK and .NET 8, 9, and 10 runtimes for the full integration suite

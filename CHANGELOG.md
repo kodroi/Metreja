@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+- .NET 11 support for installing the CLI and profiling applications on Windows x64 and Apple Silicon macOS. The CLI targets .NET 8, 9, 10, and 11.
+
 ## [1.0.23] — 2026-06-29
 
 ## [1.0.22] — 2026-06-12

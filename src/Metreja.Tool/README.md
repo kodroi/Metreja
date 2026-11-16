@@ -38,7 +38,7 @@ Existing .NET profilers require a human in the seat — launching GUIs, clicking
 
 ## Installation
 
-**Prerequisites:** .NET 8 SDK or later. Windows 10/11 (x64) or macOS 14+ (Apple Silicon).
+**Prerequisites:** .NET 8, 9, 10, or 11 SDK. Windows 10/11 (x64) or macOS 14+ (Apple Silicon).
 
 ```bash
 dotnet tool install -g Metreja.Tool

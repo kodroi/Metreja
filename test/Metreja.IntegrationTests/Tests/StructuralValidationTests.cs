@@ -53,15 +53,26 @@ public class StructuralValidationTests
     }
 
     [Fact]
-    public void Timestamps_AreMonotonicallyIncreasing()
+    public void Timestamps_AreMonotonicallyIncreasing_PerThread()
     {
-        long prevTs = -1;
-        for (var i = 0; i < _fixture.Events.Count; i++)
+        var startTimestamp = _fixture.Events[0].TsNs;
+        var previousByThread = new Dictionary<int, long>();
+        foreach (var evt in _fixture.Events)
         {
-            var ts = _fixture.Events[i].TsNs;
-            Assert.True(ts >= prevTs,
-                $"Timestamp at index {i} ({ts}) is less than previous ({prevTs})");
-            prevTs = ts;
+            int? threadId = evt switch
+            {
+                EnterEvent method => method.Tid,
+                ExceptionEvent exception => exception.Tid,
+                _ => null
+            };
+            if (threadId is not int tid)
+                continue;
+
+            // Threads capture timestamps before contending for the shared trace writer.
+            var previous = previousByThread.GetValueOrDefault(tid, startTimestamp);
+            Assert.True(evt.TsNs >= previous,
+                $"Thread {tid} recorded {evt.Event} at {evt.TsNs} ns after {previous} ns");
+            previousByThread[tid] = evt.TsNs;
         }
     }
 
